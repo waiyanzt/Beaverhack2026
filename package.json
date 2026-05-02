@@ -3,6 +3,27 @@
   "private": true,
   "version": "0.1.0",
   "description": "Beaverhack2026 workspace.",
+  "homepage": "https://github.com/waiyanzt/AuTuber",
+  "license": "Apache-2.0",
+  "contributors": [
+    {
+      "name": "Jacob Berger",
+      "url": "https://github.com/bergerjacob"
+    },
+    {
+      "name": "Anthony Kung",
+      "email": "hi@anth.dev",
+      "url": "https://anth.dev"
+    },
+    {
+      "name": "Brian Phan",
+      "url": "https://github.com/bachsofttrick"
+    },
+    {
+      "name": "Marcus Tin",
+      "url": "https://github.com/waiyanzt"
+    }
+  ],
   "scripts": {
     "dev": "pnpm --filter @beaverhack/electron dev",
     "dev:electron": "pnpm --filter @beaverhack/electron dev",
