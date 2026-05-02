@@ -291,6 +291,192 @@ Responsibilities:
 4. Main process returns result summary to renderer.
 ~~~
 
+## 4.4 Runtime Flow Diagram
+
+~~~mermaid
+flowchart TD
+  A[Electron App Starts] --> B[Load Settings]
+  B --> C[Initialize Services]
+
+  C --> C1[LoggerService]
+  C --> C2[SettingsService]
+  C --> C3[OBSService]
+  C --> C4[VTSService]
+  C --> C5[ModelRouter]
+  C --> C6[CaptureOrchestrator]
+  C --> C7[SchedulerService]
+
+  C7 --> D{Trigger Type}
+
+  D -->|Timer Tick| E[Run Automation Pipeline]
+  D -->|Analyze Now| E
+  D -->|OBS Event| E
+  D -->|VTS Event| E
+  D -->|Capture Event| E
+
+  E --> F[Build ObservationEnvelope]
+
+  F --> F1[Collect OBS State]
+  F --> F2[Collect VTS State]
+  F --> F3[Collect Recent Frames]
+  F --> F4[Collect Audio Transcript]
+  F --> F5[Collect Recent Actions]
+  F --> F6[Collect Runtime Policy]
+
+  F1 --> G[Build Model Prompt]
+  F2 --> G
+  F3 --> G
+  F4 --> G
+  F5 --> G
+  F6 --> G
+
+  G --> H[Send Request Through ModelRouter]
+
+  H --> I{Selected Provider}
+
+  I -->|OpenRouter| J[OpenRouter Provider]
+  I -->|Self Hosted| K[OpenAI Compatible Provider]
+  I -->|Mock| L[Mock Provider]
+
+  J --> M[Receive Model Response]
+  K --> M
+  L --> M
+
+  M --> N[Parse ActionPlan]
+  N --> O{Valid ActionPlan?}
+
+  O -->|No| P[Log Parse/Schema Error]
+  P --> Q[Return Failed Pipeline Result]
+
+  O -->|Yes| R[Validate Actions]
+
+  R --> R1[Check Action Count]
+  R --> R2[Check Allowed Actions]
+  R --> R3[Check Blocked Actions]
+  R --> R4[Check Cooldowns]
+  R --> R5[Check Autonomy Level]
+  R --> R6[Check Confirmation Requirements]
+
+  R1 --> S{Approved?}
+  R2 --> S
+  R3 --> S
+  R4 --> S
+  R5 --> S
+  R6 --> S
+
+  S -->|No| T[Create Blocked Action Results]
+  T --> U[Log Blocked Actions]
+  U --> V[Update Renderer Status]
+
+  S -->|Yes| W[Execute Approved Actions]
+
+  W --> W1[VTS Hotkey Action]
+  W --> W2[VTS Parameter Action]
+  W --> W3[OBS Scene Action]
+  W --> W4[OBS Source Visibility Action]
+  W --> W5[Overlay Message Action]
+  W --> W6[Log Event Action]
+  W --> W7[Noop Action]
+
+  W1 --> X[Collect Action Results]
+  W2 --> X
+  W3 --> X
+  W4 --> X
+  W5 --> X
+  W6 --> X
+  W7 --> X
+
+  X --> Y[Store Recent Action History]
+  Y --> Z[Emit Logs To Renderer]
+  Z --> AA[Return Completed Pipeline Result]
+~~~
+
+---
+
+## 4.5 Service Boundary Diagram
+
+~~~mermaid
+flowchart LR
+  subgraph Renderer[Electron Renderer]
+    UI[Status / Settings UI]
+    CaptureUI[Capture Controls]
+    LogsUI[Log Viewer]
+  end
+
+  subgraph Preload[Preload Bridge]
+    IPCAPI[Typed IPC API]
+  end
+
+  subgraph Main[Electron Main Process]
+    Settings[SettingsService]
+    Secrets[SecretStoreService]
+    Logger[LoggerService]
+    Scheduler[SchedulerService]
+    Pipeline[PipelineService]
+    Observation[ObservationBuilder]
+    Prompt[PromptBuilder]
+    ModelRouter[ModelRouter]
+    Parser[ActionPlanParser]
+    Validator[ActionValidator]
+    Executor[ActionExecutor]
+    OBS[OBSService]
+    VTS[VTSService]
+    Capture[CaptureOrchestrator]
+  end
+
+  subgraph HiddenCapture[Hidden Capture Window]
+    Media[Media APIs]
+    Frames[Frame Sampler]
+    Audio[Audio Recorder]
+  end
+
+  subgraph LocalApps[Local Streaming Apps]
+    OBSApp[OBS Studio]
+    VTSApp[VTube Studio]
+  end
+
+  subgraph Providers[Model Providers]
+    OpenRouter[OpenRouter]
+    SelfHosted[Self Hosted OpenAI-Compatible Model]
+    Mock[Mock Provider]
+  end
+
+  UI --> IPCAPI
+  CaptureUI --> IPCAPI
+  LogsUI --> IPCAPI
+  IPCAPI --> Main
+
+  Scheduler --> Pipeline
+  Pipeline --> Observation
+  Observation --> OBS
+  Observation --> VTS
+  Observation --> Capture
+  Observation --> Prompt
+  Prompt --> ModelRouter
+  ModelRouter --> OpenRouter
+  ModelRouter --> SelfHosted
+  ModelRouter --> Mock
+  ModelRouter --> Parser
+  Parser --> Validator
+  Validator --> Executor
+
+  Executor --> OBS
+  Executor --> VTS
+  Executor --> Logger
+
+  Capture --> HiddenCapture
+  HiddenCapture --> Media
+  Media --> Frames
+  Media --> Audio
+
+  OBS --> OBSApp
+  VTS --> VTSApp
+
+  Logger --> LogsUI
+  Settings --> UI
+  Secrets --> Settings
+~~~
+
 ---
 
 ## 5. Data Contracts
