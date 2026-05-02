@@ -38,6 +38,9 @@
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
     "dotenv": "^16.4.5",
     "electron": "^41.5.0",
     "electron-builder": "^26.8.1",
@@ -49,9 +52,10 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "@vitejs/plugin-react": "^5.2.0",
     "electron-store": "^11.0.2",
     "obs-websocket-js": "^5.0.8",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "ws": "^8.20.0",
     "zod": "^4.4.2"
   }
