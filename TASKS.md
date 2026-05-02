@@ -37,21 +37,19 @@ Owns the parts everyone depends on.
 
 ### Tasks
 
-```text
-- Create Electron + Vite + React skeleton.
-- Add root workspace files.
-- Add shared result type, probably ApiResult<T>.
-- Add shared schemas for config, observation, action plan.
-- Add SettingsService.
-- Add SecretStoreService.
-- Add LoggerService.
-- Add typed IPC registration helpers.
-- Add secure BrowserWindow defaults.
-- Add base renderer shell.
-- Add LogViewer plumbing.
-- Add docs/references/commands.md.
-- Keep implementation-status.md updated.
-```
+- [x] Create Electron + Vite + React skeleton.
+- [x] Add root workspace files.
+- [ ] Add shared result type, probably ApiResult<T>.
+- [ ] Add shared schemas for config, observation, action plan.
+- [ ] Add SettingsService.
+- [ ] Add SecretStoreService.
+- [ ] Add LoggerService.
+- [ ] Add typed IPC registration helpers.
+- [ ] Add secure BrowserWindow defaults.
+- [ ] Add base renderer shell.
+- [ ] Add LogViewer plumbing.
+- [ ] Add docs/references/commands.md.
+- [ ] Keep implementation-status.md updated.
 
 ### Deliverable
 
