@@ -49,6 +49,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "electron-store": "^11.0.2",
     "obs-websocket-js": "^5.0.8",
     "ws": "^8.20.0",
