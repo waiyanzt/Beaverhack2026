@@ -83,6 +83,8 @@ Must include:
 - failure reporting
 - fallback behavior if configured
 
+Prompt setup should also be stored as versioned markdown assets with a typed main-process loader so the active prompt text can be reviewed and tested.
+
 ### OBS Integration
 
 Must include:
