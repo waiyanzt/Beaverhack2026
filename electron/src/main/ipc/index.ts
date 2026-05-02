@@ -1,5 +1,5 @@
 import { app, ipcMain } from "electron";
-import { IpcChannels } from "../shared/channels";
+import { IpcChannels } from "../../shared/channels";
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannels.GetAppVersion, () => {

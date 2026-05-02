@@ -1,6 +1,6 @@
 import { app } from "electron";
-import { createMainWindow } from "./create-main-window";
-import { registerIpcHandlers } from "../ipc";
+import { registerIpcHandlers } from "./ipc";
+import { createMainWindow } from "./windows/main-window";
 
 app.disableHardwareAcceleration();
 

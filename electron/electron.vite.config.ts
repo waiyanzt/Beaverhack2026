@@ -3,18 +3,18 @@ import { defineConfig } from "electron-vite";
 export default defineConfig({
   main: {
     build: {
-      outDir: "dist-electron/main",
+      outDir: "dist/main",
     },
   },
   preload: {
     build: {
-      outDir: "dist-electron/preload",
+      outDir: "dist/preload",
     },
   },
   renderer: {
     root: ".",
     build: {
-      outDir: "dist-electron/renderer",
+      outDir: "dist/renderer",
       rollupOptions: {
         input: "index.html",
       },

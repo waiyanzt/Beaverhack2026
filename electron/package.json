@@ -1,34 +1,25 @@
 {
-  "name": "autuber",
-  "version": "0.0.0",
-  "description": "desktop background agent that observes local streaming context and controls local streaming tools",
-  "homepage": "https://github.com/waiyanzt/AuTuber#readme",
-  "bugs": {
-    "url": "https://github.com/waiyanzt/AuTuber/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/waiyanzt/AuTuber.git"
-  },
-  "license": "Apache-2.0",
-  "author": "",
+  "name": "@beaverhack/electron",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Desktop background agent for Beaverhack2026.",
   "type": "commonjs",
-  "main": "dist-electron/main/index.js",
+  "main": "dist/main/index.js",
   "scripts": {
     "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
-    "dev:electron": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
+    "electron:dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
     "build": "electron-vite build",
-    "build:electron": "electron-vite build"
+    "electron:build": "electron-builder",
+    "lint": "echo \"TODO: add ESLint config\"",
+    "test": "vitest"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "concurrently": "^9.2.1",
-    "cross-env": "^10.1.0",
     "electron": "^41.5.0",
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "vitest": "^4.1.5",
-    "wait-on": "^9.0.5"
+    "vite": "^7.3.2"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
