@@ -1,192 +1,301 @@
-# Beaverhack2026 — VTuber AI Background Agent Specification
+# Beaverhack2026 Desktop Agent Specification
 
-## 1. Overview
+## 1. Purpose
 
-Beaverhack2026 is a background VTuber automation and stream-direction agent.
+Beaverhack2026 is a desktop background agent that observes local streaming context and controls local streaming tools.
 
-The system observes local streamer context through Electron-managed inputs such as microphone audio, camera/video frames, screen capture, OBS state, VTube Studio state, and optional user text. These inputs are sent to a headless Next.js processor API, which prepares multimodal requests for the LLM backend and returns structured action plans. Electron then executes those action plans locally through OBS WebSocket, VTube Studio WebSocket, local overlays, logs, and future audio/TTS outputs.
+The app captures selected local inputs, builds a structured observation, sends it to a configured model provider, receives an action plan, validates the action plan, and executes approved local actions through OBS and VTube Studio.
 
-This project is not primarily a web frontend. Next.js is used as a server-side processor and API layer only. The desktop interface is provided by Electron, and it may run mostly in the background with a tray icon, setup window, status panel, and logs.
+Primary runtime flow:
 
-Primary goal:
+~~~text
+Capture inputs -> Build observation -> Call model -> Parse action plan -> Validate actions -> Execute local actions
+~~~
 
-Electron captures local context -> Next.js processes and decides -> Electron executes local actions.
+The app lives in:
+
+~~~text
+beaverhack2026/electron
+~~~
+
+The repository root is reserved for workspace configuration, docs, shared packages, and future apps.
 
 ---
 
-## 2. System Architecture
+## 2. Repository Structure
 
 ~~~text
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Local Desktop Machine                       │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                    Electron Background Agent                  │  │
-│  │                                                               │  │
-│  │  Responsibilities:                                            │  │
-│  │  • Capture microphone / camera / screen / window frames       │  │
-│  │  • Read OBS scene/source/stream state                         │  │
-│  │  • Read VTube Studio hotkeys/model state                      │  │
-│  │  • Run tray/status/settings UI                                │  │
-│  │  • Host optional loopback local API                           │  │
-│  │  • Execute approved local actions                             │  │
-│  │                                                               │  │
-│  │  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐ │  │
-│  │  │ Input Agent │──▶│ Observation │──▶│ Next.js Processor   │ │  │
-│  │  │             │   │ Envelope    │   │ Client              │ │  │
-│  │  └─────────────┘   └─────────────┘   └──────────┬──────────┘ │  │
-│  │                                                 │            │  │
-│  │                                                 ▼            │  │
-│  │                                      ┌─────────────────────┐ │  │
-│  │                                      │ Action Executor     │ │  │
-│  │                                      │ • VTS hotkeys       │ │  │
-│  │                                      │ • OBS controls      │ │  │
-│  │                                      │ • overlays/logs     │ │  │
-│  │                                      │ • future TTS        │ │  │
-│  │                                      └─────────────────────┘ │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│             │                                      ▲                 │
-│             │ HTTP/WebSocket                       │ local execution │
-│             ▼                                      │                 │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │              Headless Next.js Processor API                   │  │
-│  │                                                               │  │
-│  │  Responsibilities:                                            │  │
-│  │  • Receive normalized observation envelopes                   │  │
-│  │  • Build multimodal OpenAI-compatible LLM payloads            │  │
-│  │  • Apply policy, cooldown, memory, and action filtering       │  │
-│  │  • Call LLM backend                                           │  │
-│  │  • Parse LLM response/tool calls                              │  │
-│  │  • Return structured ActionPlan JSON to Electron              │  │
-│  └───────────────────────────────┬───────────────────────────────┘  │
-└──────────────────────────────────┼──────────────────────────────────┘
-                                   │ HTTP
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         LLM Backend Machine                         │
-│                                                                     │
-│  OpenAI-compatible API                                              │
-│  • /v1/chat/completions                                             │
-│  • /v1/audio/transcriptions optional                                │
-│  • /v1/models                                                       │
-│  • /v1/health                                                       │
-│                                                                     │
-│  Model: Nemotron Nano Omni v3 or compatible multimodal backend       │
-└─────────────────────────────────────────────────────────────────────┘
+beaverhack2026/
+├── package.json
+├── pnpm-workspace.yaml
+├── turbo.json
+├── README.md
+├── SPEC.md
+├── .gitignore
+├── .env.example
+│
+├── electron/
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── electron-builder.yml
+│   ├── vite.config.ts
+│   ├── index.html
+│   │
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── index.ts
+│   │   │   ├── tray.ts
+│   │   │   │
+│   │   │   ├── windows/
+│   │   │   │   ├── setup-window.ts
+│   │   │   │   ├── status-window.ts
+│   │   │   │   └── hidden-capture-window.ts
+│   │   │   │
+│   │   │   ├── ipc/
+│   │   │   │   ├── automation.ipc.ts
+│   │   │   │   ├── capture.ipc.ts
+│   │   │   │   ├── model.ipc.ts
+│   │   │   │   ├── obs.ipc.ts
+│   │   │   │   ├── settings.ipc.ts
+│   │   │   │   └── vts.ipc.ts
+│   │   │   │
+│   │   │   ├── services/
+│   │   │   │   ├── automation/
+│   │   │   │   │   ├── action-executor.service.ts
+│   │   │   │   │   ├── action-plan-parser.service.ts
+│   │   │   │   │   ├── action-validator.service.ts
+│   │   │   │   │   ├── cooldown.service.ts
+│   │   │   │   │   ├── observation-builder.service.ts
+│   │   │   │   │   ├── pipeline.service.ts
+│   │   │   │   │   ├── prompt-builder.service.ts
+│   │   │   │   │   └── scheduler.service.ts
+│   │   │   │   │
+│   │   │   │   ├── capture/
+│   │   │   │   │   ├── audio-buffer.service.ts
+│   │   │   │   │   ├── capture-orchestrator.service.ts
+│   │   │   │   │   ├── frame-buffer.service.ts
+│   │   │   │   │   └── transcription.service.ts
+│   │   │   │   │
+│   │   │   │   ├── model/
+│   │   │   │   │   ├── model-provider.types.ts
+│   │   │   │   │   ├── model-router.service.ts
+│   │   │   │   │   ├── openai-compatible.provider.ts
+│   │   │   │   │   ├── openrouter.provider.ts
+│   │   │   │   │   ├── self-hosted.provider.ts
+│   │   │   │   │   └── mock.provider.ts
+│   │   │   │   │
+│   │   │   │   ├── obs/
+│   │   │   │   │   └── obs.service.ts
+│   │   │   │   │
+│   │   │   │   ├── vts/
+│   │   │   │   │   └── vts.service.ts
+│   │   │   │   │
+│   │   │   │   ├── settings/
+│   │   │   │   │   ├── secret-store.service.ts
+│   │   │   │   │   └── settings.service.ts
+│   │   │   │   │
+│   │   │   │   └── logger/
+│   │   │   │       └── logger.service.ts
+│   │   │   │
+│   │   │   ├── local-api/
+│   │   │   │   ├── auth.ts
+│   │   │   │   ├── routes.ts
+│   │   │   │   └── server.ts
+│   │   │   │
+│   │   │   └── utils/
+│   │   │       ├── base64.ts
+│   │   │       ├── ids.ts
+│   │   │       └── time.ts
+│   │   │
+│   │   ├── preload/
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── renderer/
+│   │   │   ├── main.tsx
+│   │   │   ├── App.tsx
+│   │   │   │
+│   │   │   ├── components/
+│   │   │   │   ├── CapturePanel.tsx
+│   │   │   │   ├── HotkeyMapper.tsx
+│   │   │   │   ├── LogViewer.tsx
+│   │   │   │   ├── ManualControlPanel.tsx
+│   │   │   │   ├── ModelProviderPanel.tsx
+│   │   │   │   ├── SettingsPanel.tsx
+│   │   │   │   └── StatusPanel.tsx
+│   │   │   │
+│   │   │   ├── hooks/
+│   │   │   │   ├── useAutomation.ts
+│   │   │   │   ├── useCapture.ts
+│   │   │   │   ├── useModelProvider.ts
+│   │   │   │   ├── useOBS.ts
+│   │   │   │   └── useVTS.ts
+│   │   │   │
+│   │   │   ├── styles/
+│   │   │   │   └── globals.css
+│   │   │   │
+│   │   │   └── types/
+│   │   │       └── electron-api.d.ts
+│   │   │
+│   │   └── shared/
+│   │       ├── constants.ts
+│   │       │
+│   │       ├── schemas/
+│   │       │   ├── action-plan.schema.ts
+│   │       │   ├── config.schema.ts
+│   │       │   ├── model.schema.ts
+│   │       │   └── observation.schema.ts
+│   │       │
+│   │       └── types/
+│   │           ├── action-plan.types.ts
+│   │           ├── config.types.ts
+│   │           ├── model.types.ts
+│   │           ├── obs.types.ts
+│   │           ├── observation.types.ts
+│   │           └── vts.types.ts
+│   │
+│   ├── resources/
+│   │   └── icon.ico
+│   │
+│   └── tests/
+│       ├── e2e/
+│       ├── integration/
+│       └── unit/
+│
+├── apps/
+│   └── .gitkeep
+│
+├── packages/
+│   └── .gitkeep
+│
+├── docs/
+│   ├── architecture.md
+│   ├── security.md
+│   └── setup.md
+│
+├── models/
+│   ├── prompts/
+│   │   ├── action-planner-prompt.md
+│   │   └── system-prompt.md
+│   └── providers.md
+│
+└── scripts/
+    ├── build-electron.sh
+    ├── clean.sh
+    └── dev-electron.sh
 ~~~
 
 ---
 
-## 3. Responsibility Split
+## 3. Runtime Components
 
-| Component | Runs Where | Owns | Does Not Own |
-|---|---:|---|---|
-| Electron Main Process | Local desktop | App lifecycle, tray, settings, local services, OBS/VTS clients, local action execution | LLM reasoning |
-| Electron Renderer / Hidden Capture Windows | Local desktop | Media capture, permission prompts, previews, setup/status UI | Long-term processing logic |
-| Electron Local API | Local desktop, loopback only | Optional local control/status endpoint for Next.js or plugins | Public internet API |
-| Next.js Processor API | Local or server machine | API routes, payload building, model request orchestration, tool-call validation, action-plan generation | Direct desktop capture, direct OBS/VTS execution |
-| LLM Backend | GPU machine | Model inference | Local side effects |
-| OBS | Local desktop | Streaming/recording state and sources | AI reasoning |
-| VTube Studio | Local desktop | Avatar model, hotkeys, parameters | AI reasoning |
+### 3.1 Electron Main Process
 
-Important rule:
+The main process owns privileged app behavior.
 
-The LLM and Next.js processor may recommend actions, but Electron is the only component allowed to execute local side effects.
+Responsibilities:
 
----
+- Create and manage windows.
+- Create and manage tray/menu-bar behavior.
+- Load and save settings.
+- Store secrets securely.
+- Connect to OBS.
+- Connect to VTube Studio.
+- Call model providers.
+- Build prompts and payloads.
+- Parse model responses.
+- Validate action plans.
+- Execute approved actions.
+- Emit logs to renderer.
+- Start and stop automation scheduler.
 
-## 4. Technology Stack
+The main process must not expose raw secrets to the renderer.
 
-| Layer | Technology |
-|---|---|
-| Desktop Agent | Electron 33+ |
-| Desktop UI | Electron renderer, React optional |
-| Background Operation | Electron tray app + auto-start support |
-| Local IPC | Electron IPC main <-> renderer |
-| Optional Local API | Fastify or Express inside Electron main process |
-| Processor API | Next.js 15 Route Handlers, API-only |
-| Processor Runtime | Node.js 20+ or 24 LTS |
-| Video/Screen Source Discovery | Electron `desktopCapturer` |
-| Video/Screen Capture | `navigator.mediaDevices.getUserMedia` in renderer/capture window |
-| Audio Capture | `navigator.mediaDevices.getUserMedia` |
-| OBS Integration | obs-websocket v5, default port 4455 |
-| VTube Studio Integration | VTube Studio Public API WebSocket, default port 8001 |
-| LLM Backend | OpenAI-compatible REST API, default port 8000 |
-| Storage | SQLite or JSON config for local app state; optional Postgres for shared processor state |
-| Build | electron-builder for Electron; Next.js standalone/server build for processor |
-| Validation | Zod schemas shared between Electron and Next.js |
+### 3.2 Electron Renderer
 
----
+The renderer owns user-facing app UI.
 
-## 5. Corrected Runtime Flow
+Responsibilities:
 
-### 5.1 Normal Automatic Background Flow
+- Setup screen.
+- Status screen.
+- Capture controls.
+- OBS connection controls.
+- VTube Studio connection controls.
+- Model provider settings.
+- Hotkey mapping UI.
+- Manual action testing.
+- Log viewer.
 
-~~~text
-1. Electron starts in the background.
-2. Electron connects to OBS and VTube Studio.
-3. Electron starts configured capture streams.
-4. Electron samples local inputs into rolling buffers.
-5. Electron periodically creates an ObservationEnvelope.
-6. Electron sends the envelope to the Next.js processor.
-7. Next.js builds an LLM request.
-8. Next.js calls the LLM backend.
-9. Next.js validates the LLM response and creates an ActionPlan.
-10. Electron receives the ActionPlan.
-11. Electron applies local safety checks, cooldowns, and allowlists.
-12. Electron executes local actions through OBS/VTS/local overlay APIs.
-13. Electron logs results and optionally sends execution results back to Next.js.
-~~~
+The renderer communicates with the main process through the preload IPC API only.
 
-### 5.2 Recommended Direction of Control
+### 3.3 Hidden Capture Window
 
-Recommended:
+The hidden capture window owns browser media APIs.
 
-~~~text
-Electron -> Next.js Processor -> LLM Backend
-Electron <- ActionPlan <- Next.js Processor
-Electron executes actions locally
-~~~
+Responsibilities:
 
-Avoid as the default:
-
-~~~text
-Next.js Processor -> Electron local API -> OBS/VTS
-~~~
-
-Reason:
-
-If Next.js runs on another machine or in the cloud, it usually cannot safely or reliably call a desktop-local Electron API. Electron should initiate outbound requests and execute returned plans.
-
-### 5.3 Optional Electron Local API
-
-Electron may still expose a loopback-only local API for debugging, plugins, or same-machine processors.
-
-Allowed bindings:
-
-~~~text
-127.0.0.1 only
-localhost only
-~~~
-
-Required security:
-
-~~~text
-Bearer token required
-No public network binding by default
-No unauthenticated local action execution
-Action schema validation
-Action allowlist
-Cooldowns and rate limits
-~~~
+- Request microphone permission.
+- Request camera permission.
+- Request screen/window capture permission.
+- Run `navigator.mediaDevices.getUserMedia`.
+- Run `MediaRecorder`.
+- Sample video frames into canvas.
+- Encode frames as JPEG/PNG data URLs.
+- Send sampled frames/audio chunks to the main process.
 
 ---
 
-## 6. Main Data Contracts
+## 4. Runtime Flow
 
-### 6.1 ObservationEnvelope
+### 4.1 Startup
 
-Electron sends this to the Next.js processor.
+~~~text
+1. Electron app starts.
+2. Main process loads settings.
+3. Main process initializes logger.
+4. Main process creates tray icon.
+5. Main process opens setup window if first run is incomplete.
+6. Main process initializes OBS service.
+7. Main process initializes VTube Studio service.
+8. Main process initializes model router.
+9. Main process initializes capture orchestrator.
+10. Main process initializes automation scheduler.
+~~~
+
+### 4.2 Automation Tick
+
+~~~text
+1. Scheduler triggers a pipeline tick.
+2. ObservationBuilder collects current state:
+   - recent camera frames
+   - recent screen frames
+   - recent transcript segments
+   - OBS state
+   - VTube Studio state
+   - recent action history
+3. PromptBuilder creates system and user messages.
+4. ModelRouter sends request to selected model provider.
+5. ActionPlanParser extracts a structured action plan.
+6. ActionValidator checks schema, allowlist, cooldowns, and autonomy level.
+7. ActionExecutor executes approved actions.
+8. Logger stores action results.
+9. Renderer receives updated status/log events.
+~~~
+
+### 4.3 Manual Analysis
+
+~~~text
+1. User clicks "Analyze Now".
+2. Renderer invokes `automation:analyze-now`.
+3. Main process runs one pipeline tick immediately.
+4. Main process returns result summary to renderer.
+~~~
+
+---
+
+## 5. Data Contracts
+
+### 5.1 ObservationEnvelope
 
 ~~~typescript
 export type ObservationEnvelope = {
@@ -196,7 +305,7 @@ export type ObservationEnvelope = {
   createdAt: string;
 
   source: {
-    app: "electron-agent";
+    app: "beaverhack-electron-agent";
     hostId: string;
     userMode: "background" | "setup" | "manual";
   };
@@ -209,36 +318,12 @@ export type ObservationEnvelope = {
     userText?: string;
   };
 
-  obs: {
-    connected: boolean;
-    currentScene?: string;
-    activeSources?: string[];
-    streamStatus?: "offline" | "starting" | "live" | "stopping";
-    recordingStatus?: "inactive" | "starting" | "recording" | "stopping";
-    transitionName?: string;
-  };
+  obs: ObsStateSnapshot;
+  vts: VtsStateSnapshot;
+  runtime: RuntimeSnapshot;
+  policy: RuntimePolicy;
 
-  vts: {
-    connected: boolean;
-    authenticated: boolean;
-    currentModelName?: string;
-    availableHotkeys?: VtsHotkey[];
-    lastTriggeredHotkeyId?: string;
-  };
-
-  runtime: {
-    batterySaver?: boolean;
-    cpuLoad?: number;
-    memoryUsedMb?: number;
-    foregroundApp?: string;
-  };
-
-  policy: {
-    autonomyLevel: "suggest_only" | "auto_safe" | "auto_full";
-    allowedTools: string[];
-    blockedTools: string[];
-    maxActionsPerTick: number;
-  };
+  recentActions: LocalActionResult[];
 };
 
 export type CapturedFrame = {
@@ -270,16 +355,45 @@ export type TranscriptSegment = {
   confidence?: number;
 };
 
+export type ObsStateSnapshot = {
+  connected: boolean;
+  currentScene?: string;
+  activeSources?: string[];
+  streamStatus?: "offline" | "starting" | "live" | "stopping";
+  recordingStatus?: "inactive" | "starting" | "recording" | "stopping";
+  transitionName?: string;
+};
+
+export type VtsStateSnapshot = {
+  connected: boolean;
+  authenticated: boolean;
+  currentModelName?: string;
+  availableHotkeys?: VtsHotkey[];
+  lastTriggeredHotkeyId?: string;
+};
+
 export type VtsHotkey = {
   id: string;
   name: string;
   type?: string;
 };
+
+export type RuntimeSnapshot = {
+  batterySaver?: boolean;
+  cpuLoad?: number;
+  memoryUsedMb?: number;
+  foregroundApp?: string;
+};
+
+export type RuntimePolicy = {
+  autonomyLevel: "paused" | "suggest_only" | "auto_safe" | "auto_full" | "safe_mode";
+  allowedActions: string[];
+  blockedActions: string[];
+  maxActionsPerTick: number;
+};
 ~~~
 
-### 6.2 Processor ActionPlan
-
-Next.js returns this to Electron.
+### 5.2 ActionPlan
 
 ~~~typescript
 export type ActionPlan = {
@@ -307,10 +421,10 @@ export type ActionPlan = {
   };
 
   debug?: {
+    provider?: string;
     model?: string;
     promptTokens?: number;
     completionTokens?: number;
-    rawToolCalls?: unknown[];
   };
 };
 
@@ -379,97 +493,7 @@ export type NoopAction = {
   actionId: string;
   reason: string;
 };
-~~~
 
----
-
-## 7. API Surface
-
-### 7.1 Next.js Processor API
-
-The Next.js app is API-only. It does not serve the desktop UI.
-
-~~~text
-POST /api/process
-POST /api/transcribe
-POST /api/tool-result
-GET  /api/health
-GET  /api/models
-~~~
-
-#### `POST /api/process`
-
-Input:
-
-~~~typescript
-export type ProcessRequest = {
-  observation: ObservationEnvelope;
-};
-~~~
-
-Output:
-
-~~~typescript
-export type ProcessResponse = {
-  ok: boolean;
-  actionPlan?: ActionPlan;
-  error?: {
-    code: string;
-    message: string;
-    retryable: boolean;
-  };
-};
-~~~
-
-Purpose:
-
-Receives one observation tick from Electron, calls the LLM backend, validates the result, and returns a local action plan.
-
-#### `POST /api/transcribe`
-
-Input:
-
-~~~typescript
-export type TranscribeRequest = {
-  sessionId: string;
-  audio: CapturedAudioChunk;
-};
-~~~
-
-Output:
-
-~~~typescript
-export type TranscribeResponse = {
-  ok: boolean;
-  transcript?: TranscriptSegment[];
-  error?: {
-    code: string;
-    message: string;
-  };
-};
-~~~
-
-Purpose:
-
-Optional audio transcription endpoint. Electron can either send audio directly to the LLM backend or route it through this processor endpoint.
-
-#### `POST /api/tool-result`
-
-Input:
-
-~~~typescript
-export type ToolResultRequest = {
-  sessionId: string;
-  tickId: string;
-  actionResults: LocalActionResult[];
-};
-~~~
-
-Purpose:
-
-Electron reports whether local actions succeeded, failed, or were blocked.
-
-~~~typescript
 export type LocalActionResult = {
   actionId: string;
   type: LocalAction["type"];
@@ -481,420 +505,118 @@ export type LocalActionResult = {
 
 ---
 
-### 7.2 Optional Electron Local API
+## 6. Configuration
 
-This API is optional and should only bind to loopback.
+### 6.1 App Config
 
-~~~text
-GET  /local/v1/health
-GET  /local/v1/status
-POST /local/v1/actions/execute
-POST /local/v1/capture/snapshot
-POST /local/v1/logs
+~~~typescript
+export type AppConfig = {
+  desktop: DesktopConfig;
+  model: ModelConfig;
+  providers: ProviderConfigs;
+  obs: ObsConfig;
+  vts: VtsConfig;
+  capture: CaptureConfig;
+  automation: AutomationConfig;
+  safety: SafetyConfig;
+};
+
+export type DesktopConfig = {
+  startMinimized: boolean;
+  minimizeToTray: boolean;
+  autoStartOnLogin: boolean;
+  localApiEnabled: boolean;
+  localApiHost: string;
+  localApiPort: number;
+};
+
+export type ModelConfig = {
+  provider: "openrouter" | "selfHosted" | "mock";
+  fallbackProvider?: "openrouter" | "selfHosted" | "mock";
+  temperature: number;
+  maxTokens: number;
+  maxContextTokens: number;
+};
+
+export type ProviderConfigs = {
+  openrouter: ModelProviderConfig;
+  selfHosted: ModelProviderConfig;
+  mock: ModelProviderConfig;
+};
+
+export type ModelProviderConfig = {
+  baseUrl: string;
+  apiKey?: string | null;
+  model: string;
+  timeoutMs: number;
+  supportsVision: boolean;
+  supportsAudioInput: boolean;
+  supportsToolCalling: boolean;
+  supportsJsonMode: boolean;
+};
+
+export type ObsConfig = {
+  host: string;
+  port: number;
+  password: string;
+  autoConnect: boolean;
+};
+
+export type VtsConfig = {
+  host: string;
+  webSocketPort: number;
+  authToken: string | null;
+  autoConnect: boolean;
+};
+
+export type CaptureConfig = {
+  camera: CameraCaptureConfig;
+  screen: ScreenCaptureConfig;
+  audio: AudioCaptureConfig;
+};
+
+export type CameraCaptureConfig = {
+  enabled: boolean;
+  fps: number;
+  maxFrames: number;
+  resolution: string;
+  jpegQuality: number;
+};
+
+export type ScreenCaptureConfig = {
+  enabled: boolean;
+  fps: number;
+  maxFrames: number;
+  resolution: string;
+  jpegQuality: number;
+};
+
+export type AudioCaptureConfig = {
+  enabled: boolean;
+  sampleRate: number;
+  channels: number;
+  bufferDurationSeconds: number;
+  transcriptionEnabled: boolean;
+  sendRawAudio: boolean;
+};
+
+export type AutomationConfig = {
+  enabled: boolean;
+  autonomyLevel: "paused" | "suggest_only" | "auto_safe" | "auto_full" | "safe_mode";
+  tickIntervalMs: number;
+  maxActionsPerTick: number;
+  globalActionCooldownMs: number;
+};
+
+export type SafetyConfig = {
+  requireConfirmationForObsSceneChanges: boolean;
+  requireConfirmationForSourceVisibility: boolean;
+  allowVtsHotkeysWithoutConfirmation: boolean;
+  allowOverlayMessagesWithoutConfirmation: boolean;
+};
 ~~~
 
-Primary usage:
-
-- local debugging
-- same-machine processor mode
-- future plugins
-- manual trigger tools
-
-It should not be the default remote-control path.
-
----
-
-## 8. Corrected Process Structure
-
-~~~text
-beaverhack2026/
-├── package.json
-├── turbo.json                         # optional monorepo runner
-├── pnpm-workspace.yaml                # optional
-├── SPEC.md
-│
-├── apps/
-│   ├── desktop/                       # Electron app
-│   │   ├── package.json
-│   │   ├── electron-builder.yml
-│   │   ├── src/
-│   │   │   ├── main/
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── tray.ts
-│   │   │   │   ├── ipc/
-│   │   │   │   │   ├── capture.ipc.ts
-│   │   │   │   │   ├── obs.ipc.ts
-│   │   │   │   │   ├── vts.ipc.ts
-│   │   │   │   │   ├── processor.ipc.ts
-│   │   │   │   │   └── settings.ipc.ts
-│   │   │   │   ├── local-api/
-│   │   │   │   │   ├── server.ts
-│   │   │   │   │   ├── auth.ts
-│   │   │   │   │   └── routes.ts
-│   │   │   │   ├── services/
-│   │   │   │   │   ├── capture-orchestrator.service.ts
-│   │   │   │   │   ├── obs.service.ts
-│   │   │   │   │   ├── vts.service.ts
-│   │   │   │   │   ├── action-executor.service.ts
-│   │   │   │   │   ├── processor-client.service.ts
-│   │   │   │   │   ├── scheduler.service.ts
-│   │   │   │   │   ├── cooldown.service.ts
-│   │   │   │   │   ├── settings.service.ts
-│   │   │   │   │   └── logger.service.ts
-│   │   │   │   └── windows/
-│   │   │   │       ├── setup-window.ts
-│   │   │   │       ├── status-window.ts
-│   │   │   │       └── hidden-capture-window.ts
-│   │   │   │
-│   │   │   ├── preload/
-│   │   │   │   └── index.ts
-│   │   │   │
-│   │   │   └── renderer/              # Electron UI only
-│   │   │       ├── index.html
-│   │   │       ├── src/
-│   │   │       │   ├── App.tsx
-│   │   │       │   ├── components/
-│   │   │       │   │   ├── StatusPanel.tsx
-│   │   │       │   │   ├── SettingsPanel.tsx
-│   │   │       │   │   ├── LogViewer.tsx
-│   │   │       │   │   └── HotkeyMapper.tsx
-│   │   │       │   └── styles.css
-│   │   │       └── vite.config.ts
-│   │   │
-│   │   └── resources/
-│   │       └── icon.ico
-│   │
-│   └── processor/                     # Headless Next.js API server
-│       ├── package.json
-│       ├── next.config.ts
-│       ├── src/
-│       │   ├── app/
-│       │   │   └── api/
-│       │   │       ├── health/route.ts
-│       │   │       ├── models/route.ts
-│       │   │       ├── process/route.ts
-│       │   │       ├── transcribe/route.ts
-│       │   │       └── tool-result/route.ts
-│       │   ├── services/
-│       │   │   ├── llm-client.service.ts
-│       │   │   ├── prompt-builder.service.ts
-│       │   │   ├── action-planner.service.ts
-│       │   │   ├── tool-call-parser.service.ts
-│       │   │   ├── policy.service.ts
-│       │   │   └── token-budget.service.ts
-│       │   └── config/
-│       │       └── env.ts
-│       │
-│       └── public/                    # unused or health/static only
-│
-└── packages/
-    ├── shared/
-    │   ├── src/
-    │   │   ├── types/
-    │   │   │   ├── observation.types.ts
-    │   │   │   ├── action-plan.types.ts
-    │   │   │   ├── obs.types.ts
-    │   │   │   ├── vts.types.ts
-    │   │   │   └── llm.types.ts
-    │   │   ├── schemas/
-    │   │   │   ├── observation.schema.ts
-    │   │   │   ├── action-plan.schema.ts
-    │   │   │   └── config.schema.ts
-    │   │   └── constants.ts
-    │   └── package.json
-    │
-    └── config/
-        ├── eslint/
-        └── tsconfig/
-~~~
-
----
-
-## 9. Input Pipeline
-
-### 9.1 Electron Capture Responsibilities
-
-Electron owns all local capture because browser/server environments cannot safely access OBS, VTS, microphone, camera, or desktop capture without local permissions.
-
-Electron collects:
-
-- camera/video frames
-- screen/window frames
-- microphone chunks
-- optional audio transcripts
-- OBS scene/source/stream state
-- VTS hotkey/model/auth state
-- local runtime status
-- optional typed/manual user input
-
-Capture may happen in:
-
-~~~text
-Electron renderer window
-Electron hidden capture window
-Electron offscreen capture window
-~~~
-
-The Electron main process coordinates capture, but browser-only APIs such as `MediaStream`, `MediaRecorder`, and `AudioContext` should run in a renderer/capture window.
-
-### 9.2 Tick-Based Background Sampling
-
-Default automatic mode:
-
-~~~json
-{
-  "pipeline": {
-    "autoTriggerEnabled": true,
-    "autoTriggerIntervalMs": 5000,
-    "eventTriggeredProcessing": true,
-    "manualTriggerEnabled": true,
-    "maxActionsPerTick": 3
-  }
-}
-~~~
-
-Trigger sources:
-
-| Trigger | Description |
-|---|---|
-| Timer tick | Every N milliseconds |
-| OBS event | Scene change, stream start, recording start |
-| VTS event | Model loaded, hotkey list changed |
-| Audio event | Speech detected, keyword detected |
-| Manual event | User clicks “analyze now” |
-| Safety event | Error, disconnect, recovery |
-
-### 9.3 Payload Strategy
-
-Electron should not send every raw frame or every raw audio chunk on every tick.
-
-Recommended payload priority:
-
-1. Current OBS state
-2. Latest transcript segments
-3. Recent sampled frames
-4. Recent screen/window frames
-5. User text, if any
-6. Recent action history
-7. Available hotkeys and tool allowlist
-
----
-
-## 10. Next.js Processor Behavior
-
-The Next.js processor is not a frontend. It acts like a decision service.
-
-For each `/api/process` request:
-
-~~~text
-1. Validate ObservationEnvelope with Zod.
-2. Apply privacy and policy filters.
-3. Compress or summarize old context.
-4. Build OpenAI-compatible multimodal messages.
-5. Attach tool schemas.
-6. Send request to LLM backend.
-7. Parse text and tool calls.
-8. Convert tool calls into ActionPlan.
-9. Validate ActionPlan with Zod.
-10. Return ActionPlan to Electron.
-~~~
-
-The processor should not directly execute:
-
-- OBS scene switches
-- OBS source visibility changes
-- VTS hotkeys
-- VTS parameter injection
-- local file writes on the desktop
-- microphone/camera/screen capture
-
-Those actions are returned to Electron as structured intents.
-
----
-
-## 11. Local Action Execution
-
-Electron receives an ActionPlan and executes it through `ActionExecutorService`.
-
-Execution flow:
-
-~~~text
-1. Validate ActionPlan schema.
-2. Check autonomy level.
-3. Check action allowlist.
-4. Check cooldowns.
-5. Check rate limits.
-6. Check whether confirmation is required.
-7. Execute actions locally.
-8. Log results.
-9. Send results back to Next.js processor.
-~~~
-
-Example allowlist:
-
-~~~json
-{
-  "allowedActions": [
-    "vts.trigger_hotkey",
-    "overlay.message",
-    "log.event"
-  ],
-  "blockedActions": [
-    "obs.set_scene",
-    "obs.set_source_visibility"
-  ],
-  "confirmationRequired": [
-    "obs.set_scene",
-    "obs.set_source_visibility"
-  ]
-}
-~~~
-
-This allows the system to run safely in the background while preventing the AI from randomly changing stream scenes unless the user explicitly allows it.
-
----
-
-## 12. VTube Studio Integration
-
-### 12.1 Protocol
-
-VTube Studio integration uses the VTube Studio Public API over WebSocket.
-
-Default endpoint:
-
-~~~text
-ws://localhost:8001
-~~~
-
-### 12.2 Authentication Flow
-
-Electron connects to VTube Studio and requests plugin authentication.
-
-~~~json
-{
-  "apiName": "VTubeStudioPublicAPI",
-  "apiVersion": "1.0",
-  "requestID": "auth-token-request",
-  "messageType": "AuthenticationTokenRequest",
-  "data": {
-    "pluginName": "Beaverhack2026",
-    "pluginDeveloper": "Beaverhack2026 Team",
-    "pluginIcon": ""
-  }
-}
-~~~
-
-After the user approves the plugin in VTube Studio, Electron stores the token securely.
-
-### 12.3 Hotkey Triggering
-
-Electron triggers hotkeys using VTS WebSocket requests.
-
-~~~json
-{
-  "apiName": "VTubeStudioPublicAPI",
-  "apiVersion": "1.0",
-  "requestID": "trigger-emote-happy",
-  "messageType": "HotkeyTriggerRequest",
-  "data": {
-    "hotkeyID": "emote_happy"
-  }
-}
-~~~
-
-The processor may suggest:
-
-~~~json
-{
-  "type": "vts.trigger_hotkey",
-  "actionId": "action_001",
-  "hotkeyId": "emote_happy",
-  "intensity": 0.8,
-  "reason": "The streamer laughed and the avatar should react happily.",
-  "cooldownMs": 3000
-}
-~~~
-
-Electron decides whether to execute it.
-
----
-
-## 13. OBS Integration
-
-Electron connects to OBS through obs-websocket v5.
-
-Default endpoint:
-
-~~~text
-ws://localhost:4455
-~~~
-
-Electron should subscribe to:
-
-- current program scene changes
-- stream state changes
-- recording state changes
-- source visibility changes
-- scene item changes
-
-Electron sends summarized OBS state to the processor.
-
-Example:
-
-~~~json
-{
-  "connected": true,
-  "currentScene": "Gaming",
-  "activeSources": [
-    "Game Capture",
-    "VTube Studio",
-    "Alerts",
-    "Chat"
-  ],
-  "streamStatus": "live",
-  "recordingStatus": "inactive"
-}
-~~~
-
----
-
-## 14. Background Desktop UX
-
-The app should be designed as a background system first.
-
-### 14.1 Main UX Modes
-
-| Mode | Description |
-|---|---|
-| Setup Mode | First-run permissions, OBS connection, VTS auth, LLM endpoint config |
-| Background Mode | Runs from tray/menu bar with minimal UI |
-| Status Mode | Shows connections, recent actions, logs, capture health |
-| Manual Control Mode | Lets user test hotkeys, trigger analysis, pause automation |
-| Safe Mode | Disables action execution but keeps logging and diagnostics |
-
-### 14.2 Electron UI Pages
-
-The Electron UI should include:
-
-- Setup wizard
-- Connection status
-- Capture permissions
-- OBS settings
-- VTube Studio settings
-- Hotkey mapper
-- Automation/autonomy controls
-- Action log
-- Error log
-- Manual “analyze now” button
-- Pause/resume automation button
-
-There is no Next.js frontend page.
-
----
-
-## 15. Configuration
-
-### 15.1 Desktop Agent Config
+### 6.2 Default Config
 
 ~~~json
 {
@@ -902,27 +624,48 @@ There is no Next.js frontend page.
     "startMinimized": true,
     "minimizeToTray": true,
     "autoStartOnLogin": false,
-    "localApiEnabled": true,
+    "localApiEnabled": false,
     "localApiHost": "127.0.0.1",
     "localApiPort": 39731
   },
-  "processor": {
-    "baseUrl": "http://localhost:3000",
-    "apiToken": null,
-    "requestTimeoutMs": 30000
-  },
-  "llm": {
-    "baseUrl": "http://localhost:8000/v1",
-    "model": "nemotron-nano-omni-v3",
+  "model": {
+    "provider": "openrouter",
+    "fallbackProvider": "selfHosted",
     "temperature": 0.4,
     "maxTokens": 1024,
     "maxContextTokens": 262144
   },
-  "vts": {
-    "host": "localhost",
-    "webSocketPort": 8001,
-    "authToken": null,
-    "autoConnect": true
+  "providers": {
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKey": null,
+      "model": "",
+      "timeoutMs": 30000,
+      "supportsVision": true,
+      "supportsAudioInput": false,
+      "supportsToolCalling": true,
+      "supportsJsonMode": true
+    },
+    "selfHosted": {
+      "baseUrl": "http://localhost:8000/v1",
+      "apiKey": null,
+      "model": "",
+      "timeoutMs": 60000,
+      "supportsVision": true,
+      "supportsAudioInput": true,
+      "supportsToolCalling": true,
+      "supportsJsonMode": true
+    },
+    "mock": {
+      "baseUrl": "mock://local",
+      "apiKey": null,
+      "model": "mock-action-planner",
+      "timeoutMs": 1000,
+      "supportsVision": false,
+      "supportsAudioInput": false,
+      "supportsToolCalling": true,
+      "supportsJsonMode": true
+    }
   },
   "obs": {
     "host": "localhost",
@@ -930,18 +673,24 @@ There is no Next.js frontend page.
     "password": "",
     "autoConnect": true
   },
+  "vts": {
+    "host": "localhost",
+    "webSocketPort": 8001,
+    "authToken": null,
+    "autoConnect": true
+  },
   "capture": {
     "camera": {
       "enabled": true,
       "fps": 1,
-      "maxFrames": 32,
+      "maxFrames": 8,
       "resolution": "1280x720",
       "jpegQuality": 75
     },
     "screen": {
-      "enabled": true,
+      "enabled": false,
       "fps": 0.5,
-      "maxFrames": 16,
+      "maxFrames": 4,
       "resolution": "1280x720",
       "jpegQuality": 70
     },
@@ -949,8 +698,9 @@ There is no Next.js frontend page.
       "enabled": true,
       "sampleRate": 16000,
       "channels": 1,
-      "bufferDurationSeconds": 60,
-      "transcriptionEnabled": true
+      "bufferDurationSeconds": 30,
+      "transcriptionEnabled": true,
+      "sendRawAudio": false
     }
   },
   "automation": {
@@ -969,160 +719,849 @@ There is no Next.js frontend page.
 }
 ~~~
 
-### 15.2 Environment Variables
+---
 
-| Variable | Owner | Description | Default |
-|---|---|---|---|
-| `PROCESSOR_BASE_URL` | Electron | Next.js processor URL | `http://localhost:3000` |
-| `PROCESSOR_API_TOKEN` | Electron/Next | Shared API auth token | empty |
-| `LLM_BASE_URL` | Next.js | OpenAI-compatible LLM URL | `http://localhost:8000/v1` |
-| `LLM_MODEL` | Next.js | Model name | `nemotron-nano-omni-v3` |
-| `VTS_HOST` | Electron | VTube Studio host | `localhost` |
-| `VTS_WS_PORT` | Electron | VTube Studio WebSocket port | `8001` |
-| `OBS_HOST` | Electron | OBS host | `localhost` |
-| `OBS_PORT` | Electron | OBS WebSocket port | `4455` |
-| `OBS_PASSWORD` | Electron | OBS WebSocket password | empty |
-| `ELECTRON_LOCAL_API_PORT` | Electron | Optional local API port | `39731` |
+## 7. Model Provider
+
+### 7.1 Provider Interface
+
+~~~typescript
+export type ModelGenerateRequest = {
+  observation: ObservationEnvelope;
+  systemPrompt: string;
+  toolSchemas: ModelToolSchema[];
+  responseMode: "json" | "tool_calls" | "text";
+};
+
+export type ModelGenerateResponse = {
+  provider: string;
+  model: string;
+  content?: string;
+  toolCalls?: ModelToolCall[];
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
+  raw: unknown;
+};
+
+export type ModelToolSchema = {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+};
+
+export type ModelToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
+export type ModelProvider = {
+  generate(request: ModelGenerateRequest): Promise<ModelGenerateResponse>;
+  transcribeAudio?(audio: CapturedAudioChunk): Promise<TranscriptSegment[]>;
+  healthCheck(): Promise<boolean>;
+};
+~~~
+
+### 7.2 Model Router Behavior
+
+~~~text
+1. Load selected provider config.
+2. Run provider health check when requested by UI.
+3. For each pipeline tick, call selected provider.
+4. If selected provider fails and fallback exists, call fallback provider.
+5. If both fail, return pipeline failure and enter safe mode.
+6. Log provider errors without exposing API keys.
+~~~
+
+### 7.3 OpenAI-Compatible Request Shape
+
+~~~json
+{
+  "model": "configured-model-name",
+  "messages": [
+    {
+      "role": "system",
+      "content": "system prompt"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "serialized observation summary"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/jpeg;base64,...",
+            "detail": "low"
+          }
+        }
+      ]
+    }
+  ],
+  "tools": [],
+  "tool_choice": "auto",
+  "temperature": 0.4,
+  "max_tokens": 1024,
+  "stream": false
+}
+~~~
 
 ---
 
-## 16. Processor System Prompt Template
+## 8. Prompt Builder
+
+### 8.1 System Prompt Template
 
 ~~~text
-You are Beaverhack2026, a VTuber stream-direction agent.
+You are Beaverhack2026, a VTuber stream-direction agent running inside a local desktop app.
 
-You receive structured observations from a local Electron desktop agent. You do not directly control OBS, VTube Studio, the microphone, the camera, or the screen. Instead, you produce a structured ActionPlan. Electron will validate and execute allowed actions locally.
+You receive structured observations from local capture, OBS, and VTube Studio. You do not directly control the stream. You produce a structured ActionPlan. The desktop app validates and executes only allowed actions.
 
-Your goals:
-1. Understand streamer context from audio transcripts, video frames, screen frames, OBS state, and VTube Studio state.
-2. Select helpful avatar reactions, stream overlay messages, or safe OBS suggestions.
+Goals:
+1. Understand streamer context from transcript, frames, OBS state, and VTube Studio state.
+2. Select useful avatar reactions, overlay messages, or stream-control suggestions.
 3. Avoid over-triggering actions.
-4. Respect action cooldowns, tool allowlists, and autonomy level.
-5. Prefer subtle useful actions over noisy behavior.
+4. Respect cooldowns, allowlists, blocked actions, and autonomy level.
+5. Prefer subtle useful reactions over noisy behavior.
+6. If no action is needed, return a noop action.
 
 Rules:
 - Return only valid structured actions.
-- Do not request actions outside the provided tool list.
-- Do not trigger VTS hotkeys repeatedly without a clear reason.
-- Do not switch OBS scenes unless the observation strongly supports it and policy allows it.
-- If unsure, return a noop action with a reason.
-- Keep visible messages short and stream-friendly.
+- Do not request actions outside the allowed action list.
+- Do not trigger the same hotkey repeatedly without a clear reason.
+- Do not switch OBS scenes unless policy allows it.
+- Keep visible messages short.
+- Include a short reason for every action.
+~~~
 
-Current OBS state:
-{obs_state}
+### 8.2 Observation Summary Format
 
-Current VTube Studio state:
-{vts_state}
-
-Available VTS hotkeys:
-{hotkey_list}
-
-Allowed actions:
-{allowed_actions}
-
-Recent action history:
-{recent_action_history}
+~~~typescript
+export type ObservationSummaryForModel = {
+  obs: ObsStateSnapshot;
+  vts: VtsStateSnapshot;
+  transcript?: TranscriptSegment[];
+  userText?: string;
+  allowedActions: string[];
+  blockedActions: string[];
+  recentActions: LocalActionResult[];
+};
 ~~~
 
 ---
 
-## 17. Development Scripts
+## 9. Tool Schema
 
-### 17.1 Local Development
+The model should produce actions through a single `create_action_plan` tool.
+
+~~~typescript
+export const createActionPlanTool: ModelToolSchema = {
+  type: "function",
+  function: {
+    name: "create_action_plan",
+    description: "Create a structured local action plan for the desktop app to validate and execute.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        response: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            text: {
+              type: "string",
+            },
+            confidence: {
+              type: "number",
+              minimum: 0,
+              maximum: 1,
+            },
+            visibleToUser: {
+              type: "boolean",
+            },
+          },
+          required: ["visibleToUser"],
+        },
+        actions: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true,
+            properties: {
+              type: {
+                type: "string",
+              },
+              actionId: {
+                type: "string",
+              },
+              reason: {
+                type: "string",
+              },
+            },
+            required: ["type", "actionId", "reason"],
+          },
+        },
+        safety: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            riskLevel: {
+              type: "string",
+              enum: ["low", "medium", "high"],
+            },
+            requiresConfirmation: {
+              type: "boolean",
+            },
+            reason: {
+              type: "string",
+            },
+          },
+          required: ["riskLevel", "requiresConfirmation"],
+        },
+        nextTick: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            suggestedDelayMs: {
+              type: "number",
+            },
+            priority: {
+              type: "string",
+              enum: ["low", "normal", "high"],
+            },
+          },
+          required: ["suggestedDelayMs", "priority"],
+        },
+      },
+      required: ["actions", "safety", "nextTick"],
+    },
+  },
+};
+~~~
+
+---
+
+## 10. Action Validation
+
+### 10.1 Validation Rules
+
+~~~text
+1. ActionPlan must match schema.
+2. Action count must be <= maxActionsPerTick.
+3. Action type must be in allowedActions.
+4. Action type must not be in blockedActions.
+5. Action must pass action-specific validation.
+6. Action must pass cooldown check.
+7. Action must pass autonomy-level check.
+8. High-risk actions require confirmation.
+9. Failed validation returns blocked action result.
+~~~
+
+### 10.2 Autonomy Levels
+
+| Level | Behavior |
+|---|---|
+| `paused` | Do not run pipeline ticks |
+| `suggest_only` | Build action plan but do not execute without approval |
+| `auto_safe` | Execute safe actions such as VTS hotkeys, overlay messages, and logs |
+| `auto_full` | Execute all allowlisted actions |
+| `safe_mode` | Disable model calls and action execution |
+
+### 10.3 Default Action Policy
+
+~~~json
+{
+  "allowedActions": [
+    "vts.trigger_hotkey",
+    "overlay.message",
+    "log.event",
+    "noop"
+  ],
+  "blockedActions": [
+    "obs.set_scene",
+    "obs.set_source_visibility",
+    "vts.set_parameter"
+  ]
+}
+~~~
+
+---
+
+## 11. Action Execution
+
+### 11.1 Supported Actions
+
+| Action | Service | Default Permission |
+|---|---|---|
+| `vts.trigger_hotkey` | VTSService | Allowed in `auto_safe` |
+| `vts.set_parameter` | VTSService | Confirmation required |
+| `obs.set_scene` | OBSService | Confirmation required |
+| `obs.set_source_visibility` | OBSService | Confirmation required |
+| `overlay.message` | Overlay/local UI | Allowed in `auto_safe` |
+| `log.event` | LoggerService | Allowed |
+| `noop` | No service | Allowed |
+
+### 11.2 Execution Result
+
+Each attempted action returns a `LocalActionResult`.
+
+~~~typescript
+export type ExecuteActionResult = {
+  action: LocalAction;
+  result: LocalActionResult;
+};
+~~~
+
+---
+
+## 12. OBS Service
+
+### 12.1 Responsibilities
+
+- Connect to OBS WebSocket.
+- Disconnect from OBS.
+- Read current scene.
+- Read current scene sources.
+- Read stream status.
+- Read recording status.
+- Subscribe to scene change events.
+- Subscribe to stream/recording state events.
+- Execute allowed OBS actions.
+
+### 12.2 Service Interface
+
+~~~typescript
+export type OBSService = {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  getStateSnapshot(): Promise<ObsStateSnapshot>;
+  setCurrentScene(sceneName: string): Promise<void>;
+  setSourceVisibility(input: SetSourceVisibilityInput): Promise<void>;
+};
+
+export type SetSourceVisibilityInput = {
+  sceneName: string;
+  sourceName: string;
+  visible: boolean;
+};
+~~~
+
+---
+
+## 13. VTube Studio Service
+
+### 13.1 Responsibilities
+
+- Connect to VTube Studio WebSocket.
+- Request authentication token.
+- Authenticate with stored token.
+- Fetch available hotkeys.
+- Trigger hotkeys.
+- Read current model info.
+- Execute allowed VTS actions.
+
+### 13.2 Service Interface
+
+~~~typescript
+export type VTSService = {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  authenticate(): Promise<void>;
+  getStateSnapshot(): Promise<VtsStateSnapshot>;
+  getHotkeys(): Promise<VtsHotkey[]>;
+  triggerHotkey(hotkeyId: string): Promise<void>;
+  setParameter?(input: SetVtsParameterInput): Promise<void>;
+};
+
+export type SetVtsParameterInput = {
+  parameterId: string;
+  value: number;
+  weight?: number;
+  durationMs?: number;
+};
+~~~
+
+---
+
+## 14. Capture Service
+
+### 14.1 Responsibilities
+
+- List available desktop capture sources.
+- Start camera capture.
+- Stop camera capture.
+- Start screen/window capture.
+- Stop screen/window capture.
+- Start microphone capture.
+- Stop microphone capture.
+- Maintain frame buffers.
+- Maintain audio buffers.
+- Provide recent frames/audio/transcripts to ObservationBuilder.
+
+### 14.2 Frame Defaults
+
+| Source | FPS | Max Frames | Resolution | Encoding |
+|---|---:|---:|---|---|
+| Camera | 1 | 8 | 1280x720 | JPEG |
+| Screen | 0.5 | 4 | 1280x720 | JPEG |
+| Window | 0.5 | 4 | 1280x720 | JPEG |
+
+### 14.3 Audio Defaults
+
+| Property | Default |
+|---|---|
+| Sample Rate | 16000 |
+| Channels | 1 |
+| Buffer Duration | 30 seconds |
+| Send Raw Audio | false |
+| Prefer Transcript | true |
+
+---
+
+## 15. IPC API
+
+### 15.1 Preload API
+
+~~~typescript
+import { contextBridge, ipcRenderer } from "electron";
+
+contextBridge.exposeInMainWorld("beaverhack", {
+  automation: {
+    start: () => ipcRenderer.invoke("automation:start"),
+    stop: () => ipcRenderer.invoke("automation:stop"),
+    analyzeNow: () => ipcRenderer.invoke("automation:analyze-now"),
+    getStatus: () => ipcRenderer.invoke("automation:get-status"),
+  },
+
+  capture: {
+    getSources: () => ipcRenderer.invoke("capture:get-sources"),
+    startCamera: (sourceId: string) => ipcRenderer.invoke("capture:start-camera", sourceId),
+    stopCamera: () => ipcRenderer.invoke("capture:stop-camera"),
+    startScreen: (sourceId: string) => ipcRenderer.invoke("capture:start-screen", sourceId),
+    stopScreen: () => ipcRenderer.invoke("capture:stop-screen"),
+    startAudio: () => ipcRenderer.invoke("capture:start-audio"),
+    stopAudio: () => ipcRenderer.invoke("capture:stop-audio"),
+  },
+
+  model: {
+    testConnection: () => ipcRenderer.invoke("model:test-connection"),
+    setProvider: (providerId: string) => ipcRenderer.invoke("model:set-provider", providerId),
+    listProviders: () => ipcRenderer.invoke("model:list-providers"),
+  },
+
+  obs: {
+    connect: () => ipcRenderer.invoke("obs:connect"),
+    disconnect: () => ipcRenderer.invoke("obs:disconnect"),
+    getStatus: () => ipcRenderer.invoke("obs:get-status"),
+  },
+
+  vts: {
+    connect: () => ipcRenderer.invoke("vts:connect"),
+    disconnect: () => ipcRenderer.invoke("vts:disconnect"),
+    authenticate: () => ipcRenderer.invoke("vts:authenticate"),
+    getHotkeys: () => ipcRenderer.invoke("vts:get-hotkeys"),
+    triggerHotkey: (hotkeyId: string) => ipcRenderer.invoke("vts:trigger-hotkey", hotkeyId),
+  },
+
+  settings: {
+    get: () => ipcRenderer.invoke("settings:get"),
+    update: (settings: unknown) => ipcRenderer.invoke("settings:update", settings),
+  },
+
+  logs: {
+    list: () => ipcRenderer.invoke("logs:list"),
+    clear: () => ipcRenderer.invoke("logs:clear"),
+    onLog: (callback: (event: unknown) => void) => {
+      ipcRenderer.on("logs:event", (_, payload) => callback(payload));
+    },
+  },
+});
+~~~
+
+### 15.2 IPC Validation
+
+Every IPC handler must:
+
+~~~text
+1. Validate input with Zod.
+2. Reject unknown fields.
+3. Return typed success/error result.
+4. Avoid throwing raw errors to renderer.
+5. Never return secrets to renderer.
+~~~
+
+---
+
+## 16. Pipeline Service
+
+~~~typescript
+export class PipelineService {
+  public async runOnce(trigger: PipelineTrigger): Promise<PipelineResult> {
+    const observation = await this.observationBuilder.build(trigger);
+
+    const systemPrompt = this.promptBuilder.buildSystemPrompt(observation);
+    const toolSchemas = this.promptBuilder.buildToolSchemas(observation.policy);
+
+    const modelResponse = await this.modelRouter.generate({
+      observation,
+      systemPrompt,
+      toolSchemas,
+      responseMode: "tool_calls",
+    });
+
+    const actionPlan = this.actionPlanParser.parse(modelResponse, observation.tickId);
+
+    const validation = this.actionValidator.validate(actionPlan, observation.policy);
+
+    if (!validation.ok) {
+      return {
+        ok: false,
+        status: "blocked",
+        reason: validation.reason,
+        actionPlan,
+        results: validation.results,
+      };
+    }
+
+    const results = await this.actionExecutor.execute(actionPlan.actions);
+
+    return {
+      ok: true,
+      status: "completed",
+      actionPlan,
+      results,
+    };
+  }
+}
+
+export type PipelineTrigger = {
+  type: "timer" | "manual" | "obs_event" | "vts_event" | "capture_event";
+  createdAt: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type PipelineResult = {
+  ok: boolean;
+  status: "completed" | "blocked" | "failed";
+  reason?: string;
+  actionPlan?: ActionPlan;
+  results?: LocalActionResult[];
+};
+~~~
+
+---
+
+## 17. Logging
+
+### 17.1 Log Event
+
+~~~typescript
+export type AppLogEvent = {
+  id: string;
+  createdAt: string;
+  level: "debug" | "info" | "warn" | "error";
+  source:
+    | "automation"
+    | "capture"
+    | "model"
+    | "obs"
+    | "vts"
+    | "settings"
+    | "security"
+    | "renderer";
+  message: string;
+  metadata?: Record<string, unknown>;
+};
+~~~
+
+### 17.2 Required Logs
+
+Log these events:
+
+- app startup
+- settings load failure
+- OBS connection success/failure
+- VTS connection success/failure
+- VTS authentication success/failure
+- model provider connection test
+- automation start/stop
+- pipeline tick start/end
+- model request failure
+- action plan parse failure
+- blocked action
+- executed action
+- capture permission failure
+
+Do not log:
+
+- API keys
+- OBS password
+- VTS auth token
+- raw screen frames
+- raw microphone audio
+
+---
+
+## 18. Security Requirements
+
+### 18.1 BrowserWindow Defaults
+
+~~~typescript
+const mainWindow = new BrowserWindow({
+  width: 1280,
+  height: 800,
+  webPreferences: {
+    nodeIntegration: false,
+    contextIsolation: true,
+    sandbox: true,
+    preload: path.join(__dirname, "preload.js"),
+  },
+});
+~~~
+
+### 18.2 Secret Handling
+
+Secrets include:
+
+- OpenRouter API key.
+- Self-hosted API key if configured.
+- OBS WebSocket password.
+- VTube Studio auth token.
+- Local API token if enabled.
+
+Rules:
+
+~~~text
+1. Store secrets through SecretStoreService.
+2. Never expose secrets to renderer.
+3. Never log secrets.
+4. Redact secrets from error messages.
+5. Only the main process can call external model APIs.
+~~~
+
+### 18.3 Local API
+
+The local API is disabled by default.
+
+If enabled:
+
+~~~text
+1. Bind only to 127.0.0.1.
+2. Require bearer token.
+3. Validate all request bodies.
+4. Do not expose secrets.
+5. Do not allow unauthenticated action execution.
+~~~
+
+---
+
+## 19. Root Workspace Files
+
+### 19.1 `pnpm-workspace.yaml`
+
+~~~yaml
+packages:
+  - "electron"
+  - "apps/*"
+  - "packages/*"
+~~~
+
+### 19.2 Root `package.json`
+
+~~~json
+{
+  "name": "beaverhack2026",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Beaverhack2026 workspace.",
+  "scripts": {
+    "dev": "pnpm --filter @beaverhack/electron dev",
+    "dev:electron": "pnpm --filter @beaverhack/electron dev",
+    "build": "pnpm --filter @beaverhack/electron build",
+    "build:electron": "pnpm --filter @beaverhack/electron build",
+    "lint": "pnpm --filter @beaverhack/electron lint",
+    "test": "pnpm --filter @beaverhack/electron test"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "pnpm@10.0.0"
+}
+~~~
+
+### 19.3 `electron/package.json`
+
+~~~json
+{
+  "name": "@beaverhack/electron",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Desktop background agent for Beaverhack2026.",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "vite --config vite.config.ts",
+    "build": "tsc && vite build --config vite.config.ts",
+    "electron:dev": "electron .",
+    "electron:build": "electron-builder",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.0",
+    "@electron-toolkit/utils": "^3.0.0",
+    "electron-store": "^10.0.0",
+    "obs-websocket-js": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "ws": "^8.0.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0",
+    "vitest": "^2.0.0"
+  }
+}
+~~~
+
+---
+
+## 20. Development Commands
+
+From the repository root:
 
 ~~~bash
-# Install dependencies
 pnpm install
-
-# Start Next.js processor API
-pnpm --filter @beaverhack/processor dev
-
-# Start Electron desktop agent
-pnpm --filter @beaverhack/desktop dev
+pnpm dev
 ~~~
 
-### 17.2 Production Build
+Run Electron app explicitly:
 
 ~~~bash
-# Build shared packages
-pnpm --filter @beaverhack/shared build
-
-# Build Next.js processor
-pnpm --filter @beaverhack/processor build
-
-# Build Electron desktop app
-pnpm --filter @beaverhack/desktop build
+pnpm --filter @beaverhack/electron dev
 ~~~
 
-### 17.3 Runtime Deployment Options
+Build Electron app:
 
-#### Option A: All Local
-
-~~~text
-Electron desktop agent: local
-Next.js processor: local
-LLM backend: local GPU machine or same machine
-OBS/VTS: local
+~~~bash
+pnpm --filter @beaverhack/electron build
+pnpm --filter @beaverhack/electron electron:build
 ~~~
 
-#### Option B: Local Electron + Remote Processor
+Run tests:
 
-~~~text
-Electron desktop agent: streamer PC
-Next.js processor: remote server
-LLM backend: GPU server
-OBS/VTS: streamer PC
+~~~bash
+pnpm --filter @beaverhack/electron test
 ~~~
-
-In this mode, Electron must initiate outbound requests. The remote processor should not attempt to call Electron localhost directly.
-
-#### Option C: Local Electron + Local Processor + Remote LLM
-
-~~~text
-Electron desktop agent: streamer PC
-Next.js processor: streamer PC
-LLM backend: GPU server
-OBS/VTS: streamer PC
-~~~
-
-This is the recommended hackathon architecture because it keeps local control local while offloading model inference.
 
 ---
 
-## 18. Sections To Remove Or Rewrite From The Original Spec
+## 21. Implementation Order
 
-Remove or rewrite these assumptions:
+### Step 1: Project Skeleton
 
-1. "Electron desktop app with a Next.js + React frontend"
-2. "Next.js renderer process"
-3. `src/renderer/app/api`
-4. Zustand stores inside a Next.js renderer
-5. Chat-first dashboard as the main product
-6. VTS UDP/TCP hotkey path
-7. Main process directly owning `MediaStream` / `MediaRecorder`
-8. Tool calls directly executed by the processor
-9. Next.js serving the desktop UI
-10. Production build flow that exports a Next.js frontend into Electron
+- Create workspace files.
+- Create `electron` package.
+- Add Electron + Vite + React.
+- Add main process entry.
+- Add preload bridge.
+- Add renderer shell.
 
-Replace them with:
+### Step 2: Settings And Logs
 
-1. Electron desktop UI and background agent
-2. Next.js API-only processor
-3. Shared Zod schemas
-4. Electron local action executor
-5. Background tick scheduler
-6. VTS WebSocket client
-7. OBS WebSocket client
-8. ObservationEnvelope -> ActionPlan flow
-9. Safety policy and autonomy levels
-10. Loopback-only optional local API
+- Implement SettingsService.
+- Implement SecretStoreService.
+- Implement LoggerService.
+- Add settings UI.
+- Add log viewer UI.
+
+### Step 3: OBS
+
+- Implement OBSService.
+- Connect/disconnect from OBS.
+- Read current scene.
+- Read stream/recording state.
+- Display OBS status in UI.
+
+### Step 4: VTube Studio
+
+- Implement VTSService.
+- Connect/disconnect from VTube Studio.
+- Authenticate plugin.
+- Fetch hotkey list.
+- Trigger hotkeys manually from UI.
+
+### Step 5: Model Provider
+
+- Implement ModelProvider interface.
+- Implement OpenRouter provider.
+- Implement self-hosted OpenAI-compatible provider.
+- Implement mock provider.
+- Add model connection test.
+
+### Step 6: Action Plan Pipeline
+
+- Implement ObservationBuilder.
+- Implement PromptBuilder.
+- Implement ActionPlanParser.
+- Implement ActionValidator.
+- Implement ActionExecutor.
+- Run manual pipeline from “Analyze Now”.
+
+### Step 7: Automation
+
+- Implement SchedulerService.
+- Add start/stop automation.
+- Add cooldown service.
+- Add recent action history.
+- Execute VTS hotkey actions automatically in `auto_safe`.
+
+### Step 8: Capture
+
+- Implement hidden capture window.
+- Add camera frame sampling.
+- Add screen/window frame sampling.
+- Add microphone capture.
+- Add transcript support.
+- Add capture privacy toggles.
 
 ---
 
-## 19. Important Design Warning
+## 22. Minimum Demo Target
 
-Do not let the LLM directly execute OBS or VTube Studio actions.
+The minimum complete demo should support:
 
-The LLM should only produce structured intent. The Next.js processor should convert that intent into an `ActionPlan`. Electron should validate that plan, check cooldowns, check the autonomy level, check allowlists, and then execute only approved actions locally.
+~~~text
+1. App launches.
+2. User connects to OBS.
+3. User connects to VTube Studio.
+4. User authenticates VTube Studio plugin.
+5. App fetches VTS hotkeys.
+6. User configures model provider.
+7. User clicks Analyze Now.
+8. App sends OBS state, VTS state, and optional text to model.
+9. Model returns action plan.
+10. App validates action plan.
+11. App triggers a VTS hotkey.
+12. App logs the full pipeline result.
+~~~
 
-This keeps the system useful as an automatic background assistant without letting the AI randomly switch scenes, spam emotes, hide sources, or disrupt the stream.
+Camera, screen, and audio capture can be added after the basic model-to-VTS loop works.
