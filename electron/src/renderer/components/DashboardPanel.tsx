@@ -1,25 +1,16 @@
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
+import {
+	createIdleModelMonitorStatus,
+	createModelMonitorCaptureConfig,
+	MODEL_MONITOR_DEFAULT_TIMING,
+} from "../../shared/model-monitor.defaults";
 import type { CaptureMediaDeviceInfo, CaptureSourceInfo } from "../../shared/types/capture.types";
+import type { DashboardConfig } from "../../shared/types/config.types";
 import type { ModelMonitorEvent, ModelMonitorStatus } from "../../shared/types/model-monitor.types";
 import { useCapture } from "../hooks/useCapture";
 
-const emptyMonitorStatus: ModelMonitorStatus = {
-	running: false,
-	startedAt: null,
-	tickIntervalMs: 500,
-	windowMs: 2_000,
-	inFlight: false,
-	tickCount: 0,
-	skippedTickCount: 0,
-	lastTickAt: null,
-	lastResponseAt: null,
-	lastMediaEndedAt: null,
-	lastRequestStartedAt: null,
-	lastEndToResponseLatencyMs: null,
-	lastRequestLatencyMs: null,
-	lastError: null,
-};
+const emptyMonitorStatus: ModelMonitorStatus = createIdleModelMonitorStatus();
 
 type MonitorLogEntry = {
 	id: string;
@@ -94,6 +85,13 @@ const formatTimingForDisplay = (event: Extract<ModelMonitorEvent, { type: "respo
 		`Total tokens: ${event.debug.totalTokens ?? "-"}`,
 	].join("\n");
 
+const toSelectValue = (value: string | null): string => value ?? "";
+
+const toStoredValue = (value: string): string | null => {
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : null;
+};
+
 const DashboardPanel = (): React.JSX.Element => {
 	const { status: captureStatus } = useCapture();
 	const [monitorStatus, setMonitorStatus] = useState<ModelMonitorStatus>(emptyMonitorStatus);
@@ -115,6 +113,13 @@ const DashboardPanel = (): React.JSX.Element => {
 	const [liveAudioLevels, setLiveAudioLevels] = useState<number[]>([]);
 	const cameraPreviewRef = useRef<HTMLVideoElement | null>(null);
 	const screenPreviewRef = useRef<HTMLVideoElement | null>(null);
+	const latestDisplayedRequestNumberRef = useRef(0);
+
+	const persistDashboardConfig = async (config: DashboardConfig): Promise<void> => {
+		await window.desktop.settingsUpdate({
+			dashboard: config,
+		});
+	};
 
 	const buildDesktopVideoConstraints = (sourceId: string): MediaTrackConstraints =>
 		({
@@ -129,36 +134,47 @@ const DashboardPanel = (): React.JSX.Element => {
 	const loadSources = async (): Promise<void> => {
 		setIsLoadingSources(true);
 
-		const [sourcesResult, devicesResult] = await Promise.all([
+		const [settingsResult, sourcesResult, devicesResult] = await Promise.all([
+			window.desktop.settingsGet(),
 			window.desktop.listCaptureSources(),
 			window.desktop.listMediaDevices(),
 		]);
+		const storedDashboard = settingsResult.settings.dashboard;
+		let nextAudioDeviceId = toSelectValue(storedDashboard.selectedAudioDeviceId);
+		let nextVideoDeviceId = toSelectValue(storedDashboard.selectedVideoDeviceId);
+		let nextScreenSourceId = toSelectValue(storedDashboard.selectedScreenSourceId);
 
 		if (sourcesResult.ok) {
 			setSources(sourcesResult.sources);
-			setSelectedScreenSourceId((prev) => prev || sourcesResult.sources[0]?.id || "");
+			const hasStoredScreenSource = sourcesResult.sources.some((source) => source.id === nextScreenSourceId);
+			nextScreenSourceId = hasStoredScreenSource ? nextScreenSourceId : sourcesResult.sources[0]?.id ?? "";
+			setSelectedScreenSourceId(nextScreenSourceId);
 		} else {
 			setSources([]);
+			nextScreenSourceId = "";
 		}
 
 		if (devicesResult.ok) {
 			setMediaDevices(devicesResult.devices);
-			setSelectedAudioDeviceId(
-				(prev) =>
-					prev ||
-					devicesResult.devices.find((d) => d.kind === "audioinput")?.deviceId ||
-					"",
-			);
-			setSelectedVideoDeviceId(
-				(prev) =>
-					prev ||
-					devicesResult.devices.find((d) => d.kind === "videoinput")?.deviceId ||
-					"",
-			);
+			const audioDevices = devicesResult.devices.filter((device) => device.kind === "audioinput");
+			const videoDevices = devicesResult.devices.filter((device) => device.kind === "videoinput");
+			const hasStoredAudioDevice = audioDevices.some((device) => device.deviceId === nextAudioDeviceId);
+			const hasStoredVideoDevice = videoDevices.some((device) => device.deviceId === nextVideoDeviceId);
+			nextAudioDeviceId = hasStoredAudioDevice ? nextAudioDeviceId : audioDevices[0]?.deviceId ?? "";
+			nextVideoDeviceId = hasStoredVideoDevice ? nextVideoDeviceId : videoDevices[0]?.deviceId ?? "";
+			setSelectedAudioDeviceId(nextAudioDeviceId);
+			setSelectedVideoDeviceId(nextVideoDeviceId);
 		} else {
 			setMediaDevices([]);
+			nextAudioDeviceId = "";
+			nextVideoDeviceId = "";
 		}
 
+		await persistDashboardConfig({
+			selectedAudioDeviceId: toStoredValue(nextAudioDeviceId),
+			selectedVideoDeviceId: toStoredValue(nextVideoDeviceId),
+			selectedScreenSourceId: toStoredValue(nextScreenSourceId),
+		});
 		setIsLoadingSources(false);
 	};
 
@@ -171,6 +187,10 @@ const DashboardPanel = (): React.JSX.Element => {
 			setMonitorStatus(event.status);
 			const logEntry = formatMonitorEvent(event);
 			if (event.type === "response") {
+				if (event.debug.requestNumber < latestDisplayedRequestNumberRef.current) {
+					return;
+				}
+				latestDisplayedRequestNumberRef.current = event.debug.requestNumber;
 				if (event.modelMediaDataUrl) {
 					setLatestModelMediaUrl(event.modelMediaDataUrl);
 				}
@@ -354,41 +374,13 @@ const DashboardPanel = (): React.JSX.Element => {
 
 		if (!monitorStatus.running) {
 			const result = await window.desktop.modelMonitorStart({
-				tickIntervalMs: 500,
-				windowMs: 2_000,
-				capture: {
-					camera: {
-						enabled: true,
-						fps: 15,
-						maxFrames: 8,
-						resolution: "640x360",
-						jpegQuality: 75,
-						detail: "low",
-						clipDurationSeconds: 2,
-						maxClips: 12,
-						deviceId: selectedVideoDeviceId || null,
-					},
-					screen: {
-						enabled: false,
-						fps: 0,
-						maxFrames: 4,
-						resolution: "640x360",
-						jpegQuality: 70,
-						detail: "low",
-						clipDurationSeconds: 2,
-						maxClips: 1,
-						sourceId: null,
-					},
-					audio: {
-						enabled: true,
-						sampleRate: 16000,
-						channels: 1,
-						bufferDurationSeconds: 2,
-						transcriptionEnabled: false,
-						sendRawAudio: false,
-						deviceId: selectedAudioDeviceId || null,
-					},
-				},
+				tickIntervalMs: MODEL_MONITOR_DEFAULT_TIMING.tickIntervalMs,
+				windowMs: MODEL_MONITOR_DEFAULT_TIMING.windowMs,
+				capture: createModelMonitorCaptureConfig({
+					audioDeviceId: selectedAudioDeviceId || null,
+					screenSourceId: selectedScreenSourceId || null,
+					videoDeviceId: selectedVideoDeviceId || null,
+				}),
 			});
 
 			setMonitorStatus(result.status);
@@ -496,7 +488,15 @@ const DashboardPanel = (): React.JSX.Element => {
 						<select
 							value={selectedAudioDeviceId}
 							disabled={isLoadingSources || audioDevices.length === 0}
-							onChange={(event) => setSelectedAudioDeviceId(event.target.value)}
+							onChange={(event) => {
+								const nextValue = event.target.value;
+								setSelectedAudioDeviceId(nextValue);
+								void persistDashboardConfig({
+									selectedAudioDeviceId: toStoredValue(nextValue),
+									selectedVideoDeviceId: toStoredValue(selectedVideoDeviceId),
+									selectedScreenSourceId: toStoredValue(selectedScreenSourceId),
+								});
+							}}
 						>
 							<option value="">Default microphone</option>
 							{audioDevices.map((device) => (
@@ -515,7 +515,15 @@ const DashboardPanel = (): React.JSX.Element => {
 						<select
 							value={selectedVideoDeviceId}
 							disabled={isLoadingSources || videoDevices.length === 0}
-							onChange={(event) => setSelectedVideoDeviceId(event.target.value)}
+							onChange={(event) => {
+								const nextValue = event.target.value;
+								setSelectedVideoDeviceId(nextValue);
+								void persistDashboardConfig({
+									selectedAudioDeviceId: toStoredValue(selectedAudioDeviceId),
+									selectedVideoDeviceId: toStoredValue(nextValue),
+									selectedScreenSourceId: toStoredValue(selectedScreenSourceId),
+								});
+							}}
 						>
 							<option value="">Default camera</option>
 							{videoDevices.map((device) => (
@@ -534,7 +542,15 @@ const DashboardPanel = (): React.JSX.Element => {
 						<select
 							value={selectedScreenSourceId}
 							disabled={isLoadingSources || sources.length === 0}
-							onChange={(event) => setSelectedScreenSourceId(event.target.value)}
+							onChange={(event) => {
+								const nextValue = event.target.value;
+								setSelectedScreenSourceId(nextValue);
+								void persistDashboardConfig({
+									selectedAudioDeviceId: toStoredValue(selectedAudioDeviceId),
+									selectedVideoDeviceId: toStoredValue(selectedVideoDeviceId),
+									selectedScreenSourceId: toStoredValue(nextValue),
+								});
+							}}
 						>
 							<option value="">Select a source</option>
 							{sources.map((source) => (
@@ -575,6 +591,7 @@ const DashboardPanel = (): React.JSX.Element => {
 				<div>
 					<h4>Model Loop</h4>
 					<p>In Flight: {monitorStatus.inFlight ? "Yes" : "No"}</p>
+					<p>Active Requests: {monitorStatus.activeRequestCount}/{monitorStatus.maxInFlightRequests}</p>
 					<p>Ticks Sent: {monitorStatus.tickCount}</p>
 					<p>Ticks Skipped: {monitorStatus.skippedTickCount}</p>
 				</div>

@@ -1,7 +1,13 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IpcChannels } from "../shared/channels";
+import { createIdleModelMonitorStatus } from "../shared/model-monitor.defaults";
 import type { AutomationAnalyzeNowRequest, AutomationAnalyzeNowResult } from "../shared/types/action-plan.types";
-import type { VtsConnectionConfig } from "../shared/types/config.types";
+import type {
+  SettingsGetResult,
+  SettingsUpdateRequest,
+  SettingsUpdateResult,
+  VtsConnectionConfig,
+} from "../shared/types/config.types";
 import type {
   CaptureAudioPayload,
   CaptureAudioLevelPayload,
@@ -53,6 +59,22 @@ const fallbackVtsStatus: VtsStatus = {
   lastError: null,
 };
 
+const fallbackSettings = {
+  vts: fallbackVtsStatus.config,
+  dashboard: {
+    selectedAudioDeviceId: null,
+    selectedVideoDeviceId: null,
+    selectedScreenSourceId: null,
+  },
+  model: {
+    selectedProviderId: "vllm" as const,
+  },
+  monitor: {
+    resumeOnLaunch: false,
+    lastStartRequest: null,
+  },
+};
+
 const desktopApi = {
   getAppVersion: async (): Promise<string> => {
     try {
@@ -66,6 +88,24 @@ const desktopApi = {
     ipcRenderer.invoke(IpcChannels.AutomationAnalyzeNow, request).catch((error: unknown) => {
       console.error("Failed to run automation analysis:", error);
       return { ok: false as const, message: "Unable to run automation analysis." };
+    }),
+  settingsGet: async (): Promise<SettingsGetResult> =>
+    ipcRenderer.invoke(IpcChannels.SettingsGet).catch((error: unknown) => {
+      console.error("Failed to load settings:", error);
+      return {
+        ok: false as const,
+        message: "Unable to load settings.",
+        settings: fallbackSettings,
+      };
+    }),
+  settingsUpdate: async (request: SettingsUpdateRequest): Promise<SettingsUpdateResult> =>
+    ipcRenderer.invoke(IpcChannels.SettingsUpdate, request).catch((error: unknown) => {
+      console.error("Failed to update settings:", error);
+      return {
+        ok: false as const,
+        message: "Unable to update settings.",
+        settings: fallbackSettings,
+      };
     }),
   vtsGetStatus: async (): Promise<VtsStatusResult> =>
     ipcRenderer.invoke(IpcChannels.VtsGetStatus).catch((error: unknown) => {
@@ -151,22 +191,11 @@ const desktopApi = {
       return {
         ok: false as const,
         message: "Unable to start model monitor.",
-        status: {
-          running: false,
-          startedAt: null,
+        status: createIdleModelMonitorStatus({
           tickIntervalMs: request.tickIntervalMs,
           windowMs: request.windowMs,
-          inFlight: false,
-          tickCount: 0,
-          skippedTickCount: 0,
-          lastTickAt: null,
-          lastResponseAt: null,
-          lastMediaEndedAt: null,
-          lastRequestStartedAt: null,
-          lastEndToResponseLatencyMs: null,
-          lastRequestLatencyMs: null,
           lastError: "Unable to start model monitor.",
-        },
+        }),
       };
     }),
   modelMonitorStop: async (): Promise<ModelMonitorStopResponse> =>
@@ -175,22 +204,9 @@ const desktopApi = {
       return {
         ok: false as const,
         message: "Unable to stop model monitor.",
-        status: {
-          running: false,
-          startedAt: null,
-          tickIntervalMs: 500,
-          windowMs: 2_000,
-          inFlight: false,
-          tickCount: 0,
-          skippedTickCount: 0,
-          lastTickAt: null,
-          lastResponseAt: null,
-          lastMediaEndedAt: null,
-          lastRequestStartedAt: null,
-          lastEndToResponseLatencyMs: null,
-          lastRequestLatencyMs: null,
+        status: createIdleModelMonitorStatus({
           lastError: "Unable to stop model monitor.",
-        },
+        }),
       };
     }),
   modelMonitorStatus: async (): Promise<ModelMonitorStatusResponse> =>
@@ -199,22 +215,9 @@ const desktopApi = {
       return {
         ok: false as const,
         message: "Unable to get model monitor status.",
-        status: {
-          running: false,
-          startedAt: null,
-          tickIntervalMs: 500,
-          windowMs: 2_000,
-          inFlight: false,
-          tickCount: 0,
-          skippedTickCount: 0,
-          lastTickAt: null,
-          lastResponseAt: null,
-          lastMediaEndedAt: null,
-          lastRequestStartedAt: null,
-          lastEndToResponseLatencyMs: null,
-          lastRequestLatencyMs: null,
+        status: createIdleModelMonitorStatus({
           lastError: "Unable to get model monitor status.",
-        },
+        }),
       };
     }),
   onModelMonitorEvent: (handler: (event: ModelMonitorEvent) => void) => {

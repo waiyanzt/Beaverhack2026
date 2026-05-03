@@ -188,8 +188,8 @@ Current snapshot:
 
 ### IPC Channels
 
-- [ ] Implement `settings:get`
-- [ ] Implement `settings:update`
+- [x] Implement `settings:get`
+- [x] Implement `settings:update`
 - [ ] Implement `logs:list`
 - [ ] Implement `logs:clear`
 - [ ] Implement `logs:event`

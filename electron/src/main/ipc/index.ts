@@ -1,4 +1,4 @@
-import { app, ipcMain } from "electron";
+import { app, ipcMain, type WebContents } from "electron";
 import { IpcChannels } from "../../shared/channels";
 import { actionPlanSchema } from "../../shared/schemas/action-plan.schema";
 import { modelMonitorStartRequestSchema } from "../../shared/schemas/model-monitor.schema";
@@ -21,8 +21,10 @@ import {
   setSelectedModelProviderId,
 } from "../services/model/model-provider-store";
 import { obsService } from "../services/obs/obs.service";
+import { settingsService } from "../services/settings/settings.service";
 import { vtsService } from "../services/vts/vts.service";
 import { registerCaptureIpcHandlers } from "./capture.ipc";
+import { registerSettingsIpcHandlers } from "./settings.ipc";
 import { registerVtsIpcHandlers } from "./vts.ipc";
 
 const modelRouter = new ModelRouterService(
@@ -58,8 +60,24 @@ const pipelineService = new PipelineService(
 );
 const modelMonitor = new ModelMonitorService(captureOrchestrator, modelRouter);
 
+export async function resumePersistedModelMonitor(owner: WebContents): Promise<void> {
+  const { monitor } = settingsService.getSettings();
+
+  if (!monitor.resumeOnLaunch || !monitor.lastStartRequest || modelMonitor.getStatus().running) {
+    return;
+  }
+
+  try {
+    await modelMonitor.start(monitor.lastStartRequest, owner);
+  } catch (error: unknown) {
+    console.error("Failed to resume persisted model monitor:", error);
+    settingsService.updateMonitorSession(monitor.lastStartRequest, false);
+  }
+}
+
 export function registerIpcHandlers(): void {
   registerCaptureIpcHandlers();
+  registerSettingsIpcHandlers();
 
   ipcMain.handle(IpcChannels.GetAppVersion, () => {
     try {
@@ -141,6 +159,7 @@ export function registerIpcHandlers(): void {
 
     try {
       const status = await modelMonitor.start(parsed.data, event.sender);
+      settingsService.updateMonitorSession(parsed.data, true);
       return { ok: true as const, status };
     } catch (error: unknown) {
       console.error("Failed to start model monitor:", error);
@@ -155,6 +174,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannels.ModelMonitorStop, async () => {
     try {
       const status = await modelMonitor.stop();
+      settingsService.updateMonitorSession(settingsService.getSettings().monitor.lastStartRequest, false);
       return { ok: true as const, status };
     } catch (error: unknown) {
       console.error("Failed to stop model monitor:", error);

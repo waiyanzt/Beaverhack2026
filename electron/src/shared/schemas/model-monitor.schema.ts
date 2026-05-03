@@ -1,11 +1,20 @@
 import { z } from "zod";
 import { captureStartRequestSchema } from "./capture.schema";
+import { MODEL_MONITOR_VALIDATION_LIMITS } from "../model-monitor.defaults";
 
 export const modelMonitorStartRequestSchema = z
   .object({
     capture: captureStartRequestSchema,
-    tickIntervalMs: z.number().int().min(250).max(60_000),
-    windowMs: z.number().int().min(1_000).max(120_000),
+    tickIntervalMs: z
+      .number()
+      .int()
+      .min(MODEL_MONITOR_VALIDATION_LIMITS.minTickIntervalMs)
+      .max(MODEL_MONITOR_VALIDATION_LIMITS.maxTickIntervalMs),
+    windowMs: z
+      .number()
+      .int()
+      .min(MODEL_MONITOR_VALIDATION_LIMITS.minWindowMs)
+      .max(MODEL_MONITOR_VALIDATION_LIMITS.maxWindowMs),
   })
   .strict();
 

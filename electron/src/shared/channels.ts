@@ -4,6 +4,8 @@ export const IpcChannels = {
   ModelTestConnection: "model:test-connection",
   ModelListProviders: "model:list-providers",
   ModelSetProvider: "model:set-provider",
+  SettingsGet: "settings:get",
+  SettingsUpdate: "settings:update",
   ModelMonitorStart: "model-monitor:start",
   ModelMonitorStop: "model-monitor:stop",
   ModelMonitorStatus: "model-monitor:status",

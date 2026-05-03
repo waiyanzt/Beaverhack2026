@@ -1,6 +1,13 @@
 import ElectronStoreModule from "electron-store";
 import { appConfigSchema } from "../../../shared/schemas/config.schema";
-import type { AppConfig, VtsConnectionConfig } from "../../../shared/types/config.types";
+import type {
+  AppConfig,
+  DashboardConfig,
+  ModelConfig,
+  MonitorConfig,
+  SettingsUpdateRequest,
+  VtsConnectionConfig,
+} from "../../../shared/types/config.types";
 
 type ElectronStoreConstructor = new <T extends Record<string, unknown>>(options: {
   name: string;
@@ -22,6 +29,18 @@ export const DEFAULT_CONFIG: AppConfig = {
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber Development Team",
+  },
+  dashboard: {
+    selectedAudioDeviceId: null,
+    selectedVideoDeviceId: null,
+    selectedScreenSourceId: null,
+  },
+  model: {
+    selectedProviderId: "vllm",
+  },
+  monitor: {
+    resumeOnLaunch: false,
+    lastStartRequest: null,
   },
 };
 
@@ -56,14 +75,47 @@ export class SettingsService {
     return DEFAULT_CONFIG;
   }
 
-  updateVtsConfig(config: VtsConnectionConfig): AppConfig {
+  updateSettings(update: SettingsUpdateRequest): AppConfig {
     const next = appConfigSchema.parse({
       ...this.getSettings(),
-      vts: config,
+      ...update,
     });
 
     this.getStore().set(APP_CONFIG_KEY, next);
     return next;
+  }
+
+  updateVtsConfig(config: VtsConnectionConfig): AppConfig {
+    return this.updateSettings({
+      vts: config,
+    });
+  }
+
+  updateDashboardConfig(config: DashboardConfig): AppConfig {
+    return this.updateSettings({
+      dashboard: config,
+    });
+  }
+
+  updateModelConfig(config: ModelConfig): AppConfig {
+    return this.updateSettings({
+      model: config,
+    });
+  }
+
+  updateMonitorConfig(config: MonitorConfig): AppConfig {
+    return this.updateSettings({
+      monitor: config,
+    });
+  }
+
+  updateMonitorSession(lastStartRequest: MonitorConfig["lastStartRequest"], resumeOnLaunch: boolean): AppConfig {
+    return this.updateSettings({
+      monitor: {
+        lastStartRequest,
+        resumeOnLaunch,
+      },
+    });
   }
 }
 

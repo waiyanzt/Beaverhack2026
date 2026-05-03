@@ -12,6 +12,8 @@ export type ModelMonitorStatus = {
   tickIntervalMs: number;
   windowMs: number;
   inFlight: boolean;
+  activeRequestCount: number;
+  maxInFlightRequests: number;
   tickCount: number;
   skippedTickCount: number;
   lastTickAt: string | null;
