@@ -342,6 +342,7 @@ code {
 .app-shell .field select,
 .capture-dev-shell .field input,
 .capture-dev-shell .field select {
+  width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.7);
