@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { ModelRouterService } from "../../src/main/services/model/model-router.service";
+import { PROVIDER_MOCK, PROVIDER_OPENROUTER } from "../../src/shared/model.types";
 import type { ModelProviderConfig } from "../../src/shared/model.types";
 
 const provider: ModelProviderConfig = {
-  id: "openrouter",
+  id: PROVIDER_OPENROUTER,
   label: "OpenRouter",
   baseUrl: "https://openrouter.ai/api",
   model: "openai/gpt-4o-mini",
@@ -24,7 +25,7 @@ describe("ModelRouterService", () => {
     const router = new ModelRouterService(
       {
         getProviders: () => [provider],
-        getSelectedProviderId: () => "openrouter",
+        getSelectedProviderId: () => PROVIDER_OPENROUTER,
       },
       providerClient as never,
     );
@@ -38,8 +39,8 @@ describe("ModelRouterService", () => {
   it("returns a noop action plan for the mock provider", async () => {
     const router = new ModelRouterService(
       {
-        getProviders: () => [{ ...provider, id: "mock", model: "mock", baseUrl: "http://mock", supportsToolCalling: false, supportsJsonMode: false }],
-        getSelectedProviderId: () => "mock",
+        getProviders: () => [{ ...provider, id: PROVIDER_MOCK, model: "mock", baseUrl: "http://mock", supportsToolCalling: false, supportsJsonMode: false }],
+        getSelectedProviderId: () => PROVIDER_MOCK,
       },
       {
         testConnection: vi.fn(),
@@ -62,8 +63,8 @@ describe("ModelRouterService", () => {
   it("returns provider metadata for monitor requests", async () => {
     const router = new ModelRouterService(
       {
-        getProviders: () => [{ ...provider, id: "mock", model: "mock", baseUrl: "http://mock", supportsToolCalling: false, supportsJsonMode: false }],
-        getSelectedProviderId: () => "mock",
+        getProviders: () => [{ ...provider, id: PROVIDER_MOCK, model: "mock", baseUrl: "http://mock", supportsToolCalling: false, supportsJsonMode: false }],
+        getSelectedProviderId: () => PROVIDER_MOCK,
       },
       {
         testConnection: vi.fn(),
@@ -74,7 +75,7 @@ describe("ModelRouterService", () => {
     const result = await router.requestActionPlan([{ role: "system", content: "test" }]);
 
     expect(result).toMatchObject({
-      providerId: "mock",
+      providerId: PROVIDER_MOCK,
       ok: true,
       status: 200,
     });

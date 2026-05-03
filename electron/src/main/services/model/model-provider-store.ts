@@ -1,4 +1,5 @@
-import type { ModelProviderConfig, ModelProviderId, VllmOptions } from "../../../shared/model.types";
+import type { ModelProviderConfig, ModelProviderId, OpenRouterOptions, VllmOptions } from "../../../shared/model.types";
+import { PROVIDER_OPENROUTER, PROVIDER_VLLM } from "../../../shared/model.types";
 import { settingsService } from "../settings/settings.service";
 
 const vllmOptions: VllmOptions = {
@@ -6,31 +7,69 @@ const vllmOptions: VllmOptions = {
   useAudioInVideo: true,
 };
 
-const providers: ModelProviderConfig[] = [
-  {
-    id: "vllm",
-    label: "vLLM (Nemotron)",
-    baseUrl: "http://100.93.134.64:8000",
-    model: "/tmp/bergejac/models/models--nvidia--Nemotron-3-Nano-Omni-30B-A3B-Reasoning-FP8/snapshots/76955e4cfa2c9a546f5c5f12d869249dcb30d120",
-    apiKey: null,
-    enabled: true,
-    supportsToolCalling: true,
-    supportsJsonMode: true,
-    supportsForcedToolChoice: true,
-    supportsStrictJsonSchema: true,
-    maxTokens: 512,
-    temperature: 0.2,
-    topP: 0.9,
-    vllm: vllmOptions,
-  },
-];
+const openrouterOptions: OpenRouterOptions = {
+  refererUrl: "https://autuber.app",
+  appTitle: "AuTuber",
+};
+
+function buildProviders(): ModelProviderConfig[] {
+  return [
+    {
+      id: PROVIDER_VLLM,
+      label: "vLLM (Nemotron)",
+      baseUrl: "http://100.93.134.64:8000",
+      model: "/tmp/bergejac/models/models--nvidia--Nemotron-3-Nano-Omni-30B-A3B-Reasoning-FP8/snapshots/76955e4cfa2c9a546f5c5f12d869249dcb30d120",
+      apiKey: null,
+      enabled: true,
+      supportsToolCalling: true,
+      supportsJsonMode: true,
+      supportsForcedToolChoice: true,
+      supportsStrictJsonSchema: true,
+      maxTokens: 512,
+      temperature: 0.2,
+      topP: 0.9,
+      vllm: vllmOptions,
+    },
+    {
+      id: PROVIDER_OPENROUTER,
+      label: "OpenRouter (Gemini 3.1 Flash Lite)",
+      baseUrl: "https://openrouter.ai/api",
+      model: "google/gemini-2.5-flash-lite",
+      apiKey: process.env.OPENROUTER_API_KEY ?? null,
+      enabled: true,
+      supportsToolCalling: true,
+      supportsJsonMode: true,
+      supportsForcedToolChoice: true,
+      supportsStrictJsonSchema: true,
+      maxTokens: 512,
+      temperature: 0.2,
+      topP: 0.9,
+      openrouter: openrouterOptions,
+    },
+  ];
+}
 
 export function getModelProviders(): ModelProviderConfig[] {
-  return providers.map((provider) => ({ ...provider }));
+  return buildProviders();
 }
 
 export function getSelectedModelProviderId(): ModelProviderId {
-  return settingsService.getSettings().model.selectedProviderId;
+  const stored = settingsService.getSettings().model.selectedProviderId;
+  const providers = buildProviders();
+  const selected = providers.find((p) => p.id === stored);
+
+  if (selected && selected.enabled) {
+    return stored;
+  }
+
+  const fallback = providers.find((p) => p.enabled);
+  if (fallback) {
+    console.warn(`Selected provider "${stored}" is not available, falling back to "${fallback.id}".`);
+    setSelectedModelProviderId(fallback.id);
+    return fallback.id;
+  }
+
+  return stored;
 }
 
 export function setSelectedModelProviderId(providerId: ModelProviderId): void {

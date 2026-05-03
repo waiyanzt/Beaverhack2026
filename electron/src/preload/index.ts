@@ -72,6 +72,8 @@ const fallbackVtsStatus: VtsStatus = {
   lastError: null,
 };
 
+import { PROVIDER_OPENROUTER } from "../shared/model.types";
+
 const fallbackSettings = {
   vts: fallbackVtsStatus.config,
   dashboard: {
@@ -80,7 +82,7 @@ const fallbackSettings = {
     selectedScreenSourceId: null,
   },
   model: {
-    selectedProviderId: "vllm" as const,
+    selectedProviderId: PROVIDER_OPENROUTER,
   },
   monitor: {
     resumeOnLaunch: false,
@@ -324,7 +326,7 @@ const desktopApi = {
     } catch (error: unknown) {
       console.error("Failed to test model connection:", error);
       return {
-        providerId: "vllm",
+        providerId: PROVIDER_OPENROUTER,
         ok: false,
         status: null,
         message: error instanceof Error ? error.message : "Unable to test connection.",

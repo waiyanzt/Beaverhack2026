@@ -1,4 +1,13 @@
-export type ModelProviderId = "openrouter" | "vllm" | "mock";
+export const PROVIDER_OPENROUTER = "openrouter" as const;
+export const PROVIDER_VLLM = "vllm" as const;
+export const PROVIDER_MOCK = "mock" as const;
+
+export type ModelProviderId = typeof PROVIDER_OPENROUTER | typeof PROVIDER_VLLM | typeof PROVIDER_MOCK;
+
+export interface OpenRouterOptions {
+  refererUrl?: string;
+  appTitle?: string;
+}
 
 export interface ModelProviderConfig {
   id: ModelProviderId;
@@ -15,6 +24,7 @@ export interface ModelProviderConfig {
   temperature?: number;
   topP?: number;
   vllm?: VllmOptions;
+  openrouter?: OpenRouterOptions;
 }
 
 export interface VllmOptions {

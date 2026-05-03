@@ -4,6 +4,7 @@ import type {
   ModelProviderTestResult,
   OpenAICompatibleMessage,
 } from "../../../shared/model.types";
+import { PROVIDER_MOCK, PROVIDER_OPENROUTER, PROVIDER_VLLM } from "../../../shared/model.types";
 import { createId } from "../../utils/ids";
 import { OpenAICompatibleProvider, type OpenAICompatibleProviderResult } from "./openai-compatible.provider";
 
@@ -48,7 +49,7 @@ export class ModelRouterService {
       };
     }
 
-    if (provider.id === "openrouter" || provider.id === "vllm") {
+    if (provider.id === PROVIDER_OPENROUTER || provider.id === PROVIDER_VLLM) {
       const result = await this.openAICompatibleProvider.testConnection(provider);
 
       return {
@@ -98,7 +99,7 @@ export class ModelRouterService {
       };
     }
 
-    if (provider.id === "mock") {
+    if (provider.id === PROVIDER_MOCK) {
       return {
         providerId: provider.id,
         ok: true,

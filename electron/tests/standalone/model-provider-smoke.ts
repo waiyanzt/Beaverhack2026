@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { OpenAICompatibleProvider } from "../../src/main/services/model/openai-compatible.provider";
+import { PROVIDER_OPENROUTER, PROVIDER_VLLM } from "../../src/shared/model.types";
 import type { ModelProviderConfig, OpenAICompatibleMessage } from "../../src/shared/model.types";
 import { loadPrompt } from "../../src/main/prompts/prompt-loader";
 
@@ -12,8 +13,8 @@ const repoRoot = path.resolve(currentDir, "../../../");
 const localVideoPath = path.resolve(repoRoot, "samples/camera-capture-1777772334424.mp4");
 
 async function main(): Promise<void> {
-  const config: ModelProviderConfig = {
-    id: "vllm",
+  const vllmConfig: ModelProviderConfig = {
+    id: PROVIDER_VLLM,
     label: "vLLM (Nemotron)",
     baseUrl: "http://100.93.134.64:8000",
     model: "/tmp/bergejac/models/models--nvidia--Nemotron-3-Nano-Omni-30B-A3B-Reasoning-FP8/snapshots/76955e4cfa2c9a546f5c5f12d869249dcb30d120",
@@ -31,6 +32,26 @@ async function main(): Promise<void> {
       thinkingGracePeriod: 1024,
       enableThinking: true,
       useAudioInVideo: false,
+    },
+  };
+
+  const openrouterConfig: ModelProviderConfig = {
+    id: PROVIDER_OPENROUTER,
+    label: "OpenRouter (Gemini 2.5 Flash Lite)",
+    baseUrl: "https://openrouter.ai/api",
+    model: "google/gemini-3.1-flash-lite-preview",
+    apiKey: process.env.OPENROUTER_API_KEY ?? null,
+    enabled: true,
+    supportsToolCalling: true,
+    supportsJsonMode: true,
+    supportsForcedToolChoice: true,
+    supportsStrictJsonSchema: true,
+    maxTokens: 512,
+    temperature: 0.2,
+    topP: 0.9,
+    openrouter: {
+      refererUrl: "https://autuber.app",
+      appTitle: "AuTuber",
     },
   };
 
@@ -54,8 +75,8 @@ async function main(): Promise<void> {
   const systemPrompt =
     loadPrompt("system").content + "\n\n" + loadPrompt("action-planner").content;
 
-  console.log("Sending structured observation to", config.baseUrl);
-  console.log("Model:", config.model);
+  console.log("Sending structured observation to", vllmConfig.baseUrl);
+  console.log("Model:", vllmConfig.model);
   console.log("---");
 
   const results: Array<{ label: string; ok: boolean }> = [];
@@ -97,7 +118,7 @@ async function main(): Promise<void> {
   console.log("Scenario 1: Enthusiastic greeting");
   console.log("---");
 
-  const result1 = await provider.createActionPlan(config, [
+  const result1 = await provider.createActionPlan(vllmConfig, [
     { role: "system", content: systemPrompt },
     { role: "user", content: JSON.stringify(observation1) },
   ]);
@@ -155,7 +176,7 @@ async function main(): Promise<void> {
   console.log("Scenario 2: Casual gameplay, no special event");
   console.log("---");
 
-  const result2 = await provider.createActionPlan(config, [
+  const result2 = await provider.createActionPlan(vllmConfig, [
     { role: "system", content: systemPrompt },
     { role: "user", content: JSON.stringify(observation2) },
   ]);
@@ -210,7 +231,7 @@ async function main(): Promise<void> {
   console.log("Scenario 3: Exciting moment");
   console.log("---");
 
-  const result3 = await provider.createActionPlan(config, [
+  const result3 = await provider.createActionPlan(vllmConfig, [
     { role: "system", content: systemPrompt },
     { role: "user", content: JSON.stringify(observation3) },
   ]);
@@ -284,7 +305,7 @@ async function main(): Promise<void> {
       },
     ];
 
-    const result4 = await provider.createActionPlan(config, [
+    const result4 = await provider.createActionPlan(vllmConfig, [
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },
     ]);
@@ -303,6 +324,85 @@ async function main(): Promise<void> {
     results.push({ label: "Scenario 4 (video)", ok: result4.ok });
   } else {
     console.log("Scenario 4: Video file not found locally, skipping.");
+    console.log("Expected:", localVideoPath);
+  }
+
+  console.log("\n========================================\n");
+
+  if (videoFileExists) {
+    const videoBuffer = readFileSync(localVideoPath);
+    const videoBase64 = videoBuffer.toString("base64");
+    const videoMimeType = localVideoPath.endsWith(".webm") ? "video/webm" : "video/mp4";
+    const videoDataUrl = `data:${videoMimeType};base64,${videoBase64}`;
+
+    console.log("Scenario 5: OpenRouter video observation");
+    console.log("Base URL:", openrouterConfig.baseUrl);
+    console.log("Model:", openrouterConfig.model);
+    console.log("Video size:", (videoBuffer.length / 1024 / 1024).toFixed(2), "MB");
+    console.log("Data URI length:", (videoDataUrl.length / 1024 / 1024).toFixed(2), "MB");
+    console.log("---");
+
+    const openrouterObservation = {
+      observation: {
+        obs: {
+          connected: true,
+          currentScene: "Gameplay",
+          streaming: true,
+          recording: false,
+          sources: [
+            { name: "Webcam", visible: true },
+            { name: "Gameplay", visible: true },
+          ],
+        },
+        vts: {
+          connected: true,
+          authenticated: true,
+          modelLoaded: true,
+          availableHotkeys: [
+            { id: "wave", name: "Wave" },
+            { id: "laugh", name: "Laugh" },
+            { id: "surprise", name: "Surprise" },
+          ],
+        },
+        transcript: "",
+        timestamp: new Date().toISOString(),
+      },
+      context: {
+        autonomyLevel: "auto_safe",
+        recentActions: [],
+        cooldowns: {},
+      },
+    };
+
+    const openrouterUserContent: OpenAICompatibleMessage["content"] = [
+      { type: "video_url", video_url: { url: videoDataUrl } },
+      {
+        type: "text",
+        text:
+          "The above is a short webcam video from a VTuber stream. Focus on the person's expression, gaze, posture, and whether they seem neutral, happy, tired, surprised, or otherwise emotionally engaged. If the clip does not clearly justify a reaction, return noop. Avoid verbose explanations. Observation data:\n" +
+          JSON.stringify(openrouterObservation),
+      },
+    ];
+
+    const result5 = await provider.createActionPlan(openrouterConfig, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: openrouterUserContent },
+    ]);
+
+    console.log("Status:", result5.status);
+    console.log("OK:", result5.ok);
+
+    if (result5.actionPlan) {
+      console.log("✅ Structured ActionPlan:");
+      console.log(JSON.stringify(result5.actionPlan, null, 2));
+    } else {
+      console.log("❌ No structured action plan. Raw content:");
+      console.log(result5.content);
+    }
+
+    results.push({ label: "Scenario 5 (OpenRouter video)", ok: result5.ok });
+  } else {
+    console.log("Scenario 5: Video file not found locally, skipping OpenRouter test.");
     console.log("Expected:", localVideoPath);
   }
 

@@ -6,6 +6,7 @@ import type {
   OpenAICompatibleTool,
   OpenAICompatibleToolChoice,
 } from "../../../shared/model.types";
+import { PROVIDER_OPENROUTER } from "../../../shared/model.types";
 import { actionPlanSchema } from "../../../shared/schemas/action-plan.schema";
 
 function extractProviderError(rawBody: unknown): string | null {
@@ -546,6 +547,15 @@ export class OpenAICompatibleProvider {
       headers.Authorization = `Bearer ${config.apiKey}`;
     }
 
+    if (config.id === PROVIDER_OPENROUTER && config.openrouter) {
+      if (config.openrouter.refererUrl) {
+        headers["HTTP-Referer"] = config.openrouter.refererUrl;
+      }
+      if (config.openrouter.appTitle) {
+        headers["X-Title"] = config.openrouter.appTitle;
+      }
+    }
+
     console.log(`RAW PROMPT: "${summarizeMessagesForLog(requestMessages)}"`);
 
     const response = await this.client.postJson(`${config.baseUrl}${this.endpointPath}`, request, headers);
@@ -720,6 +730,15 @@ export class OpenAICompatibleProvider {
 
     if (config.apiKey) {
       headers.Authorization = `Bearer ${config.apiKey}`;
+    }
+
+    if (config.id === PROVIDER_OPENROUTER && config.openrouter) {
+      if (config.openrouter.refererUrl) {
+        headers["HTTP-Referer"] = config.openrouter.refererUrl;
+      }
+      if (config.openrouter.appTitle) {
+        headers["X-Title"] = config.openrouter.appTitle;
+      }
     }
 
     console.log(`RAW PROMPT: "${summarizeMessagesForLog(messages)}"`);

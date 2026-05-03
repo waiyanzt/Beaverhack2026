@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { app, Menu, session, type WebContents } from "electron";
 import { registerIpcHandlers, resumePersistedModelMonitor, serviceActivationService } from "./ipc";
 import { createMainWindow } from "./windows/main-window";
