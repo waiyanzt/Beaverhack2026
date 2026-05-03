@@ -240,6 +240,7 @@ Responsibilities:
 - Run `navigator.mediaDevices.getUserMedia`.
 - Run `MediaRecorder`.
 - Sample video frames into canvas.
+- Record short camera/screen video clips.
 - Encode frames as JPEG/PNG data URLs.
 - Send sampled frames/audio chunks to the main process.
 
@@ -499,6 +500,8 @@ export type ObservationEnvelope = {
   capture: {
     cameraFrames: CapturedFrame[];
     screenFrames: CapturedFrame[];
+    cameraClips?: CapturedVideoClip[];
+    screenClips?: CapturedVideoClip[];
     audio: CapturedAudioChunk[];
     transcript?: TranscriptSegment[];
     userText?: string;
@@ -521,6 +524,15 @@ export type CapturedFrame = {
   mimeType: "image/jpeg" | "image/png";
   dataUrl: string;
   detail: "low" | "high";
+};
+
+export type CapturedVideoClip = {
+  id: string;
+  kind: "camera" | "screen";
+  capturedAt: string;
+  durationMs: number;
+  mimeType: string;
+  dataUrl?: string;
 };
 
 export type CapturedAudioChunk = {

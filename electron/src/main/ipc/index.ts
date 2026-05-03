@@ -8,6 +8,7 @@ import {
   setSelectedModelProviderId,
 } from "../services/model/model-provider-store";
 import { registerVtsIpcHandlers } from "./vts.ipc";
+import { registerCaptureIpcHandlers } from "./capture.ipc";
 
 const modelRouter = new ModelRouterService(
   {
@@ -31,6 +32,8 @@ const modelRouter = new ModelRouterService(
 );
 
 export function registerIpcHandlers(): void {
+  registerCaptureIpcHandlers();
+
   ipcMain.handle(IpcChannels.GetAppVersion, () => {
     try {
       return app.getVersion();

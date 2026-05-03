@@ -1,6 +1,6 @@
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "electron-vite";
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   main: {
@@ -19,7 +19,10 @@ export default defineConfig({
     build: {
       outDir: "dist/renderer",
       rollupOptions: {
-        input: "index.html",
+        input: {
+          main: "index.html",
+          hiddenCapture: "hidden-capture.html",
+        },
       },
     },
   },
