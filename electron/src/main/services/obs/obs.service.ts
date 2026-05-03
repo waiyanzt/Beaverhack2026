@@ -27,7 +27,7 @@ export async function obsConnect(host = "localhost", port = 4455): Promise<void>
     console.log("[OBS] Connection closed");
   });
 
-  ws.on("error", (err) => {
+  ws.on("ConnectionError", (err) => {
     console.error("[OBS] WebSocket error:", err);
   });
 

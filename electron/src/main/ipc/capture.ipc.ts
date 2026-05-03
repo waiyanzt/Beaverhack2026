@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -46,15 +46,18 @@ const runFfmpeg = async (args: string[]): Promise<void> => {
 	}
 
 	await new Promise<void>((resolve, reject) => {
-		const child = spawn(ffmpegStatic, args, { stdio: ["ignore", "pipe", "pipe"] });
+		const ffmpegBinary = ffmpegStatic as string;
+		const child: ChildProcessWithoutNullStreams = spawn(ffmpegBinary, args);
 		let stderr = "";
 
-		child.stderr.on("data", (chunk) => {
+		child.stdin.end();
+
+		child.stderr.on("data", (chunk: Buffer) => {
 			stderr += chunk.toString();
 		});
 
 		child.on("error", reject);
-		child.on("close", (code) => {
+		child.on("close", (code: number | null) => {
 			if (code === 0) {
 				resolve();
 				return;
@@ -149,17 +152,16 @@ export function registerCaptureIpcHandlers(): void {
 				sources[0];
 
 			if (!selectedSource) {
-				callback({ video: null, audio: null });
+				callback({});
 				return;
 			}
 
 			callback({
 				video: selectedSource,
-				audio: false,
 			});
 		} catch (error: unknown) {
 			console.error("Failed to resolve display media source:", error);
-			callback({ video: null, audio: null });
+			callback({});
 		}
 	});
 
@@ -253,16 +255,26 @@ export function registerCaptureIpcHandlers(): void {
 				app.getPath("downloads"),
 				`${request.kind}-capture-${clip.timestampMs}.${extension}`,
 			);
-			const ownerWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-			const result = await dialog.showSaveDialog(ownerWindow, {
-				defaultPath,
-				filters: [
-					{
-						name: "MP4 Video",
-						extensions: [extension],
-					},
-				],
-			});
+			const ownerWindow = BrowserWindow.fromWebContents(event.sender);
+			const result = ownerWindow
+				? await dialog.showSaveDialog(ownerWindow, {
+						defaultPath,
+						filters: [
+							{
+								name: "MP4 Video",
+								extensions: [extension],
+							},
+						],
+					})
+				: await dialog.showSaveDialog({
+						defaultPath,
+						filters: [
+							{
+								name: "MP4 Video",
+								extensions: [extension],
+							},
+						],
+					});
 
 			if (result.canceled || !result.filePath) {
 				return { ok: false as const, message: "Export canceled.", canceled: true as const };

@@ -1,17 +1,80 @@
 import { ipcMain } from "electron";
 import { IpcChannels } from "../../shared/channels";
+import {
+  vtsConnectRequestSchema,
+  vtsTriggerHotkeyRequestSchema,
+} from "../../shared/schemas/vts.schema";
+import { vtsService } from "../services/vts/vts.service";
 
 export function registerVtsIpcHandlers(): void {
-  ipcMain.handle(IpcChannels.VtsGetHotkeys, () => {
+  ipcMain.handle(IpcChannels.VtsGetStatus, () => {
     try {
-      return [
-        { hotkeyID: "hotkey-001", name: "Wave", type: "TriggerAnimation" },
-        { hotkeyID: "hotkey-002", name: "Blush", type: "TriggerAnimation" },
-        { hotkeyID: "hotkey-003", name: "Laugh", type: "TriggerAnimation" },
-      ];
+      return { ok: true as const, status: vtsService.getStatus() };
+    } catch (error: unknown) {
+      console.error("Failed to get VTS status:", error);
+      return { ok: false as const, message: "Unable to get VTube Studio status.", status: vtsService.getStatus() };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsConnect, async (_event, input: unknown) => {
+    const parsed = vtsConnectRequestSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return { ok: false as const, message: "Invalid VTube Studio connection settings.", status: vtsService.getStatus() };
+    }
+
+    try {
+      const status = await vtsService.connect(parsed.data);
+      return { ok: true as const, status };
+    } catch (error: unknown) {
+      console.error("Failed to connect to VTube Studio:", error);
+      return { ok: false as const, message: "Unable to connect to VTube Studio.", status: vtsService.getStatus() };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsDisconnect, async () => {
+    try {
+      const status = await vtsService.disconnect();
+      return { ok: true as const, status };
+    } catch (error: unknown) {
+      console.error("Failed to disconnect from VTube Studio:", error);
+      return { ok: false as const, message: "Unable to disconnect from VTube Studio.", status: vtsService.getStatus() };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsAuthenticate, async () => {
+    try {
+      const status = await vtsService.authenticate();
+      return { ok: true as const, status };
+    } catch (error: unknown) {
+      console.error("Failed to authenticate with VTube Studio:", error);
+      return { ok: false as const, message: "Unable to authenticate with VTube Studio.", status: vtsService.getStatus() };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsGetHotkeys, async () => {
+    try {
+      const hotkeys = await vtsService.getHotkeys();
+      return { ok: true as const, hotkeys, status: vtsService.getStatus() };
     } catch (error: unknown) {
       console.error("Failed to get VTS hotkeys:", error);
-      return [];
+      return { ok: false as const, message: "Unable to fetch VTube Studio hotkeys.", hotkeys: [], status: vtsService.getStatus() };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsTriggerHotkey, async (_event, input: unknown) => {
+    const parsed = vtsTriggerHotkeyRequestSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return { ok: false as const, message: "Invalid VTube Studio hotkey request.", status: vtsService.getStatus() };
+    }
+
+    try {
+      const triggeredHotkeyId = await vtsService.triggerHotkey(parsed.data.hotkeyId);
+      return { ok: true as const, status: vtsService.getStatus(), triggeredHotkeyId };
+    } catch (error: unknown) {
+      console.error("Failed to trigger VTS hotkey:", error);
+      return { ok: false as const, message: "Unable to trigger VTube Studio hotkey.", status: vtsService.getStatus() };
     }
   });
 }

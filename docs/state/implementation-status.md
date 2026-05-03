@@ -14,9 +14,9 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 - [~] App launches
 - [ ] User can connect to OBS
-- [ ] User can connect to VTube Studio
-- [ ] User can authenticate VTube Studio plugin
-- [ ] App fetches VTS hotkeys
+- [x] User can connect to VTube Studio
+- [x] User can authenticate VTube Studio plugin
+- [x] App fetches VTS hotkeys
 - [ ] User can configure model provider
 - [ ] User can test model provider connection
 - [~] User can click Analyze Now
@@ -26,7 +26,7 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 - [~] App parses ActionPlan
 - [~] App validates ActionPlan
 - [~] App blocks unsafe actions
-- [ ] App triggers allowed VTS hotkey
+- [x] App triggers allowed VTS hotkey
 - [~] App logs full pipeline result
 - [~] User can review action results in LogViewer
 
@@ -797,4 +797,3 @@ A feature can be marked `[x]` only when:
 - [x] Tests are added or updated for non-trivial logic
 - [x] Relevant docs are updated
 - [x] Feature is verified manually or with tests
-

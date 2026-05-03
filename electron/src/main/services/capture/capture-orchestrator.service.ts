@@ -319,13 +319,13 @@ export class CaptureOrchestratorService {
 			return [];
 		}
 
-		return buffer.getWindow(windowMs, this.clock()).map((frame) => ({
-			id: createId("frame"),
-			kind,
-			capturedAt: toIso(frame.timestampMs),
-			width: frame.width,
-			height: frame.height,
-			mimeType: frame.mimeType,
+			return buffer.getWindow(windowMs, this.clock()).map((frame) => ({
+				id: createId("frame"),
+				kind,
+				capturedAt: toIso(frame.timestampMs),
+				width: frame.width,
+				height: frame.height,
+				mimeType: frame.mimeType as "image/jpeg" | "image/png",
 			dataUrl: encodeDataUrl(frame.mimeType, frame.data),
 			detail: detail ?? "low",
 		}));

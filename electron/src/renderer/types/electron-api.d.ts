@@ -1,9 +1,9 @@
 import type {
 	CaptureAudioPayload,
 	CaptureAudioLevelPayload,
+	CaptureClipPayload,
 	CaptureExportClipRequest,
 	CaptureExportClipResponse,
-	CaptureClipPayload,
 	CaptureControlMessage,
 	CaptureErrorPayload,
 	CaptureFramePayload,
@@ -12,6 +12,13 @@ import type {
 	CaptureStartRequest,
 	CaptureStatus,
 } from "../../shared/types/capture.types";
+import type { VtsConnectionConfig } from "../../shared/types/config.types";
+import type {
+	VtsHotkeysResult,
+	VtsStatusResult,
+	VtsTriggerHotkeyRequest,
+	VtsTriggerHotkeyResult,
+} from "../../shared/types/vts.types";
 
 type CaptureStartResponse =
 	| { ok: true; status: CaptureStatus }
@@ -27,7 +34,12 @@ type CaptureStopResponse =
 
 type DesktopApi = {
 	getAppVersion: () => Promise<string>;
-	getHotkeys: () => Promise<unknown>;
+	vtsGetStatus: () => Promise<VtsStatusResult>;
+	vtsConnect: (config: VtsConnectionConfig) => Promise<VtsStatusResult>;
+	vtsDisconnect: () => Promise<VtsStatusResult>;
+	vtsAuthenticate: () => Promise<VtsStatusResult>;
+	vtsGetHotkeys: () => Promise<VtsHotkeysResult>;
+	vtsTriggerHotkey: (request: VtsTriggerHotkeyRequest) => Promise<VtsTriggerHotkeyResult>;
 	captureStart: (config: CaptureStartRequest) => Promise<CaptureStartResponse>;
 	captureStop: () => Promise<CaptureStopResponse>;
 	captureStatus: () => Promise<CaptureStatusResponse>;

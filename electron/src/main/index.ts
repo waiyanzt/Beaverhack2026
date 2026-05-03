@@ -1,4 +1,4 @@
-import { app, Menu, session, type PermissionRequestHandlerHandlerDetails, type WebContents } from "electron";
+import { app, Menu, session, type WebContents } from "electron";
 import { registerIpcHandlers } from "./ipc";
 import { createMainWindow } from "./windows/main-window";
 import { obsConnect, obsGetStatus } from "./services/obs/obs.service";
@@ -22,7 +22,7 @@ const isTrustedAppOrigin = (requestingUrl: string): boolean => {
 
 const isTrustedMediaRequest = (
   webContents: WebContents,
-  details: PermissionRequestHandlerHandlerDetails | undefined,
+  details: { requestingUrl?: string } | undefined,
 ): boolean => {
   if (!details) {
     return false;
