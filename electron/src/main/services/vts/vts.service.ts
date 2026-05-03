@@ -285,11 +285,14 @@ export class VtsService {
       const availableHotkeys = Array.isArray(responseData.availableHotkeys)
         ? responseData.availableHotkeys
         : [];
+      const previousModelId = this.modelId;
+      const previousModelName = this.modelName;
+      const previousHotkeyHash = this.catalog.hotkeyHash;
 
       this.modelLoaded = modelLoaded;
       this.modelName = this.readOptionalString(responseData, "modelName");
       this.modelId = this.readOptionalString(responseData, "modelID");
-      this.hotkeys = availableHotkeys.map((hotkey) => {
+      const nextHotkeys = availableHotkeys.map((hotkey) => {
         const parsed = vtsHotkeySchema.parse(hotkey);
         return {
           hotkeyID: parsed.hotkeyID,
@@ -299,9 +302,16 @@ export class VtsService {
           file: parsed.file ?? null,
         };
       });
+      const nextHotkeyHash = this.buildHotkeyHash(nextHotkeys);
+      const shouldRegenerateCatalog =
+        this.generatedClassifications.size === 0 ||
+        previousHotkeyHash !== nextHotkeyHash ||
+        previousModelId !== this.modelId ||
+        previousModelName !== this.modelName;
+      this.hotkeys = nextHotkeys;
       this.lastHotkeySyncAtMs = this.clock();
       await this.refreshCatalog({
-        forceRegenerate: true,
+        forceRegenerate: shouldRegenerateCatalog,
       });
 
       return [...this.hotkeys];
@@ -402,14 +412,7 @@ export class VtsService {
       return EMPTY_CATALOG;
     }
 
-    const hotkeyHash = createHash("sha256")
-      .update(
-        hotkeys
-          .map((hotkey) => `${hotkey.hotkeyID}:${this.normalizeCatalogToken(hotkey.name)}`)
-          .sort()
-          .join("|"),
-      )
-      .digest("hex");
+    const hotkeyHash = this.buildHotkeyHash(hotkeys);
     const version = `vts_catalog_${hotkeyHash.slice(0, 12)}`;
     const seenCatalogIds = new Map<string, number>();
 
@@ -474,6 +477,17 @@ export class VtsService {
     }
 
     return hotkey.hotkeyID.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase() || "hotkey";
+  }
+
+  private buildHotkeyHash(hotkeys: VtsHotkey[]): string {
+    return createHash("sha256")
+      .update(
+        hotkeys
+          .map((hotkey) => `${hotkey.hotkeyID}:${this.normalizeCatalogToken(hotkey.name)}`)
+          .sort()
+          .join("|"),
+      )
+      .digest("hex");
   }
 
   private async regenerateClassifications(): Promise<void> {

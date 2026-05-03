@@ -29,6 +29,22 @@ const createBaseContext = (): ModelControlContext => ({
             emoteKind: "expression_reaction",
             autoMode: "safe_auto",
           },
+          {
+            catalogId: "heart_eyes",
+            label: "Heart Eyes",
+            description: "Use for love or adorable heart reactions.",
+            cueLabels: ["love_reaction"],
+            emoteKind: "symbol_effect",
+            autoMode: "safe_auto",
+          },
+          {
+            catalogId: "shock_sign",
+            label: "Shock Sign",
+            description: "Use for clear shocked or surprised expressions.",
+            cueLabels: ["shocked", "surprised"],
+            emoteKind: "symbol_effect",
+            autoMode: "safe_auto",
+          },
         ],
       },
     },
@@ -186,6 +202,77 @@ describe("ActionValidatorService", () => {
 
     expect(reviewed?.status).toBe("blocked");
     expect(reviewed?.reason).toContain("visual evidence");
+  });
+
+  it("blocks heart reactions from smile-only evidence", () => {
+    const validator = new ActionValidatorService(new CooldownService(() => Date.parse("2026-05-03T08:11:50.220Z")));
+    const context = createBaseContext();
+
+    const [reviewed] = validator.reviewActions(
+      [
+        {
+          type: "vts.trigger_hotkey",
+          actionId: "action_bad_heart",
+          catalogId: "heart_eyes",
+          catalogVersion: "vts_catalog_demo",
+          confidence: 0.96,
+          visualEvidence: "The person is smiling widely with braces visible.",
+          reason: "A big smile is visible.",
+        },
+      ],
+      context,
+      false,
+    );
+
+    expect(reviewed?.status).toBe("blocked");
+    expect(reviewed?.reason).toContain("smile-only evidence");
+  });
+
+  it("blocks shock reactions from neutral or smile evidence", () => {
+    const validator = new ActionValidatorService(new CooldownService(() => Date.parse("2026-05-03T08:11:50.220Z")));
+    const context = createBaseContext();
+
+    const [reviewed] = validator.reviewActions(
+      [
+        {
+          type: "vts.trigger_hotkey",
+          actionId: "action_bad_shock",
+          catalogId: "shock_sign",
+          catalogVersion: "vts_catalog_demo",
+          confidence: 0.96,
+          visualEvidence: "The person has a neutral expression with eyes open.",
+          reason: "Visible neutral expression matches shock cue.",
+        },
+      ],
+      context,
+      false,
+    );
+
+    expect(reviewed?.status).toBe("blocked");
+    expect(reviewed?.reason).toContain("neutral or smiling");
+  });
+
+  it("allows shock reactions with open mouth and widened eyes evidence", () => {
+    const validator = new ActionValidatorService(new CooldownService(() => Date.parse("2026-05-03T08:11:50.220Z")));
+    const context = createBaseContext();
+
+    const [reviewed] = validator.reviewActions(
+      [
+        {
+          type: "vts.trigger_hotkey",
+          actionId: "action_good_shock",
+          catalogId: "shock_sign",
+          catalogVersion: "vts_catalog_demo",
+          confidence: 0.96,
+          visualEvidence: "Open mouth and widened eyes are clearly visible.",
+          reason: "The current frame shows open mouth plus widened eyes.",
+        },
+      ],
+      context,
+      false,
+    );
+
+    expect(reviewed?.status).toBe("approved");
   });
 
   it("blocks noop reasons that clearly support an available automation action", () => {

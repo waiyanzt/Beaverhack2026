@@ -98,7 +98,7 @@ export function buildHeuristicVtsClassification(hotkey: VtsHotkey): VtsGenerated
   }
 
   if (matchesAny(normalized, ["heart", "love"])) {
-    return { cueLabels: ["love_reaction"], emoteKind: "symbol_effect", autoMode: "safe_auto", confidence: 0.78, source: "heuristic" };
+    return { cueLabels: ["love_reaction"], emoteKind: "symbol_effect", autoMode: "suggest_only", confidence: 0.78, source: "heuristic" };
   }
 
   if (matchesAny(normalized, ["sleep", "yawn", "tired"])) {
@@ -153,7 +153,15 @@ export class VtsCatalogGeneratorService {
         return this.buildHeuristicMap(hotkeys);
       }
 
+      if (response.finishReason === "length") {
+        return this.buildHeuristicMap(hotkeys);
+      }
+
       const parsed = classificationResponseSchema.parse(JSON.parse(stripMarkdownCodeBlocks(response.content)));
+      if (parsed.items.length !== hotkeys.length) {
+        return this.buildHeuristicMap(hotkeys);
+      }
+
       return this.normalizeModelItems(hotkeys, parsed.items);
     } catch {
       return this.buildHeuristicMap(hotkeys);
@@ -190,11 +198,15 @@ export class VtsCatalogGeneratorService {
 
     for (const hotkey of hotkeys) {
       const item = byId.get(hotkey.hotkeyID);
+      const normalizedName = hotkey.name.toLowerCase();
+      const shouldDemoteLoveReaction = item
+        ? item.cueLabels.includes("love_reaction") || matchesAny(normalizedName, ["heart", "love"])
+        : false;
       result[hotkey.hotkeyID] = item
         ? {
             cueLabels: item.cueLabels,
             emoteKind: item.emoteKind,
-            autoMode: item.autoMode,
+            autoMode: shouldDemoteLoveReaction && item.autoMode === "safe_auto" ? "suggest_only" : item.autoMode,
             confidence: item.confidence,
             source: "model",
           }

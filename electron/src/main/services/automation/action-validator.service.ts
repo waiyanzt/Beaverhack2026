@@ -126,6 +126,15 @@ export class ActionValidatorService {
         };
       }
 
+      const evidenceConflict = this.getEvidenceConflictReason(action, catalogItem);
+      if (evidenceConflict) {
+        return {
+          action,
+          status: "blocked",
+          reason: evidenceConflict,
+        };
+      }
+
       if (this.wasRecentlyTriggered(action, modelContext)) {
         return {
           action,
@@ -233,5 +242,42 @@ export class ActionValidatorService {
   private containsUncertainty(value: string): boolean {
     const normalized = value.toLowerCase();
     return UNCERTAIN_ACTION_TERMS.some((term) => normalized.includes(term));
+  }
+
+  private getEvidenceConflictReason(
+    action: Extract<LocalAction, { type: "vts.trigger_hotkey" }>,
+    catalogItem: ModelControlContext["services"]["vts"]["automationCatalog"]["candidates"][number],
+  ): string | null {
+    const evidence = `${action.reason} ${action.visualEvidence ?? ""}`.toLowerCase();
+    const label = `${catalogItem.catalogId} ${catalogItem.label} ${catalogItem.description}`.toLowerCase();
+    const cueLabels = catalogItem.cueLabels;
+
+    if (cueLabels.includes("love_reaction") || label.includes("heart") || label.includes("love")) {
+      const hasLoveEvidence = this.includesAny(evidence, ["heart", "love", "cute", "adorable", "aww"]);
+      const onlySmileEvidence = this.includesAny(evidence, ["smile", "smiling", "happy", "braces", "grin"]) && !hasLoveEvidence;
+
+      if (onlySmileEvidence) {
+        return "Love/heart reactions require love, cute, adorable, or visible heart evidence; smile-only evidence is blocked.";
+      }
+    }
+
+    if (cueLabels.includes("shocked") || cueLabels.includes("surprised") || label.includes("shock") || label.includes("surprise")) {
+      if (this.includesAny(evidence, ["neutral", "smile", "smiling", "happy", "broadly", "grin"])) {
+        return "Shock/surprise reactions cannot trigger from neutral or smiling evidence.";
+      }
+
+      const hasOpenMouth = this.includesAny(evidence, ["open mouth", "mouth open", "jaw drop", "jaw dropped"]);
+      const hasEyeOrBrowEvidence = this.includesAny(evidence, ["wide eyes", "widened eyes", "eyes wide", "raised brows", "raised eyebrows"]);
+
+      if (!hasOpenMouth || !hasEyeOrBrowEvidence) {
+        return "Shock/surprise reactions require strong evidence such as open mouth plus widened eyes or raised brows.";
+      }
+    }
+
+    return null;
+  }
+
+  private includesAny(value: string, terms: string[]): boolean {
+    return terms.some((term) => value.includes(term));
   }
 }

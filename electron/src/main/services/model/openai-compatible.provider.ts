@@ -55,6 +55,7 @@ export interface OpenAICompatibleProviderResult {
   content: string;
   actionPlan?: unknown;
   toolCalls?: Array<{ id: string; name: string; arguments: string }>;
+  finishReason?: string | null;
   usage?: {
     promptTokens: number | null;
     completionTokens: number | null;
@@ -170,10 +171,6 @@ function buildActionProperties(): Record<string, unknown> {
     catalogVersion: {
       type: "string",
       description: "For vts.trigger_hotkey: the current services.vts.automationCatalog.version value.",
-    },
-    hotkeyId: {
-      type: "string",
-      description: "Deprecated fallback for vts.trigger_hotkey. Prefer catalogId and catalogVersion instead of choosing raw VTS hotkey IDs directly.",
     },
     intensity: {
       type: "number",
@@ -655,6 +652,7 @@ export class OpenAICompatibleProvider {
           name: tc.function.name,
           arguments: tc.function.arguments,
         })),
+        finishReason: choice?.finish_reason ?? null,
         usage,
       };
     }
@@ -677,6 +675,7 @@ export class OpenAICompatibleProvider {
             status: response.status,
             content: stripped,
             actionPlan: validated.data,
+            finishReason: choice?.finish_reason ?? null,
             usage,
           };
         }
@@ -699,6 +698,7 @@ export class OpenAICompatibleProvider {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
       content: content ?? "No response content.",
+      finishReason: choice?.finish_reason ?? null,
       usage,
     };
   }
@@ -783,6 +783,7 @@ export class OpenAICompatibleProvider {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
       content: parsed.data.choices?.[0]?.message?.content ?? "",
+      finishReason: parsed.data.choices?.[0]?.finish_reason ?? null,
       usage,
     };
   }

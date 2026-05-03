@@ -60,8 +60,14 @@ Noop decisions are also represented in the compact `recentActions` history. This
   - the candidate is classified as `safe_auto`
   - the action includes confidence of at least `0.88`
   - the action includes concrete visual evidence from the current media
+  - the action does not include conflicting raw hotkey fields or extra fields outside the action schema
+  - the evidence is compatible with deterministic cue rules for sensitive reactions such as love/heart and shock/surprise
   - the action is not cooling down or repeat-suppressed
 - Live latest-frame automation intentionally uses a high trigger threshold. Ambiguous, subtle, audio-only, or ordinary speaking cues should return `noop`; random or low-confidence emote guesses are blocked locally even if the model names a valid safe-auto catalog item.
+- Empty model action arrays are normalized to an explicit `noop`, and model-suggested next tick delays below 500ms are clamped before use.
+- VTS hotkey classification is cached by loaded model and hotkey hash. Background VTS refreshes should not regenerate classifications unless the loaded model changes, the hotkey list hash changes, or no cached classifications exist.
+- Truncated or incomplete classifier output falls back to heuristic classifications. `finish_reason: "length"`, invalid JSON, schema validation failure, or an output item count mismatch all invalidate the classifier result.
+- Love/heart reactions are demoted out of `safe_auto` by default. A broad smile, happy face, or braces-only evidence must not trigger a love reaction automatically.
 - `noop` is now blocked when its reason clearly argues for one of the currently available safe-auto catalog actions. This is a guard against plans that detect a cue correctly but still self-suppress.
 - When an executed VTS catalog entry is marked locally as not auto-deactivating, `ActionExecutorService` schedules a follow-up trigger of the same underlying hotkey after the configured delay to turn that state back off without asking the model to do it.
 - Raw hotkey IDs are still available for manual operator testing, but live automation does not trust the model to choose them directly.

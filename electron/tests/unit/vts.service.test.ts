@@ -557,4 +557,90 @@ describe("VtsService", () => {
       effectiveSource: "heuristic",
     });
   });
+
+  it("does not regenerate hotkey classifications when model and hotkey hash are unchanged", async () => {
+    const { VtsService } = await import("../../src/main/services/vts/vts.service");
+    const generate = vi.fn().mockResolvedValue({
+      wave: {
+        cueLabels: ["greeting", "wave"],
+        emoteKind: "body_motion",
+        autoMode: "suggest_only",
+        confidence: 0.9,
+        source: "model",
+      },
+    });
+
+    const service = new VtsService({
+      createSocket: () =>
+        new MockSocket((request) => {
+          const requestID = String(request.requestID);
+          const messageType = String(request.messageType);
+
+          if (messageType === "AuthenticationTokenRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationTokenResponse",
+              data: {
+                authenticationToken: "token-123",
+              },
+            };
+          }
+
+          if (messageType === "AuthenticationRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationResponse",
+              data: {
+                authenticated: true,
+                reason: "ok",
+              },
+            };
+          }
+
+          if (messageType === "HotkeysInCurrentModelRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "HotkeysInCurrentModelResponse",
+              data: {
+                modelLoaded: true,
+                modelName: "Demo Model",
+                modelID: "model-1",
+                availableHotkeys: [
+                  {
+                    hotkeyID: "wave",
+                    name: "Wave",
+                    type: "TriggerAnimation",
+                    description: "Wave animation",
+                    file: "wave.motion3.json",
+                  },
+                ],
+              },
+            };
+          }
+
+          throw new Error(`Unhandled message type: ${messageType}`);
+        }) as never,
+      settingsService: {
+        getSettings: () => config,
+        updateVtsConfig: (nextConfig) => ({
+          ...config,
+          vts: nextConfig,
+        }),
+        updateVtsCatalogOverrides: () => config,
+      },
+    });
+    service.setCatalogGenerator({ generate });
+
+    await service.connect(config.vts);
+    await service.authenticate();
+    await service.refreshCatalogIfStale(0);
+
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
 });

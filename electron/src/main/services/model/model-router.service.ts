@@ -18,6 +18,7 @@ export interface ModelActionPlanResponse {
   status: number | null;
   content: string;
   actionPlan?: unknown;
+  finishReason?: string | null;
   usage?: OpenAICompatibleProviderResult["usage"];
 }
 
@@ -26,6 +27,7 @@ export interface ModelChatResponse {
   ok: boolean;
   status: number | null;
   content: string;
+  finishReason?: string | null;
   usage?: OpenAICompatibleProviderResult["usage"];
 }
 
@@ -147,6 +149,7 @@ export class ModelRouterService {
       status: result.status,
       content: result.content,
       actionPlan: result.actionPlan,
+      finishReason: result.finishReason,
       usage: result.usage,
     };
   }
@@ -188,6 +191,7 @@ export class ModelRouterService {
       ok: result.ok,
       status: result.status,
       content: result.content,
+      finishReason: result.finishReason,
       usage: result.usage,
     };
   }
