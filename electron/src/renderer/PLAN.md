@@ -39,7 +39,7 @@ Build the Hotkey Mapper panel: a UI for creating and managing mappings from trig
 - No hardcoded secrets, no direct IPC imports (use window.electronAPI only)
 
 ### Task 3: Integrate HotkeyMapper into App.tsx
-**Status**: pending
+**Status**: done
 **Goal**: Replace the placeholder App.tsx with a tab-navigated shell that shows the HotkeyMapper panel as the active tab.
 **Depends on**: Task 2
 **Details**:
