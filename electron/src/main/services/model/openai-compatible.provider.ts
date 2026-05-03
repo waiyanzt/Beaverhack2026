@@ -6,7 +6,7 @@ import type {
   OpenAICompatibleTool,
   OpenAICompatibleToolChoice,
 } from "../../../shared/model.types";
-import { actionPlanSchema } from "../../../shared/schemas/action-plan.schema";
+import { actionPlanSchema, type ActionPlan, type LocalAction, type NoopAction } from "../../../shared/schemas/action-plan.schema";
 import { VTS_CUE_LABEL_VALUES } from "../../../shared/vts-cue-labels";
 
 function extractProviderError(rawBody: unknown): string | null {
@@ -139,6 +139,112 @@ function logModelResponse(label: string, status: number, body: string): void {
       body: parseModelResponseForLog(body),
     })}`,
   );
+}
+
+function createFallbackActionPlan(reason: string): ActionPlan {
+  return {
+    schemaVersion: "2026-05-02",
+    tickId: `tick_model_fallback_${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    response: {
+      text: "No valid model action plan was produced.",
+      audioTranscript: "[not sent]",
+      confidence: 0,
+      visibleToUser: false,
+    },
+    actions: [
+      {
+        type: "noop",
+        actionId: `noop_model_fallback_${Date.now()}`,
+        reason,
+      },
+    ],
+    safety: {
+      riskLevel: "low",
+      requiresConfirmation: false,
+      reason: "Fallback noop is safe.",
+    },
+    nextTick: {
+      suggestedDelayMs: 1000,
+      priority: "normal",
+    },
+  };
+}
+
+function fallbackProviderResult(status: number, reason: string, usage?: OpenAICompatibleProviderResult["usage"]): OpenAICompatibleProviderResult {
+  const fallbackPlan = createFallbackActionPlan(reason);
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    content: JSON.stringify(fallbackPlan, null, 2),
+    actionPlan: fallbackPlan,
+    finishReason: "fallback",
+    usage,
+  };
+}
+
+function normalizeActionPlanInput(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const plan = value as Record<string, unknown>;
+  const rawActions = Array.isArray(plan.actions) ? plan.actions : [];
+
+  return {
+    ...plan,
+    schemaVersion: "2026-05-02",
+    tickId: typeof plan.tickId === "string" ? plan.tickId : `tick_model_${Date.now()}`,
+    createdAt: typeof plan.createdAt === "string" ? plan.createdAt : new Date().toISOString(),
+    actions: rawActions.length > 0
+      ? rawActions.map((action) => normalizeActionInput(action))
+      : [
+          {
+            type: "noop",
+            actionId: `noop_empty_actions_${Date.now()}`,
+            reason: "Model returned no actions; normalized to noop.",
+          },
+        ],
+    debug: undefined,
+  };
+}
+
+function normalizeActionInput(action: unknown): unknown {
+  if (!action || typeof action !== "object" || Array.isArray(action)) {
+    return action;
+  }
+
+  const record = action as Record<string, unknown>;
+  if (record.type === "noop") {
+    return {
+      type: "noop",
+      actionId: typeof record.actionId === "string" ? record.actionId : `noop_${Date.now()}`,
+      reason: typeof record.reason === "string" ? truncateForModelContract(record.reason, 120) : "No action needed.",
+    } satisfies NoopAction;
+  }
+
+  if (record.type === "vts.trigger_hotkey") {
+    return {
+      type: "vts.trigger_hotkey",
+      actionId: record.actionId,
+      catalogId: record.catalogId,
+      catalogVersion: record.catalogVersion,
+      hotkeyId: record.hotkeyId,
+      cueLabels: record.cueLabels,
+      intensity: record.intensity,
+      confidence: record.confidence,
+      visualEvidence: typeof record.visualEvidence === "string" ? truncateForModelContract(record.visualEvidence, 160) : record.visualEvidence,
+      reason: typeof record.reason === "string" ? truncateForModelContract(record.reason, 120) : record.reason,
+      cooldownMs: record.cooldownMs,
+    } satisfies Partial<Extract<LocalAction, { type: "vts.trigger_hotkey" }>>;
+  }
+
+  return record;
+}
+
+function truncateForModelContract(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : value.slice(0, maxLength).trimEnd();
 }
 
 function buildActionProperties(): Record<string, unknown> {
@@ -618,28 +724,30 @@ export class OpenAICompatibleProvider {
         };
       }
 
+      if (choice?.finish_reason === "length") {
+        return fallbackProviderResult(
+          response.status,
+          "Model output was truncated before tool arguments completed.",
+          usage,
+        );
+      }
+
       let actionPlanJson: unknown;
 
       try {
         actionPlanJson = JSON.parse(toolCall.function.arguments) as unknown;
       } catch {
-        return {
-          ok: false,
-          status: response.status,
-          content: "Tool call arguments are not valid JSON.",
-          usage,
-        };
+        return fallbackProviderResult(response.status, "Tool call arguments are not valid JSON.", usage);
       }
 
-      const validated = actionPlanSchema.safeParse(actionPlanJson);
+      const validated = actionPlanSchema.safeParse(normalizeActionPlanInput(actionPlanJson));
 
       if (!validated.success) {
-        return {
-          ok: false,
-          status: response.status,
-          content: `Action plan validation failed: ${validated.error.message}`,
+        return fallbackProviderResult(
+          response.status,
+          `Action plan validation failed: ${validated.error.message}`,
           usage,
-        };
+        );
       }
 
       return {
@@ -667,7 +775,7 @@ export class OpenAICompatibleProvider {
 
       try {
         const jsonContent = JSON.parse(stripped) as unknown;
-        const validated = actionPlanSchema.safeParse(jsonContent);
+        const validated = actionPlanSchema.safeParse(normalizeActionPlanInput(jsonContent));
 
         if (validated.success) {
           return {

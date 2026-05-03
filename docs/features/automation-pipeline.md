@@ -68,6 +68,8 @@ Noop decisions are also represented in the compact `recentActions` history. This
 - Live model-generated VTS actions should return cue labels rather than catalog IDs. Catalog IDs are added only by local deterministic cue-label resolution after parsing.
 - Live latest-frame automation intentionally uses a high trigger threshold. Ambiguous, subtle, audio-only, or ordinary speaking cues should return `noop`; random or low-confidence emote guesses are blocked locally even if the model names a valid safe-auto catalog item.
 - Empty model action arrays are normalized to an explicit `noop`, and model-suggested next tick delays below 500ms are clamped before use.
+- Truncated or invalid action-plan tool output is converted to a safe fallback `noop` instead of failing the live tick. This includes `finish_reason: "length"`, invalid tool-call JSON, and schema validation failure after normalization.
+- Provider-side normalization strips VTS-only fields from `noop`, fills app-owned metadata (`schemaVersion`, `tickId`, `createdAt`), removes model `debug`, and truncates long model reason/evidence strings before schema validation.
 - VTS hotkey classification is cached by loaded model and hotkey hash. Background VTS refreshes should not regenerate classifications unless the loaded model changes, the hotkey list hash changes, or no cached classifications exist.
 - Truncated or incomplete classifier output falls back to heuristic classifications. `finish_reason: "length"`, invalid JSON, schema validation failure, or an output item count mismatch all invalidate the classifier result.
 - Love/heart reactions are demoted out of `safe_auto` by default. A broad smile, happy face, or braces-only evidence must not trigger a love reaction automatically.

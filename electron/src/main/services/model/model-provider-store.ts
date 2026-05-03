@@ -18,7 +18,7 @@ const providers: ModelProviderConfig[] = [
     supportsJsonMode: true,
     supportsForcedToolChoice: true,
     supportsStrictJsonSchema: true,
-    maxTokens: 384,
+    maxTokens: 768,
     temperature: 0.2,
     topP: 0.9,
     vllm: vllmOptions,
