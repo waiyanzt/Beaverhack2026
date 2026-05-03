@@ -22,7 +22,8 @@ The implemented flow is:
 5. Renderer can fetch current-model hotkeys through `vts:get-hotkeys`.
 6. Renderer can fetch and regenerate the current catalog through `vts:get-catalog` and `vts:refresh-catalog`.
 7. Renderer can persist or clear per-hotkey overrides through `vts:update-catalog-override`.
-8. Renderer can manually test a hotkey through `vts:trigger-hotkey`.
+8. Renderer can create, update, and remove cue-label definitions through `vts:update-cue-labels`.
+9. Renderer can manually test a hotkey through `vts:trigger-hotkey`.
 
 ## Runtime Contracts
 
@@ -36,6 +37,7 @@ Implemented IPC channels:
 - `vts:get-catalog`
 - `vts:refresh-catalog`
 - `vts:update-catalog-override`
+- `vts:update-cue-labels`
 - `vts:trigger-hotkey`
 
 All VTS IPC handlers validate renderer input with Zod and return typed success/error results without exposing secrets.
@@ -98,6 +100,7 @@ The automation catalog is regenerated from the current raw hotkey list. The gene
 - the current underlying `hotkeyId`
 - the raw hotkey name and description
 - generated cue labels
+- the current operator-managed cue-label definitions
 - generated emote kind
 - generated auto mode
 - generated confidence
@@ -111,6 +114,7 @@ The renderer `VTS Catalog` tab includes a management surface where the operator 
 - refresh current model hotkeys
 - force-regenerate catalog classifications from the current hotkey list
 - inspect generated cue labels, emote kind, auto mode, and confidence for each hotkey
+- create, update, and remove cue-label definitions
 - override cue labels, emote kind, auto mode, confidence, and deactivation behavior for any individual hotkey
 - clear an override to return that hotkey to generated behavior
 - manually test any raw hotkey
@@ -133,7 +137,7 @@ That means AuTuber will locally retrigger the same hotkey after five seconds to 
 
 This policy is local app behavior only. The live model does not see or choose it. The model still returns only `catalogId`; the Electron main process decides whether a follow-up cleanup trigger is needed.
 
-Only effective `safe_auto` entries are sent to the model as live automation candidates. Raw VTS hotkey IDs stay in the main process; the loop prompt receives the current `catalogId`, label, description, cue labels, emote kind, and catalog version.
+Live prompts send only cue-label IDs that are currently used by effective `safe_auto` catalog entries. Labels that exist in settings but are not mapped to a safe-auto emote are omitted, so the model cannot choose unmapped reactions. Raw VTS hotkey IDs, catalog IDs, hotkey names, and catalog candidates stay in the main process for live automation.
 
 During live automation ticks, the model no longer receives full prior VTS action-plan reasoning as short-term memory. Instead it gets compact recent action and cooldown summaries so cooldown interpretation stays local to the app validator/executor layer.
 

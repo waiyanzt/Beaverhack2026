@@ -20,6 +20,7 @@ export const IpcChannels = {
   VtsGetCatalog: "vts:get-catalog",
   VtsRefreshCatalog: "vts:refresh-catalog",
   VtsUpdateCatalogOverride: "vts:update-catalog-override",
+  VtsUpdateCueLabels: "vts:update-cue-labels",
   VtsTriggerHotkey: "vts:trigger-hotkey",
   CaptureStart: "capture:start",
   CaptureStop: "capture:stop",

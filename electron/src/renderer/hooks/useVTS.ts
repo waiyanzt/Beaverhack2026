@@ -3,6 +3,7 @@ import type { VtsConnectionConfig } from "../../shared/types/config.types";
 import type {
   VtsCatalogOverride,
   VtsCatalogSummary,
+  VtsCueLabelDefinition,
   VtsHotkey,
   VtsStatus,
 } from "../../shared/types/vts.types";
@@ -29,6 +30,7 @@ interface UseVtsReturn {
   refreshHotkeys: () => Promise<void>;
   refreshCatalog: (forceRegenerate?: boolean) => Promise<void>;
   updateCatalogOverride: (hotkeyId: string, override: VtsCatalogOverride | null) => Promise<void>;
+  updateCueLabels: (cueLabels: VtsCueLabelDefinition[]) => Promise<void>;
   triggerHotkey: (hotkeyId: string) => Promise<void>;
 }
 
@@ -155,6 +157,19 @@ export function useVTS(): UseVtsReturn {
     }
   }, []);
 
+  const updateCueLabels = useCallback(async (cueLabels: VtsCueLabelDefinition[]) => {
+    setBusyAction("refresh-catalog");
+
+    try {
+      const response = await window.desktop.vtsUpdateCueLabels({ cueLabels });
+      setStatus(response.status);
+      setCatalog(response.catalog);
+      setError(response.ok ? null : response.message);
+    } finally {
+      setBusyAction(null);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -210,6 +225,7 @@ export function useVTS(): UseVtsReturn {
     refreshHotkeys,
     refreshCatalog,
     updateCatalogOverride,
+    updateCueLabels,
     triggerHotkey,
   };
 }

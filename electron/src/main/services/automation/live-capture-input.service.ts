@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { OpenAICompatibleMessagePart } from "../../../shared/model.types";
-import { VTS_CUE_LABEL_VALUES } from "../../../shared/vts-cue-labels";
+import type { VtsCueLabel } from "../../../shared/types/vts.types";
 import { encodeDataUrl } from "../../utils/base64";
 import { convertVideoAndAudioClipsToMp4, convertVideoClipToMp4 } from "../../utils/media-conversion";
 
@@ -46,9 +46,13 @@ export class LiveCaptureInputService {
 
   public constructor(private readonly captureProvider: LiveCaptureProvider) {}
 
-  public async buildPromptInput(windowMs: number, mode: LiveCaptureInputMode = "clip"): Promise<LiveCapturePromptInput> {
+  public async buildPromptInput(
+    windowMs: number,
+    mode: LiveCaptureInputMode = "clip",
+    allowedCueLabels: VtsCueLabel[] = [],
+  ): Promise<LiveCapturePromptInput> {
     if (mode === "latest_frame") {
-      return this.buildLatestFramePromptInput(windowMs);
+      return this.buildLatestFramePromptInput(windowMs, allowedCueLabels);
     }
 
     const cameraClip = this.getFreshRawClip("camera", windowMs);
@@ -67,6 +71,7 @@ export class LiveCaptureInputService {
         "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
         "Do not use audio to infer visual appearance such as hair, beard, room, posture, or whether a person is visible.",
         "When choosing a VTS reaction, choose only cueLabels from capture.allowedCueLabels.",
+        "If capture.allowedCueLabels is empty, no VTS reaction is currently mapped; return noop.",
         "Return vts.trigger_hotkey only with cueLabels, confidence, visualEvidence, actionId, and reason. Do not return catalogId, catalogVersion, hotkeyId, hotkey names, or raw tool names.",
         "For vts.trigger_hotkey, confidence must be at least 0.88 and visualEvidence must name concrete evidence in this current clip.",
         "If the evidence is even slightly ambiguous, return noop instead of guessing.",
@@ -75,7 +80,7 @@ export class LiveCaptureInputService {
       capture: {
         windowMs,
         layout: "single_fresh_webcam_mp4",
-        allowedCueLabels: VTS_CUE_LABEL_VALUES,
+        allowedCueLabels,
         camera: this.toRawClipSummary(cameraClip),
         audio: {
           ...this.toRawClipSummary(audioClip),
@@ -111,7 +116,7 @@ export class LiveCaptureInputService {
     };
   }
 
-  private buildLatestFramePromptInput(windowMs: number): LiveCapturePromptInput {
+  private buildLatestFramePromptInput(windowMs: number, allowedCueLabels: VtsCueLabel[]): LiveCapturePromptInput {
     const cameraFrame = this.getFreshRawFrame("camera", windowMs);
 
     if (!cameraFrame) {
@@ -126,6 +131,7 @@ export class LiveCaptureInputService {
         "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible in this frame.",
         "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
         "When choosing a VTS reaction, choose only cueLabels from capture.allowedCueLabels.",
+        "If capture.allowedCueLabels is empty, no VTS reaction is currently mapped; return noop.",
         "Return vts.trigger_hotkey only with cueLabels, confidence, visualEvidence, actionId, and reason. Do not return catalogId, catalogVersion, hotkeyId, hotkey names, or raw tool names.",
         "For vts.trigger_hotkey, include confidence and visualEvidence. confidence must be at least 0.88 and visualEvidence must name concrete evidence visible in this exact frame.",
         "Use a high bar: trigger only for unmistakable visible cues like a clear wave, obvious laugh/smile expression, or strong surprise pose.",
@@ -136,7 +142,7 @@ export class LiveCaptureInputService {
       capture: {
         windowMs,
         layout: "single_latest_webcam_frame",
-        allowedCueLabels: VTS_CUE_LABEL_VALUES,
+        allowedCueLabels,
         camera: this.toRawFrameSummary(cameraFrame),
         audio: {
           available: false,

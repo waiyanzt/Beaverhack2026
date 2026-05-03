@@ -24,3 +24,14 @@ export const VTS_CUE_LABEL_VALUES = [
   "manual_request",
   "unknown",
 ] as const;
+
+export const DEFAULT_VTS_CUE_LABELS = VTS_CUE_LABEL_VALUES.map((id) => ({
+  id,
+  name: id
+    .split("_")
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" "),
+  description: "",
+}));
+
+export const RESERVED_VTS_CUE_LABEL_VALUES = ["idle", "manual_request", "unknown"] as const;

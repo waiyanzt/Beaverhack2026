@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { modelMonitorStartRequestSchema } from "./model-monitor.schema";
-import type { VtsCueLabel, VtsEmoteKind } from "../types/vts.types";
+import { DEFAULT_VTS_CUE_LABELS } from "../vts-cue-labels";
+import type { VtsEmoteKind } from "../types/vts.types";
 
 export const vtsConnectionConfigSchema = z
   .object({
@@ -32,32 +33,38 @@ export const monitorConfigSchema = z
   })
   .strict();
 
-const vtsCueLabelValues = [
-  "greeting",
-  "wave",
-  "happy",
-  "excited",
-  "laughing",
-  "evil_laugh",
-  "smug",
-  "angry",
-  "frustrated",
-  "shocked",
-  "surprised",
-  "sad",
-  "crying",
-  "cute_reaction",
-  "love_reaction",
-  "confused",
-  "embarrassed",
-  "sleepy",
-  "dramatic_moment",
-  "magic_moment",
-  "hype_moment",
-  "idle",
-  "manual_request",
-  "unknown",
-] as const satisfies readonly VtsCueLabel[];
+export const vtsCueLabelIdSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9_-]{0,63}$/, "Cue label IDs must use lowercase letters, numbers, underscores, or hyphens.");
+
+export const vtsCueLabelDefinitionSchema = z
+  .object({
+    id: vtsCueLabelIdSchema,
+    name: z.string().trim().min(1).max(80),
+    description: z.string().trim().max(240).default(""),
+  })
+  .strict();
+
+export const vtsCueLabelsSchema = z
+  .array(vtsCueLabelDefinitionSchema)
+  .min(1)
+  .max(80)
+  .superRefine((labels, context) => {
+    const seen = new Set<string>();
+
+    for (const label of labels) {
+      if (seen.has(label.id)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate cue label ID "${label.id}".`,
+        });
+      }
+
+      seen.add(label.id);
+    }
+  });
 
 const vtsEmoteKindValues = [
   "expression_reaction",
@@ -72,7 +79,7 @@ const vtsEmoteKindValues = [
 
 export const vtsCatalogOverrideSchema = z
   .object({
-    cueLabels: z.array(z.enum(vtsCueLabelValues)).min(1),
+    cueLabels: z.array(vtsCueLabelIdSchema).min(1),
     emoteKind: z.enum(vtsEmoteKindValues),
     autoMode: z.enum(["safe_auto", "suggest_only", "manual_only"]),
     confidence: z.number().min(0).max(1),
@@ -84,6 +91,7 @@ export const vtsCatalogOverrideSchema = z
 export const appConfigSchema = z
   .object({
     vts: vtsConnectionConfigSchema,
+    vtsCueLabels: vtsCueLabelsSchema.default(DEFAULT_VTS_CUE_LABELS),
     vtsCatalogOverrides: z.record(z.string().trim().min(1), vtsCatalogOverrideSchema),
     dashboard: dashboardConfigSchema,
     model: modelConfigSchema,

@@ -37,6 +37,7 @@ import type {
 } from "../../shared/types/config.types";
 import type {
 	VtsCatalogOverrideUpdateRequest,
+	VtsCueLabelsUpdateRequest,
 	VtsCatalogRefreshRequest,
 	VtsCatalogResult,
 	VtsHotkeysResult,
@@ -72,6 +73,7 @@ type DesktopApi = {
 	vtsGetCatalog: () => Promise<VtsCatalogResult>;
 	vtsRefreshCatalog: (request?: VtsCatalogRefreshRequest) => Promise<VtsCatalogResult>;
 	vtsUpdateCatalogOverride: (request: VtsCatalogOverrideUpdateRequest) => Promise<VtsCatalogResult>;
+	vtsUpdateCueLabels: (request: VtsCueLabelsUpdateRequest) => Promise<VtsCatalogResult>;
 	vtsTriggerHotkey: (request: VtsTriggerHotkeyRequest) => Promise<VtsTriggerHotkeyResult>;
 	captureStart: (config: CaptureStartRequest) => Promise<CaptureStartResponse>;
 	captureStop: () => Promise<CaptureStopResponse>;

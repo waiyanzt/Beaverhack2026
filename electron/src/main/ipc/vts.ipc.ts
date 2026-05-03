@@ -4,6 +4,7 @@ import {
   vtsCatalogOverrideUpdateRequestSchema,
   vtsCatalogRefreshRequestSchema,
   vtsConnectRequestSchema,
+  vtsCueLabelsUpdateRequestSchema,
   vtsTriggerHotkeyRequestSchema,
 } from "../../shared/schemas/vts.schema";
 import { vtsService } from "../services/vts/vts.service";
@@ -127,6 +128,32 @@ export function registerVtsIpcHandlers(): void {
       return {
         ok: false as const,
         message: "Unable to update VTube Studio catalog override.",
+        status: vtsService.getStatus(),
+        catalog: vtsService.getCatalog(),
+      };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsUpdateCueLabels, (_event, input: unknown) => {
+    const parsed = vtsCueLabelsUpdateRequestSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return {
+        ok: false as const,
+        message: "Invalid VTube Studio cue labels.",
+        status: vtsService.getStatus(),
+        catalog: vtsService.getCatalog(),
+      };
+    }
+
+    try {
+      const catalog = vtsService.updateCueLabels(parsed.data.cueLabels);
+      return { ok: true as const, status: vtsService.getStatus(), catalog };
+    } catch (error: unknown) {
+      console.error("Failed to update VTS cue labels:", error);
+      return {
+        ok: false as const,
+        message: "Unable to update VTube Studio cue labels.",
         status: vtsService.getStatus(),
         catalog: vtsService.getCatalog(),
       };

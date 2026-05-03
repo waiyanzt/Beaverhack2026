@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { vtsConnectionConfigSchema } from "./config.schema";
+import {
+  vtsConnectionConfigSchema,
+  vtsCueLabelDefinitionSchema,
+  vtsCueLabelIdSchema,
+  vtsCueLabelsSchema,
+} from "./config.schema";
 
 export const vtsHotkeySchema = z
   .object({
@@ -29,32 +34,7 @@ export const vtsCatalogRefreshRequestSchema = z
 
 export const vtsCatalogOverrideSchema = z
   .object({
-    cueLabels: z.array(z.enum([
-      "greeting",
-      "wave",
-      "happy",
-      "excited",
-      "laughing",
-      "evil_laugh",
-      "smug",
-      "angry",
-      "frustrated",
-      "shocked",
-      "surprised",
-      "sad",
-      "crying",
-      "cute_reaction",
-      "love_reaction",
-      "confused",
-      "embarrassed",
-      "sleepy",
-      "dramatic_moment",
-      "magic_moment",
-      "hype_moment",
-      "idle",
-      "manual_request",
-      "unknown",
-    ])).min(1),
+    cueLabels: z.array(vtsCueLabelIdSchema).min(1),
     emoteKind: z.enum([
       "expression_reaction",
       "symbol_effect",
@@ -78,3 +58,11 @@ export const vtsCatalogOverrideUpdateRequestSchema = z
     override: vtsCatalogOverrideSchema.nullable(),
   })
   .strict();
+
+export const vtsCueLabelsUpdateRequestSchema = z
+  .object({
+    cueLabels: vtsCueLabelsSchema,
+  })
+  .strict();
+
+export const vtsCueLabelCreateDraftSchema = vtsCueLabelDefinitionSchema;

@@ -36,6 +36,7 @@ import type {
 } from "../shared/model.types";
 import type {
   VtsCatalogOverrideUpdateRequest,
+  VtsCueLabelsUpdateRequest,
   VtsCatalogRefreshRequest,
   VtsCatalogResult,
   VtsHotkeysResult,
@@ -44,6 +45,7 @@ import type {
   VtsTriggerHotkeyRequest,
   VtsTriggerHotkeyResult,
 } from "../shared/types/vts.types";
+import { DEFAULT_VTS_CUE_LABELS } from "../shared/vts-cue-labels";
 
 const fallbackVtsStatus: VtsStatus = {
   connectionState: "disconnected",
@@ -62,6 +64,7 @@ const fallbackVtsStatus: VtsStatus = {
   modelName: null,
   modelId: null,
   hotkeyCount: 0,
+  cueLabels: DEFAULT_VTS_CUE_LABELS,
   catalog: {
     version: null,
     hotkeyHash: null,
@@ -76,6 +79,7 @@ const fallbackVtsStatus: VtsStatus = {
 
 const fallbackSettings = {
   vts: fallbackVtsStatus.config,
+  vtsCueLabels: DEFAULT_VTS_CUE_LABELS,
   vtsCatalogOverrides: {},
   dashboard: {
     selectedAudioDeviceId: null,
@@ -230,6 +234,16 @@ const desktopApi = {
       return {
         ok: false as const,
         message: "Unable to update VTube Studio catalog override.",
+        catalog: fallbackVtsStatus.catalog,
+        status: fallbackVtsStatus,
+      };
+    }),
+  vtsUpdateCueLabels: async (request: VtsCueLabelsUpdateRequest): Promise<VtsCatalogResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsUpdateCueLabels, request).catch((error: unknown) => {
+      console.error("Failed to update VTS cue labels:", error);
+      return {
+        ok: false as const,
+        message: "Unable to update VTube Studio cue labels.",
         catalog: fallbackVtsStatus.catalog,
         status: fallbackVtsStatus,
       };

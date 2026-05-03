@@ -51,6 +51,7 @@ export class PipelineService {
         ? await this.liveCaptureInputService.buildPromptInput(
             request.captureWindowMs ?? 1_000,
             request.captureInputMode ?? "clip",
+            this.getMappedSafeAutoCueLabels(executionModelContext),
           )
         : undefined;
       const captureInputBuiltMs = Date.now();
@@ -237,6 +238,17 @@ export class PipelineService {
     }
 
     return best.candidate;
+  }
+
+  private getMappedSafeAutoCueLabels(modelContext: ModelControlContext): VtsCueLabel[] {
+    return [
+      ...new Set(
+        modelContext.services.vts.automationCatalog.candidates
+          .filter((candidate) => candidate.autoMode === "safe_auto")
+          .flatMap((candidate) => candidate.cueLabels)
+          .filter((cueLabel) => !["idle", "manual_request", "unknown"].includes(cueLabel)),
+      ),
+    ];
   }
 
   private filterLiveRecentActions(actions: ModelControlRecentAction[]): ModelControlRecentAction[] {

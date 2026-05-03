@@ -1,6 +1,6 @@
 import type { ModelMonitorStartRequest } from "./model-monitor.types";
 import type { ModelProviderId } from "../model.types";
-import type { VtsCatalogOverride } from "./vts.types";
+import type { VtsCatalogOverride, VtsCueLabelDefinition } from "./vts.types";
 
 export interface VtsConnectionConfig {
   host: string;
@@ -26,6 +26,7 @@ export interface MonitorConfig {
 
 export interface AppConfig {
   vts: VtsConnectionConfig;
+  vtsCueLabels: VtsCueLabelDefinition[];
   vtsCatalogOverrides: Record<string, VtsCatalogOverride>;
   dashboard: DashboardConfig;
   model: ModelConfig;

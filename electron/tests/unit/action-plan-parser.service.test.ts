@@ -112,7 +112,7 @@ describe("ActionPlanParserService", () => {
     });
   });
 
-  it("rejects cue labels outside the supported VTS cue-label list", () => {
+  it("rejects malformed dynamic cue-label IDs", () => {
     const parser = new ActionPlanParserService();
 
     expect(() =>
@@ -121,10 +121,10 @@ describe("ActionPlanParserService", () => {
           {
             type: "vts.trigger_hotkey",
             actionId: "act_bad_cue",
-            cueLabels: ["big_smile"],
+            cueLabels: ["Big Smile!"],
             confidence: 0.95,
             visualEvidence: "A big smile is visible.",
-            reason: "Unsupported cue label.",
+            reason: "Malformed cue label.",
           },
         ],
         safety: {
