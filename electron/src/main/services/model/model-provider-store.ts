@@ -1,4 +1,11 @@
-import type { ModelProviderConfig, ModelProviderId } from "../../../shared/model.types";
+import type { ModelProviderConfig, ModelProviderId, VllmOptions } from "../../../shared/model.types";
+
+const vllmOptions: VllmOptions = {
+  thinkingTokenBudget: 16384,
+  thinkingGracePeriod: 1024,
+  enableThinking: true,
+  useAudioInVideo: false,
+};
 
 const providers: ModelProviderConfig[] = [
   {
@@ -25,6 +32,9 @@ const providers: ModelProviderConfig[] = [
     supportsForcedToolChoice: true,
     supportsStrictJsonSchema: true,
     maxTokens: 25600,
+    temperature: 0.6,
+    topP: 0.95,
+    vllm: vllmOptions,
   },
   {
     id: "mock",

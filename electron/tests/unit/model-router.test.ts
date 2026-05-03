@@ -11,6 +11,8 @@ const provider: ModelProviderConfig = {
   enabled: true,
   supportsToolCalling: true,
   supportsJsonMode: true,
+  supportsForcedToolChoice: true,
+  supportsStrictJsonSchema: true,
 };
 
 describe("ModelRouterService", () => {

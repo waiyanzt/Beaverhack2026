@@ -12,6 +12,16 @@ export interface ModelProviderConfig {
   supportsForcedToolChoice?: boolean;
   supportsStrictJsonSchema?: boolean;
   maxTokens?: number;
+  temperature?: number;
+  topP?: number;
+  vllm?: VllmOptions;
+}
+
+export interface VllmOptions {
+  thinkingTokenBudget?: number;
+  thinkingGracePeriod?: number;
+  enableThinking?: boolean;
+  useAudioInVideo?: boolean;
 }
 
 export interface ModelProviderTestResult {
@@ -36,7 +46,19 @@ export interface OpenAICompatibleMessagePartImageUrl {
   image_url: OpenAICompatibleImageUrl;
 }
 
-export type OpenAICompatibleMessagePart = OpenAICompatibleMessagePartText | OpenAICompatibleMessagePartImageUrl;
+export interface OpenAICompatibleVideoUrl {
+  url: string;
+}
+
+export interface OpenAICompatibleMessagePartVideoUrl {
+  type: "video_url";
+  video_url: OpenAICompatibleVideoUrl;
+}
+
+export type OpenAICompatibleMessagePart =
+  | OpenAICompatibleMessagePartText
+  | OpenAICompatibleMessagePartImageUrl
+  | OpenAICompatibleMessagePartVideoUrl;
 
 export interface OpenAICompatibleMessage {
   role: "system" | "user" | "assistant";
@@ -77,6 +99,8 @@ export interface OpenAICompatibleChatRequest {
   temperature: number;
   max_tokens: number;
   stream: false;
+  top_p?: number;
+  extra_body?: Record<string, unknown>;
 }
 
 export interface OpenAICompatibleToolCall {

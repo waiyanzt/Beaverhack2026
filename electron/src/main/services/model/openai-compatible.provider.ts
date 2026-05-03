@@ -65,8 +65,7 @@ function stripMarkdownCodeBlocks(text: string): string {
 function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
   const parts: string[] = [];
   let imageCount = 0;
-  let videoSeconds = 0;
-  let audioSeconds = 0;
+  let videoCount = 0;
 
   for (const message of messages) {
     let textPreview = "";
@@ -80,8 +79,9 @@ function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
           textParts.push(part.text);
         } else if (part.type === "image_url") {
           imageCount++;
+        } else if (part.type === "video_url") {
+          videoCount++;
         }
-        // Future: video and audio parts will increment videoSeconds / audioSeconds
       }
       textPreview = textParts.join(" ");
     }
@@ -90,13 +90,10 @@ function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
   }
 
   const mediaParts: string[] = [];
-  if (imageCount > 0) mediaParts.push(imageCount === 1 ? "one image file" : `${imageCount} image files`);
-  if (videoSeconds > 0) mediaParts.push(`${videoSeconds} sec video`);
-  else mediaParts.push("0 sec video");
-  if (audioSeconds > 0) mediaParts.push(`audio ${audioSeconds} secs`);
-  else mediaParts.push("audio 0 secs");
+  if (imageCount > 0) mediaParts.push(imageCount === 1 ? "1 image" : `${imageCount} images`);
+  if (videoCount > 0) mediaParts.push(videoCount === 1 ? "1 video" : `${videoCount} videos`);
 
-  return `${parts.join(" ")} [${mediaParts.join(" + ")}]`;
+  return `${parts.join(" ")}${mediaParts.length > 0 ? ` [${mediaParts.join(", ")}]` : ""}`;
 }
 
 function buildActionProperties(): Record<string, unknown> {
@@ -430,10 +427,37 @@ export class OpenAICompatibleProvider {
     let request: OpenAICompatibleChatRequest = {
       model: config.model,
       messages: requestMessages,
-      temperature: 0.4,
+      temperature: config.temperature ?? 0.4,
       max_tokens: config.maxTokens ?? 4096,
       stream: false,
     };
+
+    if (config.topP !== undefined) {
+      request.top_p = config.topP;
+    }
+
+    if (config.vllm) {
+      const extra: Record<string, unknown> = {};
+      const vllm = config.vllm;
+
+      if (vllm.thinkingTokenBudget !== undefined || vllm.enableThinking !== undefined) {
+        const thinkingBudget = vllm.thinkingTokenBudget ?? 16384;
+        const gracePeriod = vllm.thinkingGracePeriod ?? 1024;
+        extra.thinking_token_budget = thinkingBudget + gracePeriod;
+        extra.chat_template_kwargs = {
+          enable_thinking: vllm.enableThinking ?? true,
+          ...(vllm.thinkingTokenBudget !== undefined ? { reasoning_budget: thinkingBudget } : {}),
+        };
+      }
+
+      if (vllm.useAudioInVideo !== undefined) {
+        extra.mm_processor_kwargs = { use_audio_in_video: vllm.useAudioInVideo };
+      }
+
+      if (Object.keys(extra).length > 0) {
+        request.extra_body = extra;
+      }
+    }
 
     if (useTools) {
       request = {
@@ -602,10 +626,37 @@ export class OpenAICompatibleProvider {
     const request: OpenAICompatibleChatRequest = {
       model: config.model,
       messages,
-      temperature: 0.4,
+      temperature: config.temperature ?? 0.4,
       max_tokens: config.maxTokens ?? 1024,
       stream: false,
     };
+
+    if (config.topP !== undefined) {
+      request.top_p = config.topP;
+    }
+
+    if (config.vllm) {
+      const extra: Record<string, unknown> = {};
+      const vllm = config.vllm;
+
+      if (vllm.thinkingTokenBudget !== undefined || vllm.enableThinking !== undefined) {
+        const thinkingBudget = vllm.thinkingTokenBudget ?? 16384;
+        const gracePeriod = vllm.thinkingGracePeriod ?? 1024;
+        extra.thinking_token_budget = thinkingBudget + gracePeriod;
+        extra.chat_template_kwargs = {
+          enable_thinking: vllm.enableThinking ?? true,
+          ...(vllm.thinkingTokenBudget !== undefined ? { reasoning_budget: thinkingBudget } : {}),
+        };
+      }
+
+      if (vllm.useAudioInVideo !== undefined) {
+        extra.mm_processor_kwargs = { use_audio_in_video: vllm.useAudioInVideo };
+      }
+
+      if (Object.keys(extra).length > 0) {
+        request.extra_body = extra;
+      }
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
