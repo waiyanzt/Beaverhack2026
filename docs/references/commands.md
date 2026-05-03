@@ -8,3 +8,4 @@ Workspace commands:
 - `pnpm test`
 - `pnpm lint`
 - `bash electron/tests/standalone/model-provider-audio-curl.sh [path-to-mp4]`
+- `pnpm --filter @autuber/electron exec tsx tests/standalone/obs-vacancy-e2e.ts "<scene-name>" "<source-name>"`

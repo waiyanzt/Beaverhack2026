@@ -36,6 +36,32 @@ describe("LiveCaptureInputService", () => {
     expect(provider.getLatestClip).not.toHaveBeenCalled();
   });
 
+  it("instructs covered or empty camera frames to use the vacant cue instead of noop", async () => {
+    const nowMs = Date.now();
+    const provider = {
+      getLatestClip: vi.fn(),
+      getLatestFrame: vi.fn().mockReturnValue({
+        timestampMs: nowMs,
+        width: 640,
+        height: 360,
+        mimeType: "image/jpeg",
+        data: Buffer.from("jpeg-frame"),
+      }),
+    };
+
+    const service = new LiveCaptureInputService(provider);
+    const result = await service.buildPromptInput(1_000, "latest_frame", ["vacant"]);
+    const textPart = result.parts.find((part) => part.type === "text");
+
+    expect(textPart?.type).toBe("text");
+    if (textPart?.type !== "text") {
+      return;
+    }
+
+    expect(textPart.text).toContain("must use cueLabels ['vacant'], not noop");
+    expect(textPart.text).not.toContain("covered-camera frames");
+  });
+
   it("selects the audio clip with the best overlap for the current camera clip", async () => {
     const nowMs = Date.now();
     const provider = {

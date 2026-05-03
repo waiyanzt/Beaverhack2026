@@ -19,7 +19,7 @@ export class ModelActionMemoryService {
     return this.recentModelActions.map((entry) => ({
       ...entry,
       actionPlan: structuredClone(entry.actionPlan),
-      actionResults: entry.actionResults.map((result) => ({ ...result })),
+      actionResults: entry.actionResults.map((result) => this.normalizeActionResult(result)),
     }));
   }
 
@@ -28,12 +28,21 @@ export class ModelActionMemoryService {
       sequence: this.nextSequence,
       storedAt: this.now(),
       actionPlan: structuredClone(actionPlan),
-      actionResults: actionResults.map((result) => ({ ...result })),
+      actionResults: actionResults.map((result) => this.normalizeActionResult(result)),
     });
     this.nextSequence += 1;
 
     if (this.recentModelActions.length > this.limit) {
       this.recentModelActions.length = this.limit;
     }
+  }
+
+  private normalizeActionResult(result: ModelControlRecentModelActionResult): ModelControlRecentModelActionResult {
+    return {
+      ...result,
+      reason: typeof result.reason === "string" && result.reason.trim().length > 0
+        ? result.reason
+        : "No execution reason was recorded.",
+    };
   }
 }

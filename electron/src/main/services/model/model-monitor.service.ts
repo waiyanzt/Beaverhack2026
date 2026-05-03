@@ -226,6 +226,7 @@ export class ModelMonitorService {
         captureInputMode: "latest_frame",
         captureWindowMs: this.status.windowMs,
         allowObsActions: false,
+        includeObsScenes: true,
       });
       const responseMs = Date.now();
       const responseAt = toIso(responseMs);

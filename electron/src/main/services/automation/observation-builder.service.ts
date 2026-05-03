@@ -27,6 +27,7 @@ export interface BuildModelContextRequest {
   autonomyLevel?: AutomationAutonomyLevel;
   recentModelActions?: ModelControlRecentModelAction[];
   allowObsActions?: boolean;
+  includeObsScenes?: boolean;
 }
 
 export class ObservationBuilderService {
@@ -82,7 +83,9 @@ export class ObservationBuilderService {
           currentScene: obsStatus.connected ? obsStatus.currentScene : null,
           streamStatus: obsStatus.connected ? obsStatus.streamStatus : "inactive",
           recordingStatus: obsStatus.connected ? obsStatus.recordingStatus : "inactive",
-          scenes: obsStatus.connected && (request.allowObsActions ?? true) ? obsStatus.scenes : [],
+          scenes: obsStatus.connected && ((request.allowObsActions ?? true) || (request.includeObsScenes ?? false))
+            ? obsStatus.scenes
+            : [],
         },
         policy: {
           allowedActions,

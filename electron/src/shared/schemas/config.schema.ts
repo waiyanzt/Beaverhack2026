@@ -33,9 +33,11 @@ export const monitorConfigSchema = z
   })
   .strict();
 
-export const vacancyOverlayConfigSchema = z
+export const afkOverlayConfigSchema = z
   .object({
-    sourceName: z.string().trim().min(1).max(256),
+    enabled: z.boolean(),
+    sceneName: z.string().trim().min(1).max(256).nullable(),
+    sourceName: z.string().trim().min(1).max(256).nullable(),
     vacantEnterDelayMs: z.number().int().min(0).max(300000),
   })
   .strict();
@@ -95,7 +97,7 @@ export const vtsCatalogOverrideSchema = z
   })
   .strict();
 
-export const appConfigSchema = z
+const appConfigObjectSchema = z
   .object({
     vts: vtsConnectionConfigSchema,
     vtsCueLabels: vtsCueLabelsSchema.default(DEFAULT_VTS_CUE_LABELS),
@@ -103,10 +105,39 @@ export const appConfigSchema = z
     dashboard: dashboardConfigSchema,
     model: modelConfigSchema,
     monitor: monitorConfigSchema,
-    vacancyOverlay: vacancyOverlayConfigSchema,
+    afkOverlay: afkOverlayConfigSchema,
   })
   .strict();
 
-export const settingsUpdateRequestSchema = appConfigSchema.partial().strict();
+export const appConfigSchema = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  const { vacancyOverlay: legacyVacancyOverlay, ...rest } = record;
+
+  if (typeof rest.afkOverlay !== "undefined") {
+    return rest;
+  }
+
+  if (typeof legacyVacancyOverlay === "object" && legacyVacancyOverlay !== null && !Array.isArray(legacyVacancyOverlay)) {
+    const legacyRecord = legacyVacancyOverlay as Record<string, unknown>;
+
+    return {
+      ...rest,
+      afkOverlay: {
+        enabled: false,
+        sceneName: null,
+        sourceName: typeof legacyRecord.sourceName === "string" ? legacyRecord.sourceName : null,
+        vacantEnterDelayMs: legacyRecord.vacantEnterDelayMs,
+      },
+    };
+  }
+
+  return rest;
+}, appConfigObjectSchema);
+
+export const settingsUpdateRequestSchema = appConfigObjectSchema.partial().strict();
 
 export type AppConfigSchema = z.infer<typeof appConfigSchema>;

@@ -2,6 +2,7 @@ import ElectronStoreModule from "electron-store";
 import { appConfigSchema } from "../../../shared/schemas/config.schema";
 import type {
   AppConfig,
+  AfkOverlayConfig,
   DashboardConfig,
   ModelConfig,
   MonitorConfig,
@@ -46,8 +47,10 @@ export const DEFAULT_CONFIG: AppConfig = {
     resumeOnLaunch: false,
     lastStartRequest: null,
   },
-  vacancyOverlay: {
-    sourceName: "BRB Overlay",
+  afkOverlay: {
+    enabled: false,
+    sceneName: null,
+    sourceName: null,
     vacantEnterDelayMs: 5_000,
   },
 };
@@ -76,6 +79,10 @@ export class SettingsService {
     const parsed = appConfigSchema.safeParse(rawConfig);
 
     if (parsed.success) {
+      if (JSON.stringify(rawConfig) !== JSON.stringify(parsed.data)) {
+        this.getStore().set(APP_CONFIG_KEY, parsed.data);
+      }
+
       return parsed.data;
     }
 
@@ -140,6 +147,12 @@ export class SettingsService {
   updateMonitorConfig(config: MonitorConfig): AppConfig {
     return this.updateSettings({
       monitor: config,
+    });
+  }
+
+  updateAfkOverlayConfig(config: AfkOverlayConfig): AppConfig {
+    return this.updateSettings({
+      afkOverlay: config,
     });
   }
 

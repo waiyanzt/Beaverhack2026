@@ -6,11 +6,18 @@ import {
 	MODEL_MONITOR_DEFAULT_TIMING,
 } from "../../shared/model-monitor.defaults";
 import type { CaptureMediaDeviceInfo, CaptureSourceInfo } from "../../shared/types/capture.types";
-import type { DashboardConfig } from "../../shared/types/config.types";
+import type { AfkOverlayConfig, DashboardConfig } from "../../shared/types/config.types";
 import type { ModelMonitorEvent, ModelMonitorStatus } from "../../shared/types/model-monitor.types";
+import type { ObsStatus } from "../../shared/types/obs.types";
 import { useCapture } from "../hooks/useCapture";
 
 const emptyMonitorStatus: ModelMonitorStatus = createIdleModelMonitorStatus();
+const emptyAfkOverlayConfig: AfkOverlayConfig = {
+	enabled: false,
+	sceneName: null,
+	sourceName: null,
+	vacantEnterDelayMs: 5_000,
+};
 
 type MonitorLogEntry = {
 	id: string;
@@ -18,12 +25,21 @@ type MonitorLogEntry = {
 	text: string;
 };
 
+type ModelMonitorResponseEvent = Extract<ModelMonitorEvent, { type: "response" }>;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null;
 
-const formatActionPlanForDisplay = (actionPlan: unknown, fallback: string): string => {
+const formatActionPlanForDisplay = (
+	actionPlan: unknown,
+	fallback: string,
+	reviewedActions: ModelMonitorResponseEvent["reviewedActions"],
+	actionResults: ModelMonitorResponseEvent["actionResults"],
+): string => {
+	const localOutcomes = formatLocalActionOutcomes(reviewedActions, actionResults);
+
 	if (!isRecord(actionPlan)) {
-		return fallback || "Model returned no parsed ActionPlan.";
+		return [fallback || "Model returned no parsed ActionPlan.", localOutcomes].filter(Boolean).join("\n\n");
 	}
 
 	const actions = Array.isArray(actionPlan.actions) ? actionPlan.actions : [];
@@ -57,6 +73,33 @@ const formatActionPlanForDisplay = (actionPlan: unknown, fallback: string): stri
 		"",
 		"Parsed ActionPlan:",
 		JSON.stringify(actionPlan, null, 2),
+		localOutcomes,
+	].join("\n");
+};
+
+const formatLocalActionOutcomes = (
+	reviewedActions: ModelMonitorResponseEvent["reviewedActions"],
+	actionResults: ModelMonitorResponseEvent["actionResults"],
+): string => {
+	const reviewedSummary = reviewedActions?.map((reviewedAction, index) => {
+		const type = reviewedAction.action.type;
+		return `${index + 1}. ${type}:${reviewedAction.status} - ${reviewedAction.reason}`;
+	}) ?? [];
+	const resultSummary = actionResults?.map((result, index) => {
+		const error = result.errorMessage ? ` (${result.errorMessage})` : "";
+		return `${index + 1}. ${result.type}:${result.status} - ${result.reason}${error}`;
+	}) ?? [];
+
+	if (reviewedSummary.length === 0 && resultSummary.length === 0) {
+		return "";
+	}
+
+	return [
+		"Local Review:",
+		reviewedSummary.length > 0 ? reviewedSummary.join("\n") : "No reviewed local actions.",
+		"",
+		"Execution Results:",
+		resultSummary.length > 0 ? resultSummary.join("\n") : "No execution results.",
 	].join("\n");
 };
 
@@ -109,6 +152,8 @@ const DashboardPanel = (): React.JSX.Element => {
 
 	const [sources, setSources] = useState<CaptureSourceInfo[]>([]);
 	const [mediaDevices, setMediaDevices] = useState<CaptureMediaDeviceInfo[]>([]);
+	const [obsStatus, setObsStatus] = useState<ObsStatus>({ connected: false });
+	const [afkOverlayConfig, setAfkOverlayConfig] = useState<AfkOverlayConfig>(emptyAfkOverlayConfig);
 	const [isLoadingSources, setIsLoadingSources] = useState(true);
 
 	const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<string>("");
@@ -129,6 +174,13 @@ const DashboardPanel = (): React.JSX.Element => {
 		});
 	};
 
+	const persistAfkOverlayConfig = async (config: AfkOverlayConfig): Promise<void> => {
+		setAfkOverlayConfig(config);
+		await window.desktop.settingsUpdate({
+			afkOverlay: config,
+		});
+	};
+
 	const buildDesktopVideoConstraints = (sourceId: string): MediaTrackConstraints =>
 		({
 			mandatory: {
@@ -142,12 +194,14 @@ const DashboardPanel = (): React.JSX.Element => {
 	const loadSources = async (): Promise<void> => {
 		setIsLoadingSources(true);
 
-		const [settingsResult, sourcesResult, devicesResult] = await Promise.all([
+		const [settingsResult, sourcesResult, devicesResult, obsResult] = await Promise.all([
 			window.desktop.settingsGet(),
 			window.desktop.listCaptureSources(),
 			window.desktop.listMediaDevices(),
+			window.desktop.obsGetStatus(),
 		]);
 		const storedDashboard = settingsResult.settings.dashboard;
+		const storedAfkOverlay = settingsResult.settings.afkOverlay ?? emptyAfkOverlayConfig;
 		let nextAudioDeviceId = toSelectValue(storedDashboard.selectedAudioDeviceId);
 		let nextVideoDeviceId = toSelectValue(storedDashboard.selectedVideoDeviceId);
 		let nextScreenSourceId = toSelectValue(storedDashboard.selectedScreenSourceId);
@@ -176,6 +230,26 @@ const DashboardPanel = (): React.JSX.Element => {
 			setMediaDevices([]);
 			nextAudioDeviceId = "";
 			nextVideoDeviceId = "";
+		}
+
+		if (obsResult.ok && obsResult.status.connected) {
+			const storedScene = storedAfkOverlay.sceneName;
+			const selectedScene = obsResult.status.scenes.find((scene) => scene.name === storedScene) ?? null;
+			const selectedSource = selectedScene?.sources.find((source) => source.name === storedAfkOverlay.sourceName) ?? null;
+			const nextAfkOverlay = {
+				...storedAfkOverlay,
+				enabled: storedAfkOverlay.enabled && selectedScene !== null && selectedSource !== null,
+				sceneName: selectedScene?.name ?? storedAfkOverlay.sceneName,
+				sourceName: selectedSource?.name ?? storedAfkOverlay.sourceName,
+			};
+			setObsStatus(obsResult.status);
+			setAfkOverlayConfig(nextAfkOverlay);
+			if (nextAfkOverlay.enabled !== storedAfkOverlay.enabled) {
+				await persistAfkOverlayConfig(nextAfkOverlay);
+			}
+		} else {
+			setObsStatus(obsResult.status);
+			setAfkOverlayConfig(storedAfkOverlay);
 		}
 
 		await persistDashboardConfig({
@@ -358,7 +432,12 @@ const DashboardPanel = (): React.JSX.Element => {
 
 	const formatMonitorEvent = (event: ModelMonitorEvent): MonitorLogEntry | null => {
 		if (event.type === "response") {
-			const body = formatActionPlanForDisplay(event.actionPlan, event.content);
+			const body = formatActionPlanForDisplay(
+				event.actionPlan,
+				event.content,
+				event.reviewedActions,
+				event.actionResults,
+			);
 			return {
 				id: `${event.tickId}-${event.createdAt}`,
 				createdAt: event.createdAt,
@@ -416,6 +495,9 @@ const DashboardPanel = (): React.JSX.Element => {
 
 	const audioDevices = mediaDevices.filter((d) => d.kind === "audioinput");
 	const videoDevices = mediaDevices.filter((d) => d.kind === "videoinput");
+	const obsScenes = obsStatus.connected ? obsStatus.scenes : [];
+	const selectedObsScene = obsScenes.find((scene) => scene.name === afkOverlayConfig.sceneName) ?? null;
+	const selectedObsSources = selectedObsScene?.sources ?? [];
 	const audioLevels = liveAudioLevels.length > 0 ? liveAudioLevels : captureStatus.audio.recentLevels;
 	const audioLevelPercent = Math.round((liveAudioLevel ?? captureStatus.audio.lastLevel ?? 0) * 100);
 	const selectedAudioDeviceLabel =
@@ -568,6 +650,97 @@ const DashboardPanel = (): React.JSX.Element => {
 							))}
 						</select>
 					</div>
+				</div>
+
+				<div className="panel__card">
+					<h3>AFK Overlay</h3>
+					<label className="toggle">
+						<input
+							type="checkbox"
+							checked={afkOverlayConfig.enabled}
+							disabled={
+								isLoadingSources ||
+								(!afkOverlayConfig.enabled &&
+									(!obsStatus.connected || !afkOverlayConfig.sceneName || !afkOverlayConfig.sourceName))
+							}
+							onChange={(event) => {
+								void persistAfkOverlayConfig({
+									...afkOverlayConfig,
+									enabled: event.target.checked,
+								});
+							}}
+						/>
+						<span>{afkOverlayConfig.enabled ? "Enabled" : "Disabled"}</span>
+					</label>
+					<div className="field">
+						<span>OBS scene</span>
+						<select
+							value={afkOverlayConfig.sceneName ?? ""}
+							disabled={isLoadingSources || !obsStatus.connected || obsScenes.length === 0}
+							onChange={(event) => {
+								const sceneName = toStoredValue(event.target.value);
+								const nextScene = obsScenes.find((scene) => scene.name === sceneName) ?? null;
+								const nextSourceName = nextScene?.sources[0]?.name ?? null;
+								void persistAfkOverlayConfig({
+									...afkOverlayConfig,
+									enabled: false,
+									sceneName,
+									sourceName: nextSourceName,
+								});
+							}}
+						>
+							<option value="">Select a scene</option>
+							{obsScenes.map((scene) => (
+								<option key={scene.name} value={scene.name}>
+									{scene.name}
+								</option>
+							))}
+						</select>
+					</div>
+					<div className="field">
+						<span>Overlay source</span>
+						<select
+							value={afkOverlayConfig.sourceName ?? ""}
+							disabled={isLoadingSources || !selectedObsScene || selectedObsSources.length === 0}
+							onChange={(event) => {
+								void persistAfkOverlayConfig({
+									...afkOverlayConfig,
+									enabled: false,
+									sourceName: toStoredValue(event.target.value),
+								});
+							}}
+						>
+							<option value="">Select a source</option>
+							{selectedObsSources.map((source) => (
+								<option key={source.name} value={source.name}>
+									{source.name}
+								</option>
+							))}
+						</select>
+					</div>
+					<div className="field">
+						<span>AFK delay seconds</span>
+						<input
+							type="number"
+							min={0}
+							max={300}
+							step={1}
+							value={Math.round(afkOverlayConfig.vacantEnterDelayMs / 1000)}
+							onChange={(event) => {
+								const seconds = Number(event.target.value);
+								const vacantEnterDelayMs = Number.isFinite(seconds)
+									? Math.max(0, Math.min(Math.round(seconds * 1000), 300000))
+									: afkOverlayConfig.vacantEnterDelayMs;
+								void persistAfkOverlayConfig({
+									...afkOverlayConfig,
+									vacantEnterDelayMs,
+								});
+							}}
+						/>
+					</div>
+					<p className="meter__label">
+						OBS: {obsStatus.connected ? "Connected" : "Disconnected"}
+					</p>
 				</div>
 			</div>
 

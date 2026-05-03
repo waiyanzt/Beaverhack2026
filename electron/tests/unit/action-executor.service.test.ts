@@ -87,4 +87,41 @@ describe("ActionExecutorService", () => {
     expect(triggerHotkey).toHaveBeenCalledTimes(1);
     expect(triggerHotkey).toHaveBeenCalledWith("laugh-hotkey");
   });
+
+  it("uses log event messages as execution result reasons", async () => {
+    const executor = new ActionExecutorService(
+      {
+        setCurrentScene: vi.fn(),
+        setSourceVisibility: vi.fn(),
+      },
+      {
+        triggerHotkey: vi.fn(),
+        resolveCatalogEntry: vi.fn().mockReturnValue(null),
+      },
+      new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z")),
+    );
+
+    const results = await executor.execute([
+      {
+        status: "approved",
+        reason: "Diagnostic action approved.",
+        action: {
+          type: "log.event",
+          actionId: "action_log_1",
+          level: "warn",
+          message: "OBS is not connected.",
+          metadata: {
+            feature: "afk_overlay",
+          },
+        },
+      },
+    ]);
+
+    expect(results[0]).toMatchObject({
+      actionId: "action_log_1",
+      type: "log.event",
+      status: "executed",
+      reason: "OBS is not connected.",
+    });
+  });
 });

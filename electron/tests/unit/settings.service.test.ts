@@ -88,7 +88,70 @@ describe("SettingsService", () => {
     expect(updated.dashboard.selectedAudioDeviceId).toBe("mic-1");
     expect(updated.model.selectedProviderId).toBe("openrouter");
     expect(updated.monitor.resumeOnLaunch).toBe(true);
+    expect(updated.afkOverlay.enabled).toBe(false);
     expect(service.getSettings()).toEqual(updated);
+  });
+
+  it("persists AFK overlay settings updates", async () => {
+    const { SettingsService } = await import("../../src/main/services/settings/settings.service");
+
+    const service = new SettingsService();
+    const updated = service.updateAfkOverlayConfig({
+      enabled: true,
+      sceneName: "Main",
+      sourceName: "BRB Overlay",
+      vacantEnterDelayMs: 10_000,
+    });
+
+    expect(updated.afkOverlay).toEqual({
+      enabled: true,
+      sceneName: "Main",
+      sourceName: "BRB Overlay",
+      vacantEnterDelayMs: 10_000,
+    });
+    expect(service.getSettings()).toEqual(updated);
+  });
+
+  it("migrates legacy vacancy overlay settings without enabling OBS automation", async () => {
+    storeState.set("appConfig", {
+      vts: {
+        host: "127.0.0.1",
+        port: 8001,
+        pluginName: "AuTuber",
+        pluginDeveloper: "AuTuber Development Team",
+      },
+      vtsCueLabels: [
+        { id: "idle", name: "Idle", description: "" },
+      ],
+      vtsCatalogOverrides: {},
+      dashboard: {
+        selectedAudioDeviceId: null,
+        selectedVideoDeviceId: null,
+        selectedScreenSourceId: null,
+      },
+      model: {
+        selectedProviderId: "vllm",
+      },
+      monitor: {
+        resumeOnLaunch: false,
+        lastStartRequest: null,
+      },
+      vacancyOverlay: {
+        sourceName: "Legacy BRB",
+        vacantEnterDelayMs: 7_000,
+      },
+    });
+
+    const { SettingsService } = await import("../../src/main/services/settings/settings.service");
+
+    const service = new SettingsService();
+
+    expect(service.getSettings().afkOverlay).toEqual({
+      enabled: false,
+      sceneName: null,
+      sourceName: "Legacy BRB",
+      vacantEnterDelayMs: 7_000,
+    });
   });
 
   it("recovers to defaults when stored settings are invalid", async () => {

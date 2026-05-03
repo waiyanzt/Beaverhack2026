@@ -4,6 +4,7 @@ import { modelMonitorStartRequestSchema } from "../../shared/schemas/model-monit
 import { ActionExecutorService } from "../services/automation/action-executor.service";
 import { ActionPlanParserService } from "../services/automation/action-plan-parser.service";
 import { ActionValidatorService } from "../services/automation/action-validator.service";
+import { AfkOverlayService } from "../services/automation/afk-overlay.service";
 import { CooldownService } from "../services/automation/cooldown.service";
 import { LiveCaptureInputService } from "../services/automation/live-capture-input.service";
 import { ModelActionMemoryService } from "../services/automation/model-action-memory.service";
@@ -26,6 +27,7 @@ import { VtsCatalogGeneratorService } from "../services/vts/vts-catalog-generato
 import { vtsService } from "../services/vts/vts.service";
 import { registerAutomationIpcHandlers } from "./automation.ipc";
 import { registerCaptureIpcHandlers } from "./capture.ipc";
+import { registerObsIpcHandlers } from "./obs.ipc";
 import { registerServiceActivationIpcHandlers } from "./service-activation.ipc";
 import { registerSettingsIpcHandlers } from "./settings.ipc";
 import { registerVtsIpcHandlers } from "./vts.ipc";
@@ -64,7 +66,7 @@ const pipelineService = new PipelineService(
   cooldownService,
   new LiveCaptureInputService(captureOrchestrator),
   modelActionMemoryService,
-  settingsService.getSettings().vacancyOverlay,
+  new AfkOverlayService(() => settingsService.getSettings().afkOverlay),
 );
 const modelMonitor = new ModelMonitorService(captureOrchestrator, pipelineService);
 export const serviceActivationService = new ServiceActivationService({
@@ -91,6 +93,7 @@ export async function resumePersistedModelMonitor(owner: WebContents): Promise<v
 export function registerIpcHandlers(): void {
   registerAutomationIpcHandlers(pipelineService);
   registerCaptureIpcHandlers();
+  registerObsIpcHandlers();
   registerServiceActivationIpcHandlers(serviceActivationService);
   registerSettingsIpcHandlers();
 

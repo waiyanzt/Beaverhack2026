@@ -28,6 +28,7 @@ import type {
 	ModelProviderId,
 	ModelProviderTestResult,
 } from "../../shared/model.types";
+import type { ObsStatusResult } from "../../shared/types/obs.types";
 import type { ServiceActivationStatusResult } from "../../shared/types/service-activation.types";
 import type {
 	SettingsGetResult,
@@ -65,6 +66,7 @@ type DesktopApi = {
 	servicesGetStatus: () => Promise<ServiceActivationStatusResult>;
 	settingsGet: () => Promise<SettingsGetResult>;
 	settingsUpdate: (request: SettingsUpdateRequest) => Promise<SettingsUpdateResult>;
+	obsGetStatus: () => Promise<ObsStatusResult>;
 	vtsGetStatus: () => Promise<VtsStatusResult>;
 	vtsConnect: (config: VtsConnectionConfig) => Promise<VtsStatusResult>;
 	vtsDisconnect: () => Promise<VtsStatusResult>;

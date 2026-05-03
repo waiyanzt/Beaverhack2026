@@ -8,6 +8,7 @@ export const IpcChannels = {
   ModelSetProvider: "model:set-provider",
   SettingsGet: "settings:get",
   SettingsUpdate: "settings:update",
+  ObsGetStatus: "obs:get-status",
   ModelMonitorStart: "model-monitor:start",
   ModelMonitorStop: "model-monitor:stop",
   ModelMonitorStatus: "model-monitor:status",

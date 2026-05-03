@@ -57,4 +57,19 @@ describe("ModelActionMemoryService", () => {
 
     expect(service.getRecentModelActions()[0]?.actionPlan.actions[0]?.reason).toBe("Reason for act_original.");
   });
+
+  it("normalizes malformed stored result reasons before returning memory", () => {
+    const service = new ModelActionMemoryService(10, () => "2026-05-02T10:00:00.000Z");
+
+    service.record(createNoopPlan("act_bad_result"), [
+      {
+        actionId: "act_bad_result",
+        type: "log.event",
+        status: "executed",
+        reason: undefined,
+      } as never,
+    ]);
+
+    expect(service.getRecentModelActions()[0]?.actionResults[0]?.reason).toBe("No execution reason was recorded.");
+  });
 });

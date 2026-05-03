@@ -34,6 +34,7 @@ import type {
   ModelProviderId,
   ModelProviderTestResult,
 } from "../shared/model.types";
+import type { ObsStatusResult } from "../shared/types/obs.types";
 import type {
   VtsCatalogOverrideUpdateRequest,
   VtsCueLabelsUpdateRequest,
@@ -92,6 +93,12 @@ const fallbackSettings = {
   monitor: {
     resumeOnLaunch: false,
     lastStartRequest: null,
+  },
+  afkOverlay: {
+    enabled: false,
+    sceneName: null,
+    sourceName: null,
+    vacantEnterDelayMs: 5_000,
   },
 };
 
@@ -182,6 +189,11 @@ const desktopApi = {
         message: "Unable to update settings.",
         settings: fallbackSettings,
       };
+    }),
+  obsGetStatus: async (): Promise<ObsStatusResult> =>
+    ipcRenderer.invoke(IpcChannels.ObsGetStatus).catch((error: unknown) => {
+      console.error("Failed to get OBS status:", error);
+      return { ok: false as const, message: "Unable to get OBS status.", status: { connected: false as const } };
     }),
   vtsGetStatus: async (): Promise<VtsStatusResult> =>
     ipcRenderer.invoke(IpcChannels.VtsGetStatus).catch((error: unknown) => {

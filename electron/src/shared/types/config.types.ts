@@ -24,8 +24,10 @@ export interface MonitorConfig {
   lastStartRequest: ModelMonitorStartRequest | null;
 }
 
-export interface VacancyOverlayConfig {
-  sourceName: string;
+export interface AfkOverlayConfig {
+  enabled: boolean;
+  sceneName: string | null;
+  sourceName: string | null;
   vacantEnterDelayMs: number;
 }
 
@@ -36,7 +38,7 @@ export interface AppConfig {
   dashboard: DashboardConfig;
   model: ModelConfig;
   monitor: MonitorConfig;
-  vacancyOverlay: VacancyOverlayConfig;
+  afkOverlay: AfkOverlayConfig;
 }
 
 export type SettingsGetResult =

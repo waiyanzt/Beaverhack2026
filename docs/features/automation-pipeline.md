@@ -47,6 +47,8 @@ The live path now also stops feeding full prior plans back into the model as dec
 
 This keeps cooldown enforcement in the validator/executor layer instead of teaching the model to self-suppress based on prior blocked outputs.
 
+Live camera automation also recognizes the model's `cueLabels: ["vacant"]` output as an AFK signal. If a provider incorrectly returns `noop` while explicitly saying that no person is visible or detected, `AfkOverlayService` treats that clear no-person observation as the same local AFK signal. That signal is handled locally by showing and hiding a user-selected OBS source when AFK overlay automation is enabled. This path uses the configured scene/source from settings and does not expose general OBS control to the live model loop.
+
 The live model monitor reports stage timing separately. Provider request latency is measured only around `ModelRouter.requestActionPlan`, while pre-model latency covers observation building, live capture lookup/media preparation, and prompt assembly. In latest-frame mode, end-to-end response delay should no longer include the fixed completed-clip wait.
 
 `ModelActionMemoryService` owns the short-term model action memory in the Electron main process. The canonical automation pipeline records each parsed plan after review/execution, and the dashboard model monitor records returned plans as `not_executed` because that development loop never runs actions directly. The next prompt includes this memory so providers can make context-aware choices, such as continuing a laugh reaction when the latest observation still supports it, without mechanically repeating prior actions.
@@ -77,6 +79,7 @@ Noop decisions are also represented in the compact `recentActions` history. This
 - When an executed VTS catalog entry is marked locally as not auto-deactivating, `ActionExecutorService` schedules a follow-up trigger of the same underlying hotkey after the configured delay to turn that state back off without asking the model to do it.
 - Raw hotkey IDs are still available for manual operator testing, but live automation does not trust the model to choose them directly.
 - `obs.set_scene` and `obs.set_source_visibility` are surfaced to the model and validated, but they currently stay in `confirmation_required` until a confirmation workflow is added.
+- Configured AFK overlay show/hide actions are local deterministic transitions, not model-generated OBS actions, and only run when the operator has enabled and selected an OBS scene/source in the dashboard.
 - `vts.set_parameter` remains unsupported in execution.
 - `overlay.message`, `log.event`, and `noop` are accepted as low-risk local actions.
 

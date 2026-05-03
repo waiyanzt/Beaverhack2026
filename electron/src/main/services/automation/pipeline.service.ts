@@ -1,4 +1,4 @@
-import type { AutomationAnalyzeNowRequest, AutomationAnalyzeNowResult, ReviewedAction } from "../../../shared/types/action-plan.types";
+import type { AutomationAnalyzeNowRequest, AutomationAnalyzeNowResult } from "../../../shared/types/action-plan.types";
 import type { LocalAction } from "../../../shared/schemas/action-plan.schema";
 import type {
   ModelControlContext,
@@ -12,21 +12,14 @@ import type { ModelRouterService } from "../model/model-router.service";
 import { ActionExecutorService } from "./action-executor.service";
 import { ActionPlanParserService } from "./action-plan-parser.service";
 import { ActionValidatorService } from "./action-validator.service";
+import { AfkOverlayService } from "./afk-overlay.service";
 import { CooldownService } from "./cooldown.service";
 import { LiveCaptureInputService } from "./live-capture-input.service";
 import { ModelActionMemoryService } from "./model-action-memory.service";
 import { ObservationBuilderService } from "./observation-builder.service";
 import { PromptBuilderService } from "./prompt-builder.service";
 
-interface VacancyOverlayConfig {
-  sourceName: string;
-  vacantEnterDelayMs: number;
-}
-
 export class PipelineService {
-  private isVacant = false;
-  private vacantFirstSeenMs: number | null = null;
-
   public constructor(
     private readonly observationBuilder: ObservationBuilderService,
     private readonly promptBuilder: PromptBuilderService,
@@ -37,7 +30,7 @@ export class PipelineService {
     private readonly cooldownService: CooldownService,
     private readonly liveCaptureInputService: LiveCaptureInputService,
     private readonly modelActionMemoryService: ModelActionMemoryService,
-    private readonly vacancyOverlayConfig: VacancyOverlayConfig = { sourceName: "BRB Overlay", vacantEnterDelayMs: 5_000 },
+    private readonly afkOverlayService: AfkOverlayService = new AfkOverlayService(),
   ) {}
 
   public async analyzeNow(request: AutomationAnalyzeNowRequest = {}): Promise<AutomationAnalyzeNowResult> {
@@ -47,6 +40,7 @@ export class PipelineService {
         tickId: createId("tick"),
         transcript: request.transcript,
         allowObsActions: request.allowObsActions ?? true,
+        includeObsScenes: request.includeObsScenes ?? false,
         recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
       });
       const observationBuiltMs = Date.now();
@@ -76,13 +70,18 @@ export class PipelineService {
 
       const rawPlan = this.actionPlanParser.parse(modelResult.actionPlan);
       const parsedPlan = this.resolveCueLabelActions(rawPlan, executionModelContext);
-      const vacancyTransitionActions = this.buildVacancyTransitionActions(rawPlan, executionModelContext, request.dryRun ?? false);
+      const afkOverlayTransitionActions = this.afkOverlayService.reviewTransitions(
+        rawPlan,
+        executionModelContext,
+        request.dryRun ?? false,
+      );
+      const reviewableActions = parsedPlan.actions.filter((action) => !this.isVacantCueAction(action));
       const reviewedActions = this.actionValidator.reviewActions(
-        parsedPlan.actions,
+        reviewableActions,
         executionModelContext,
         parsedPlan.safety.requiresConfirmation,
       );
-      const allActions = [...reviewedActions, ...vacancyTransitionActions];
+      const allActions = [...reviewedActions, ...afkOverlayTransitionActions];
       const actionResults = await this.actionExecutor.execute(allActions, request.dryRun ?? false);
       this.modelActionMemoryService.record(parsedPlan, actionResults);
       const pipelineCompletedMs = Date.now();
@@ -166,6 +165,16 @@ export class PipelineService {
             candidates: [],
           },
         },
+        obs: {
+          ...modelContext.services.obs,
+          scenes: [],
+        },
+        policy: {
+          ...modelContext.services.policy,
+          allowedActions: modelContext.services.policy.allowedActions.filter(
+            (actionType) => actionType !== "obs.set_scene" && actionType !== "obs.set_source_visibility",
+          ),
+        },
       },
       context: {
         ...modelContext.context,
@@ -191,6 +200,7 @@ export class PipelineService {
   private resolveCueLabelAction(action: LocalAction, modelContext: ModelControlContext): LocalAction {
     if (
       action.type !== "vts.trigger_hotkey" ||
+      this.isVacantCueAction(action) ||
       action.catalogId ||
       action.hotkeyId ||
       !action.cueLabels ||
@@ -249,8 +259,16 @@ export class PipelineService {
     return best.candidate;
   }
 
+  private isVacantCueAction(action: LocalAction): boolean {
+    return (
+      action.type === "vts.trigger_hotkey" &&
+      Array.isArray(action.cueLabels) &&
+      action.cueLabels.includes("vacant")
+    );
+  }
+
   private getMappedSafeAutoCueLabels(modelContext: ModelControlContext): VtsCueLabel[] {
-    return [
+    const cueLabels = [
       ...new Set(
         modelContext.services.vts.automationCatalog.candidates
           .filter((candidate) => candidate.autoMode === "safe_auto")
@@ -258,6 +276,12 @@ export class PipelineService {
           .filter((cueLabel) => !["idle", "manual_request", "unknown"].includes(cueLabel)),
       ),
     ];
+
+    if (!cueLabels.includes("vacant")) {
+      cueLabels.push("vacant");
+    }
+
+    return cueLabels;
   }
 
   private filterLiveRecentActions(actions: ModelControlRecentAction[]): ModelControlRecentAction[] {
@@ -306,92 +330,4 @@ export class PipelineService {
     );
   }
 
-  private hasVacantCueAction(plan: ReturnType<ActionPlanParserService["parse"]>): boolean {
-    return plan.actions.some(
-      (action) =>
-        action.type === "vts.trigger_hotkey" &&
-        Array.isArray(action.cueLabels) &&
-        action.cueLabels.includes("vacant"),
-    );
-  }
-
-  private buildVacancyTransitionActions(
-    rawPlan: ReturnType<ActionPlanParserService["parse"]>,
-    modelContext: ModelControlContext,
-    dryRun: boolean,
-  ): ReviewedAction[] {
-    const hasVacantCue = this.hasVacantCueAction(rawPlan);
-    const obsConnected = modelContext.services.obs?.connected;
-    const currentScene = modelContext.services.obs?.currentScene;
-    const { sourceName, vacantEnterDelayMs } = this.vacancyOverlayConfig;
-
-    if (!obsConnected || !currentScene) {
-      return [];
-    }
-
-    if (hasVacantCue) {
-      if (this.isVacant) {
-        return [];
-      }
-
-      const nowMs = Date.now();
-
-      if (this.vacantFirstSeenMs === null) {
-        this.vacantFirstSeenMs = nowMs;
-        return [];
-      }
-
-      if (nowMs - this.vacantFirstSeenMs < vacantEnterDelayMs) {
-        return [];
-      }
-
-      this.isVacant = true;
-
-      if (dryRun) {
-        return [];
-      }
-
-      return [
-        {
-          action: {
-            type: "obs.set_source_visibility",
-            actionId: createId("vacant"),
-            sceneName: currentScene,
-            sourceName,
-            visible: true,
-            reason: "Vacant detected: no person visible on camera.",
-          },
-          status: "approved",
-          reason: `Pipeline vacancy transition: entering vacant state after ${vacantEnterDelayMs}ms debounce.`,
-        },
-      ];
-    }
-
-    this.vacantFirstSeenMs = null;
-
-    if (this.isVacant) {
-      this.isVacant = false;
-
-      if (dryRun) {
-        return [];
-      }
-
-      return [
-        {
-          action: {
-            type: "obs.set_source_visibility",
-            actionId: createId("vacant"),
-            sceneName: currentScene,
-            sourceName,
-            visible: false,
-            reason: "User returned: person is visible on camera.",
-          },
-          status: "approved",
-          reason: "Pipeline vacancy transition: exiting vacant state.",
-        },
-      ];
-    }
-
-    return [];
-  }
 }

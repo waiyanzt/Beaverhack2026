@@ -34,6 +34,7 @@ export interface AutomationAnalyzeNowRequest {
   captureInputMode?: "latest_frame" | "clip";
   captureWindowMs?: number;
   allowObsActions?: boolean;
+  includeObsScenes?: boolean;
 }
 
 export interface AutomationRequestDebug {

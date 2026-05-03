@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ActionExecutorService } from "../../src/main/services/automation/action-executor.service";
 import { ActionPlanParserService } from "../../src/main/services/automation/action-plan-parser.service";
 import { ActionValidatorService } from "../../src/main/services/automation/action-validator.service";
+import { AfkOverlayService } from "../../src/main/services/automation/afk-overlay.service";
 import { CooldownService } from "../../src/main/services/automation/cooldown.service";
 import { LiveCaptureInputService } from "../../src/main/services/automation/live-capture-input.service";
 import { ModelActionMemoryService } from "../../src/main/services/automation/model-action-memory.service";
@@ -609,7 +610,7 @@ describe("PipelineService", () => {
       };
     };
 
-    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000, "clip", ["greeting", "wave"]);
+    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000, "clip", ["greeting", "wave", "vacant"]);
     expect(result.modelContext.services.policy.allowedActions).not.toContain("obs.set_scene");
     expect(result.modelContext.services.policy.allowedActions).toContain("vts.trigger_hotkey");
     expect(result.requestDebug.modelMediaDataUrl).toBe("data:video/mp4;base64,Zm9v");
@@ -625,20 +626,37 @@ describe("PipelineService", () => {
     expect(triggerHotkey).toHaveBeenCalledWith("wave");
   });
 
-  describe("vacancy detection", () => {
-    const createObsService = () => ({
-      getStatus: vi.fn().mockResolvedValue({
-        connected: true as const,
-        currentScene: "Main",
-        streamStatus: "live" as const,
-        recordingStatus: "inactive" as const,
-        scenes: [
-          { name: "Main", sources: [{ name: "BRB Overlay", visible: false }] },
-        ],
-      }),
-      setCurrentScene: vi.fn(),
-      setSourceVisibility: vi.fn().mockResolvedValue(undefined),
-    });
+  describe("AFK overlay automation", () => {
+    const createAfkOverlayService = (vacantEnterDelayMs: number): AfkOverlayService =>
+      new AfkOverlayService(() => ({
+        enabled: true,
+        sceneName: "Main",
+        sourceName: "BRB Overlay",
+        vacantEnterDelayMs,
+      }));
+
+    const createObsService = () => {
+      const brbOverlay = { name: "BRB Overlay", visible: false };
+
+      return {
+        getStatus: vi.fn().mockImplementation(() =>
+          Promise.resolve({
+            connected: true as const,
+            currentScene: "Main",
+            streamStatus: "live" as const,
+            recordingStatus: "inactive" as const,
+            scenes: [
+              { name: "Main", sources: [brbOverlay] },
+            ],
+          }),
+        ),
+        setCurrentScene: vi.fn(),
+        setSourceVisibility: vi.fn().mockImplementation((_sceneName: string, _sourceName: string, visible: boolean) => {
+          brbOverlay.visible = visible;
+          return Promise.resolve();
+        }),
+      };
+    };
 
     const createVtsService = () => ({
       getStatus: vi.fn().mockReturnValue({
@@ -700,7 +718,7 @@ describe("PipelineService", () => {
       }),
     }) satisfies { requestActionPlan: ReturnType<typeof vi.fn> };
 
-    it("injects a show-BRB OBS action when the model returns a vacant cue", async () => {
+    it("shows the selected OBS source when the model returns a vacant cue", async () => {
       const obsService = createObsService();
       const vtsService = createVtsService();
       const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -745,31 +763,93 @@ describe("PipelineService", () => {
         cooldownService,
         createLiveCaptureInputService(),
         new ModelActionMemoryService(),
-        { sourceName: "BRB Overlay", vacantEnterDelayMs: 0 },
+        createAfkOverlayService(0),
       );
 
-      let result = await service.analyzeNow();
-      expect(result.ok).toBe(true);
-      result = await service.analyzeNow();
+      const result = await service.analyzeNow();
 
       expect(result.ok).toBe(true);
       if (!result.ok) {
         return;
       }
       expect(result.reviewedActions.length).toBeGreaterThanOrEqual(1);
-      const vacancyAction = result.reviewedActions.find((a) => a.action.type === "obs.set_source_visibility");
-      expect(vacancyAction).toBeDefined();
-      if (!vacancyAction || vacancyAction.action.type !== "obs.set_source_visibility") {
+      const afkAction = result.reviewedActions.find((a) => a.action.type === "obs.set_source_visibility");
+      expect(afkAction).toBeDefined();
+      if (!afkAction || afkAction.action.type !== "obs.set_source_visibility") {
         return;
       }
-      expect(vacancyAction.status).toBe("approved");
-      expect(vacancyAction.action.sceneName).toBe("Main");
-      expect(vacancyAction.action.sourceName).toBe("BRB Overlay");
-      expect(vacancyAction.action.visible).toBe(true);
+      expect(afkAction.status).toBe("approved");
+      expect(afkAction.action.sceneName).toBe("Main");
+      expect(afkAction.action.sourceName).toBe("BRB Overlay");
+      expect(afkAction.action.visible).toBe(true);
+      expect(result.reviewedActions).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: expect.objectContaining({
+              type: "noop",
+              reason: expect.stringContaining("did not map to exactly one safe automation action"),
+            }),
+          }),
+        ]),
+      );
       expect(obsService.setSourceVisibility).toHaveBeenCalledWith("Main", "BRB Overlay", true);
     });
 
-    it("does not inject a duplicate show-BRB action when already vacant", async () => {
+    it("shows the selected OBS source when the model reports no person visible as a noop", async () => {
+      const obsService = createObsService();
+      const vtsService = createVtsService();
+      const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
+      const modelRouter = {
+        requestActionPlan: vi.fn().mockResolvedValue({
+          providerId: "mock",
+          ok: true,
+          status: 200,
+          content: "ok",
+          actionPlan: {
+            response: {
+              text: "No person is visible in the camera frame.",
+              audioTranscript: "[not sent]",
+              visibleToUser: true,
+            },
+            actions: [
+              {
+                type: "noop",
+                actionId: "act_noop_no_person_001",
+                reason: "No people detected in the current camera frame.",
+              },
+            ],
+            safety: {
+              riskLevel: "low",
+              requiresConfirmation: false,
+            },
+            nextTick: {
+              suggestedDelayMs: 5000,
+              priority: "normal",
+            },
+          },
+        }),
+      } satisfies Pick<ModelRouterService, "requestActionPlan">;
+
+      const service = new PipelineService(
+        new ObservationBuilderService(obsService, vtsService, cooldownService),
+        new PromptBuilderService(),
+        modelRouter as ModelRouterService,
+        new ActionPlanParserService(),
+        new ActionValidatorService(cooldownService),
+        new ActionExecutorService(obsService, vtsService, cooldownService),
+        cooldownService,
+        createLiveCaptureInputService(),
+        new ModelActionMemoryService(),
+        createAfkOverlayService(0),
+      );
+
+      const result = await service.analyzeNow();
+
+      expect(result.ok).toBe(true);
+      expect(obsService.setSourceVisibility).toHaveBeenCalledWith("Main", "BRB Overlay", true);
+    });
+
+    it("does not show the selected OBS source again while it is already visible", async () => {
       const obsService = createObsService();
       const vtsService = createVtsService();
       const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -812,7 +892,7 @@ describe("PipelineService", () => {
         cooldownService,
         createLiveCaptureInputService(),
         new ModelActionMemoryService(),
-        { sourceName: "BRB Overlay", vacantEnterDelayMs: 0 },
+        createAfkOverlayService(0),
       );
 
       await service.analyzeNow();
@@ -825,7 +905,7 @@ describe("PipelineService", () => {
       expect(obsService.setSourceVisibility).not.toHaveBeenCalled();
     });
 
-    it("injects a hide-BRB OBS action when the model returns a non-vacant action after being vacant", async () => {
+    it("hides the selected OBS source when the model returns a non-vacant action after AFK", async () => {
       const obsService = createObsService();
       const vtsService = createVtsService();
       const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -905,7 +985,7 @@ describe("PipelineService", () => {
         cooldownService,
         createLiveCaptureInputService(),
         new ModelActionMemoryService(),
-        { sourceName: "BRB Overlay", vacantEnterDelayMs: 5_000 },
+        createAfkOverlayService(5_000),
       );
 
       const result1 = await service.analyzeNow();
@@ -925,17 +1005,17 @@ describe("PipelineService", () => {
       if (!result3.ok) {
         return;
       }
-      const vacancyAction = result3.reviewedActions.find((a) => a.action.type === "obs.set_source_visibility");
-      expect(vacancyAction).toBeDefined();
-      if (!vacancyAction || vacancyAction.action.type !== "obs.set_source_visibility") {
+      const afkAction = result3.reviewedActions.find((a) => a.action.type === "obs.set_source_visibility");
+      expect(afkAction).toBeDefined();
+      if (!afkAction || afkAction.action.type !== "obs.set_source_visibility") {
         return;
       }
-      expect(vacancyAction.status).toBe("approved");
-      expect(vacancyAction.action.visible).toBe(false);
+      expect(afkAction.status).toBe("approved");
+      expect(afkAction.action.visible).toBe(false);
       expect(obsService.setSourceVisibility).toHaveBeenCalledWith("Main", "BRB Overlay", false);
     });
 
-    it("does not inject a show-BRB action until debounce delay elapses", async () => {
+    it("does not show the selected OBS source until debounce delay elapses", async () => {
       const obsService = createObsService();
       const vtsService = createVtsService();
       const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -981,7 +1061,7 @@ describe("PipelineService", () => {
         cooldownService,
         createLiveCaptureInputService(),
         new ModelActionMemoryService(),
-        { sourceName: "BRB Overlay", vacantEnterDelayMs: 5_000 },
+        createAfkOverlayService(5_000),
       );
 
       await service.analyzeNow();
@@ -1002,7 +1082,7 @@ describe("PipelineService", () => {
       expect(obsService.setSourceVisibility).not.toHaveBeenCalled();
     });
 
-    it("suppresses vacancy OBS actions during dry run", async () => {
+    it("does not execute AFK OBS actions during dry run", async () => {
       const obsService = createObsService();
       const vtsService = createVtsService();
       const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -1082,7 +1162,7 @@ describe("PipelineService", () => {
         cooldownService,
         createLiveCaptureInputService(),
         new ModelActionMemoryService(),
-        { sourceName: "BRB Overlay", vacantEnterDelayMs: 5_000 },
+        createAfkOverlayService(5_000),
       );
 
       await service.analyzeNow({ dryRun: true });
@@ -1095,6 +1175,61 @@ describe("PipelineService", () => {
       fakeNow = startMs + 10_000;
       await service.analyzeNow({ dryRun: true });
       expect(obsService.setSourceVisibility).not.toHaveBeenCalled();
+    });
+
+    it("includes the local vacant cue when building live capture prompt input", async () => {
+      const obsService = createObsService();
+      const vtsService = createVtsService();
+      const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
+      const liveCaptureInputService = {
+        buildPromptInput: vi.fn().mockResolvedValue({
+          parts: [
+            {
+              type: "text",
+              text: "{\"capture\":true}",
+            },
+          ],
+          promptTextBytes: 16,
+          mediaDataUrlBytes: 0,
+          sourceWindowKey: "camera:1:1000:latest-frame",
+          sourceClipCount: 1,
+          modelMediaSha256: null,
+          modelMediaDataUrl: null,
+          mediaStartMs: Date.parse("2026-05-02T10:00:00.000Z"),
+          mediaEndMs: Date.parse("2026-05-02T10:00:01.000Z"),
+        }),
+      } as unknown as LiveCaptureInputService;
+      const modelRouter = {
+        requestActionPlan: vi.fn().mockResolvedValue({
+          providerId: "mock",
+          ok: true,
+          status: 200,
+          content: "ok",
+          actionPlan: {
+            actions: [{ type: "noop", actionId: "act_noop_001", reason: "Nothing to do." }],
+            safety: { riskLevel: "low", requiresConfirmation: false },
+            nextTick: { suggestedDelayMs: 5000, priority: "normal" },
+          },
+        }),
+      } satisfies Pick<ModelRouterService, "requestActionPlan">;
+
+      const service = new PipelineService(
+        new ObservationBuilderService(obsService, vtsService, cooldownService),
+        new PromptBuilderService(),
+        modelRouter as ModelRouterService,
+        new ActionPlanParserService(),
+        new ActionValidatorService(cooldownService),
+        new ActionExecutorService(obsService, vtsService, cooldownService),
+        cooldownService,
+        liveCaptureInputService,
+        new ModelActionMemoryService(),
+        createAfkOverlayService(5_000),
+      );
+
+      const result = await service.analyzeNow({ useLatestCapture: true });
+      expect(result.ok).toBe(true);
+      expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(liveCaptureInputService.buildPromptInput).mock.calls[0]?.[2]).toContain("vacant");
     });
   });
 });

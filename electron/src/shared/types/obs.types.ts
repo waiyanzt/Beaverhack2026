@@ -19,3 +19,7 @@ export type ObsStatus =
       recordingStatus: "active" | "inactive";
       scenes: ObsSceneState[];
     };
+
+export type ObsStatusResult =
+  | { ok: true; status: ObsStatus }
+  | { ok: false; message: string; status: ObsStatus };

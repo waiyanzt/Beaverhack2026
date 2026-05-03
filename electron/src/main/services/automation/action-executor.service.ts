@@ -78,7 +78,7 @@ export class ActionExecutorService {
           actionId: reviewedAction.action.actionId,
           type: reviewedAction.action.type,
           status: "executed",
-          reason: "Dry run: action approved for execution.",
+          reason: `Dry run: ${this.getActionResultReason(reviewedAction)}`,
         });
         continue;
       }
@@ -90,14 +90,14 @@ export class ActionExecutorService {
           actionId: reviewedAction.action.actionId,
           type: reviewedAction.action.type,
           status: "executed",
-          reason: reviewedAction.action.reason,
+          reason: this.getActionResultReason(reviewedAction),
         });
       } catch (error: unknown) {
         results.push({
           actionId: reviewedAction.action.actionId,
           type: reviewedAction.action.type,
           status: "failed",
-          reason: reviewedAction.action.reason,
+          reason: this.getActionResultReason(reviewedAction),
           errorMessage: error instanceof Error ? error.message : "Unknown execution error.",
         });
       }
@@ -130,6 +130,20 @@ export class ActionExecutorService {
       case "vts.set_parameter":
         throw new Error("VTube Studio parameter actions are not implemented yet.");
     }
+  }
+
+  private getActionResultReason(reviewedAction: ReviewedAction): string {
+    const { action } = reviewedAction;
+
+    if ("reason" in action && typeof action.reason === "string" && action.reason.trim().length > 0) {
+      return action.reason;
+    }
+
+    if (action.type === "log.event" && action.message.trim().length > 0) {
+      return action.message;
+    }
+
+    return reviewedAction.reason || "Action execution completed.";
   }
 
   private resolveVtsHotkeyId(action: Extract<ReviewedAction["action"], { type: "vts.trigger_hotkey" }>): string {
