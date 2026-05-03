@@ -29,6 +29,11 @@ import type {
   ModelMonitorStopResponse,
 } from "../shared/types/model-monitor.types";
 import type {
+  ModelProviderConfig,
+  ModelProviderId,
+  ModelProviderTestResult,
+} from "../shared/model.types";
+import type {
   VtsHotkeysResult,
   VtsStatus,
   VtsStatusResult,
@@ -225,6 +230,37 @@ const desktopApi = {
     return () => {
       ipcRenderer.removeListener(IpcChannels.ModelMonitorEvent, listener);
     };
+  },
+  modelListProviders: async (): Promise<ModelProviderConfig[]> => {
+    try {
+      return await ipcRenderer.invoke(IpcChannels.ModelListProviders);
+    } catch (error: unknown) {
+      console.error("Failed to list model providers:", error);
+      return [];
+    }
+  },
+  modelSetProvider: async (
+    providerId: ModelProviderId,
+  ): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      return await ipcRenderer.invoke(IpcChannels.ModelSetProvider, providerId);
+    } catch (error: unknown) {
+      console.error("Failed to set model provider:", error);
+      return { ok: false, message: "Unable to set provider." };
+    }
+  },
+  modelTestConnection: async (): Promise<ModelProviderTestResult> => {
+    try {
+      return await ipcRenderer.invoke(IpcChannels.ModelTestConnection);
+    } catch (error: unknown) {
+      console.error("Failed to test model connection:", error);
+      return {
+        providerId: "vllm",
+        ok: false,
+        status: null,
+        message: error instanceof Error ? error.message : "Unable to test connection.",
+      };
+    }
   },
 };
 
