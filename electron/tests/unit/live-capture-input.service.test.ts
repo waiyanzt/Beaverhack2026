@@ -8,6 +8,34 @@ vi.mock("../../src/main/utils/media-conversion", () => ({
 }));
 
 describe("LiveCaptureInputService", () => {
+  it("can build a low-latency latest-frame prompt without video conversion", async () => {
+    const nowMs = Date.now();
+    const provider = {
+      getLatestClip: vi.fn(),
+      getLatestFrame: vi.fn().mockReturnValue({
+        timestampMs: nowMs,
+        width: 640,
+        height: 360,
+        mimeType: "image/jpeg",
+        data: Buffer.from("jpeg-frame"),
+      }),
+    };
+
+    const service = new LiveCaptureInputService(provider);
+    const result = await service.buildPromptInput(1_000, "latest_frame");
+
+    expect(result.parts[0]).toMatchObject({
+      type: "image_url",
+      image_url: {
+        detail: "low",
+      },
+    });
+    expect(result.sourceWindowKey).toContain(`camera-frame:${nowMs}:640x360:image/jpeg`);
+    expect(result.mediaStartMs).toBe(nowMs);
+    expect(result.mediaEndMs).toBe(nowMs);
+    expect(provider.getLatestClip).not.toHaveBeenCalled();
+  });
+
   it("selects the audio clip with the best overlap for the current camera clip", async () => {
     const nowMs = Date.now();
     const provider = {

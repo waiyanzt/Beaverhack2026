@@ -10,10 +10,21 @@ type RawClipData = {
   data: Buffer;
 };
 
+type RawFrameData = {
+  timestampMs: number;
+  width: number;
+  height: number;
+  mimeType: string;
+  data: Buffer;
+};
+
 interface LiveCaptureProvider {
   getLatestClip(kind: "camera" | "audio"): RawClipData | null;
+  getLatestFrame?(kind: "camera"): RawFrameData | null;
   getRecentRawClips?(kind: "camera" | "audio", windowMs: number): RawClipData[];
 }
+
+export type LiveCaptureInputMode = "latest_frame" | "clip";
 
 export interface LiveCapturePromptInput {
   parts: OpenAICompatibleMessagePart[];
@@ -34,7 +45,11 @@ export class LiveCaptureInputService {
 
   public constructor(private readonly captureProvider: LiveCaptureProvider) {}
 
-  public async buildPromptInput(windowMs: number): Promise<LiveCapturePromptInput> {
+  public async buildPromptInput(windowMs: number, mode: LiveCaptureInputMode = "clip"): Promise<LiveCapturePromptInput> {
+    if (mode === "latest_frame") {
+      return this.buildLatestFramePromptInput(windowMs);
+    }
+
     const cameraClip = this.getFreshRawClip("camera", windowMs);
 
     if (!cameraClip) {
@@ -46,13 +61,15 @@ export class LiveCaptureInputService {
     const promptPayload = {
       task: [
         "Analyze only this current webcam/audio clip as a stateless live observation.",
-        "First, transcribe the full audible speech from this clip into response.audioTranscript before deciding actions. Use '[no speech]' if no speech is audible and '[inaudible]' if speech is present but unclear.",
+        "Set response.audioTranscript to a very short transcript only when speech is directly relevant to the action decision. Use '[no speech]' if no speech is audible and '[inaudible]' if speech is present but unclear.",
         "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible or audible in this clip.",
         "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
         "Do not use audio to infer visual appearance such as hair, beard, room, posture, or whether a person is visible.",
         "When choosing a VTS reaction, use only services.vts.automationCatalog.candidates from the current model context.",
         "Use each candidate's user-provided label and description to decide the reaction.",
         "Return vts.trigger_hotkey only with catalogId and catalogVersion from that automation catalog. Do not invent or reuse raw VTS hotkey IDs.",
+        "For vts.trigger_hotkey, include confidence and visualEvidence. confidence must be at least 0.88 and visualEvidence must name concrete evidence in this current clip.",
+        "If the evidence is even slightly ambiguous, return noop instead of guessing.",
         "Return noop only for idle, ordinary speaking, unclear, unsupported, or covered-camera clips.",
         "If the current clip clearly matches exactly one safe_auto candidate and cooldownSummary for that catalog item is 0 or missing, prefer that action over noop.",
       ],
@@ -94,6 +111,67 @@ export class LiveCaptureInputService {
     };
   }
 
+  private buildLatestFramePromptInput(windowMs: number): LiveCapturePromptInput {
+    const cameraFrame = this.getFreshRawFrame("camera", windowMs);
+
+    if (!cameraFrame) {
+      throw new Error("No fresh camera frame is available for automation.");
+    }
+
+    const frameDataUrl = encodeDataUrl(cameraFrame.mimeType, cameraFrame.data);
+    const promptPayload = {
+      task: [
+        "Analyze only this current webcam frame as a stateless live observation.",
+        "Audio is not included in this low-latency pass; set response.audioTranscript to '[not sent]'.",
+        "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible in this frame.",
+        "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
+        "When choosing a VTS reaction, use only services.vts.automationCatalog.candidates from the current model context.",
+        "Use each candidate's user-provided label and description to decide the reaction.",
+        "Return vts.trigger_hotkey only with catalogId and catalogVersion from that automation catalog. Do not invent or reuse raw VTS hotkey IDs.",
+        "For vts.trigger_hotkey, include confidence and visualEvidence. confidence must be at least 0.88 and visualEvidence must name concrete evidence visible in this exact frame.",
+        "Use a high bar: trigger only for unmistakable visible cues like a clear wave, obvious laugh/smile expression, or strong surprise pose.",
+        "Do not trigger audio-only, speech-only, greeting-only, mood, or subtle expression candidates in frame mode because audio and motion context are not sent.",
+        "If the evidence is even slightly ambiguous, ordinary, neutral, or unsupported by this single frame, return noop instead of guessing.",
+        "Return noop for idle, ordinary speaking posture, unclear expressions, unsupported cues, partial gestures, or covered-camera frames.",
+      ],
+      capture: {
+        windowMs,
+        layout: "single_latest_webcam_frame",
+        camera: this.toRawFrameSummary(cameraFrame),
+        audio: {
+          available: false,
+          packaging: "not_sent_low_latency_frame_mode",
+        },
+        modelMedia: this.toModelFrameSummary(cameraFrame, frameDataUrl),
+      },
+    };
+    const promptText = JSON.stringify(promptPayload, null, 2);
+
+    return {
+      parts: [
+        {
+          type: "image_url",
+          image_url: {
+            url: frameDataUrl,
+            detail: "low",
+          },
+        },
+        {
+          type: "text",
+          text: promptText,
+        },
+      ],
+      promptTextBytes: Buffer.byteLength(promptText, "utf8"),
+      mediaDataUrlBytes: Buffer.byteLength(frameDataUrl, "utf8"),
+      sourceWindowKey: this.getFrameCacheKey("camera", cameraFrame),
+      sourceClipCount: 1,
+      modelMediaSha256: createHash("sha256").update(frameDataUrl).digest("hex"),
+      modelMediaDataUrl: frameDataUrl,
+      mediaStartMs: cameraFrame.timestampMs,
+      mediaEndMs: cameraFrame.timestampMs,
+    };
+  }
+
   private getFreshRawClip(kind: "camera" | "audio", windowMs: number): RawClipData | null {
     const clip = this.captureProvider.getLatestClip(kind);
 
@@ -102,6 +180,16 @@ export class LiveCaptureInputService {
     }
 
     return clip;
+  }
+
+  private getFreshRawFrame(kind: "camera", windowMs: number): RawFrameData | null {
+    const frame = this.captureProvider.getLatestFrame?.(kind);
+
+    if (!frame || Date.now() - frame.timestampMs > windowMs + 500) {
+      return null;
+    }
+
+    return frame;
   }
 
   private getBestMatchingAudioClip(cameraClip: RawClipData, windowMs: number): RawClipData | null {
@@ -179,6 +267,10 @@ export class LiveCaptureInputService {
     return `${kind}:${clip.timestampMs}:${clip.durationMs}:${clip.mimeType}`;
   }
 
+  private getFrameCacheKey(kind: "camera", frame: RawFrameData): string {
+    return `${kind}-frame:${frame.timestampMs}:${frame.width}x${frame.height}:${frame.mimeType}`;
+  }
+
   private toRawClipSummary(clip: RawClipData | null): Record<string, unknown> {
     return {
       available: clip !== null,
@@ -191,6 +283,16 @@ export class LiveCaptureInputService {
     };
   }
 
+  private toRawFrameSummary(frame: RawFrameData): Record<string, unknown> {
+    return {
+      available: true,
+      capturedAt: toIso(frame.timestampMs),
+      width: frame.width,
+      height: frame.height,
+      mimeType: frame.mimeType,
+    };
+  }
+
   private toModelClipSummary(clip: { dataUrl: string; timestampMs: number; durationMs: number }): Record<string, unknown> {
     return {
       available: true,
@@ -199,6 +301,17 @@ export class LiveCaptureInputService {
       capturedAt: toIso(clip.timestampMs),
       durationMs: clip.durationMs,
       mimeType: "video/mp4",
+    };
+  }
+
+  private toModelFrameSummary(frame: RawFrameData, dataUrl: string): Record<string, unknown> {
+    return {
+      available: true,
+      capturedAt: toIso(frame.timestampMs),
+      width: frame.width,
+      height: frame.height,
+      mimeType: frame.mimeType,
+      dataUrlBytes: Buffer.byteLength(dataUrl, "utf8"),
     };
   }
 }

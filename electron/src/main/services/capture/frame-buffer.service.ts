@@ -79,6 +79,10 @@ export class FrameBufferService {
 		return this.frames.filter((frame) => frame.timestampMs >= cutoff);
 	}
 
+	getLatest(): FrameBufferEntry | null {
+		return this.frames.at(-1) ?? null;
+	}
+
 	private trim(nowMs: number): void {
 		const cutoff = nowMs - this.maxDurationMs;
 

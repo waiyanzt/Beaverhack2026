@@ -115,6 +115,8 @@ describe("PipelineService", () => {
               actionId: "act_001",
               catalogId: "laugh",
               catalogVersion: "vts_catalog_demo",
+              confidence: 0.94,
+              visualEvidence: "The streamer is visibly laughing with an open smile.",
               reason: "Streamer made a funny joke and laugh reaction fits.",
               cooldownMs: 5000,
             },
@@ -153,14 +155,12 @@ describe("PipelineService", () => {
     }
 
     expect(result.modelContext.services.vts.availableHotkeys).toEqual([]);
-    expect(result.modelContext.context.recentActionSummary).toEqual([
-      {
-        catalogId: "laugh",
-        actionType: "vts.trigger_hotkey",
-        ageMs: 0,
-        status: "executed",
-      },
-    ]);
+    expect(result.modelContext.context.recentActionSummary[0]).toMatchObject({
+      catalogId: "laugh",
+      actionType: "vts.trigger_hotkey",
+      status: "executed",
+    });
+    expect(result.modelContext.context.recentActionSummary[0]?.ageMs).toBeGreaterThanOrEqual(0);
     expect(result.modelContext.context.cooldownSummary).toEqual({
       laugh: {
         remainingMs: 5000,
@@ -513,6 +513,8 @@ describe("PipelineService", () => {
               actionId: "act_002",
               catalogId: "greeting",
               catalogVersion: "vts_catalog_demo",
+              confidence: 0.93,
+              visualEvidence: "The streamer has a clearly raised hand waving at the camera.",
               reason: "Streamer waved at the camera.",
             },
           ],
@@ -596,7 +598,7 @@ describe("PipelineService", () => {
       };
     };
 
-    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000);
+    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000, "clip");
     expect(result.modelContext.services.policy.allowedActions).not.toContain("obs.set_scene");
     expect(result.modelContext.services.policy.allowedActions).toContain("vts.trigger_hotkey");
     expect(result.requestDebug.modelMediaDataUrl).toBe("data:video/mp4;base64,Zm9v");

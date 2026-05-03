@@ -7,6 +7,8 @@ export const triggerVtsHotkeyActionSchema = z.object({
   catalogVersion: z.string().optional(),
   hotkeyId: z.string().optional(),
   intensity: z.number().optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  visualEvidence: z.string().optional(),
   reason: z.string(),
   cooldownMs: z.number().optional(),
 }).refine((value) => typeof value.catalogId === "string" || typeof value.hotkeyId === "string", {

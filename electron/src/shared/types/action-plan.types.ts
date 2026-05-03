@@ -31,6 +31,7 @@ export interface AutomationAnalyzeNowRequest {
   transcript?: string;
   dryRun?: boolean;
   useLatestCapture?: boolean;
+  captureInputMode?: "latest_frame" | "clip";
   captureWindowMs?: number;
   allowObsActions?: boolean;
 }

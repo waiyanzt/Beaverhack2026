@@ -44,7 +44,10 @@ export class PipelineService {
         ? this.buildLivePromptContext(baseModelContext)
         : baseModelContext;
       const liveCaptureInput = request.useLatestCapture
-        ? await this.liveCaptureInputService.buildPromptInput(request.captureWindowMs ?? 2_000)
+        ? await this.liveCaptureInputService.buildPromptInput(
+            request.captureWindowMs ?? 1_000,
+            request.captureInputMode ?? "clip",
+          )
         : undefined;
       const captureInputBuiltMs = Date.now();
       const prompt = this.promptBuilder.buildMessages(modelContext, liveCaptureInput);

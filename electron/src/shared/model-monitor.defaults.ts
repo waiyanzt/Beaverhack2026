@@ -3,9 +3,9 @@ import type { ModelMonitorStatus } from "./types/model-monitor.types";
 
 export const MODEL_MONITOR_DEFAULT_TIMING = {
   tickIntervalMs: 100,
-  clipIntervalMs: 500,
-  windowMs: 2_000,
-  maxLiveClipAgeMs: 1_500,
+  clipIntervalMs: 250,
+  windowMs: 1_000,
+  maxLiveClipAgeMs: 750,
   maxInFlightRequests: 2,
 } as const;
 
@@ -24,7 +24,7 @@ const DEFAULT_CAPTURE_CONFIG: CaptureStartRequest = {
     resolution: "640x360",
     jpegQuality: 75,
     detail: "low",
-    clipDurationSeconds: 2,
+    clipDurationSeconds: MODEL_MONITOR_DEFAULT_TIMING.windowMs / 1000,
     clipIntervalSeconds: MODEL_MONITOR_DEFAULT_TIMING.clipIntervalMs / 1000,
     maxClips: 12,
     deviceId: null,
@@ -36,7 +36,7 @@ const DEFAULT_CAPTURE_CONFIG: CaptureStartRequest = {
     resolution: "640x360",
     jpegQuality: 70,
     detail: "low",
-    clipDurationSeconds: 2,
+    clipDurationSeconds: MODEL_MONITOR_DEFAULT_TIMING.windowMs / 1000,
     clipIntervalSeconds: MODEL_MONITOR_DEFAULT_TIMING.clipIntervalMs / 1000,
     maxClips: 1,
     sourceId: null,
@@ -45,7 +45,7 @@ const DEFAULT_CAPTURE_CONFIG: CaptureStartRequest = {
     enabled: true,
     sampleRate: 16000,
     channels: 1,
-    bufferDurationSeconds: 2,
+    bufferDurationSeconds: MODEL_MONITOR_DEFAULT_TIMING.windowMs / 1000,
     clipIntervalSeconds: MODEL_MONITOR_DEFAULT_TIMING.clipIntervalMs / 1000,
     transcriptionEnabled: false,
     sendRawAudio: false,

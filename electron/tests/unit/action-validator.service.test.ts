@@ -92,9 +92,11 @@ describe("ActionValidatorService", () => {
       [
         {
           type: "vts.trigger_hotkey",
-        actionId: "action_12",
+          actionId: "action_12",
           catalogId: "greeting",
           catalogVersion: "vts_catalog_demo",
+          confidence: 0.95,
+          visualEvidence: "The streamer has a clearly raised hand waving at the camera.",
           reason: "repeat test",
         },
       ],
@@ -124,9 +126,11 @@ describe("ActionValidatorService", () => {
       [
         {
           type: "vts.trigger_hotkey",
-        actionId: "action_12",
+          actionId: "action_12",
           catalogId: "greeting",
           catalogVersion: "vts_catalog_demo",
+          confidence: 0.95,
+          visualEvidence: "The streamer has a clearly raised hand waving at the camera.",
           reason: "repeat test",
         },
       ],
@@ -135,6 +139,53 @@ describe("ActionValidatorService", () => {
     );
 
     expect(reviewed?.status).toBe("approved");
+  });
+
+  it("blocks low-confidence automatic VTS hotkey actions", () => {
+    const validator = new ActionValidatorService(new CooldownService(() => Date.parse("2026-05-03T08:11:50.220Z")));
+    const context = createBaseContext();
+
+    const [reviewed] = validator.reviewActions(
+      [
+        {
+          type: "vts.trigger_hotkey",
+          actionId: "action_low_confidence",
+          catalogId: "greeting",
+          catalogVersion: "vts_catalog_demo",
+          confidence: 0.72,
+          visualEvidence: "The streamer may be moving one hand.",
+          reason: "The frame might show a greeting.",
+        },
+      ],
+      context,
+      false,
+    );
+
+    expect(reviewed?.status).toBe("blocked");
+    expect(reviewed?.reason).toContain("confidence");
+  });
+
+  it("blocks VTS hotkey actions without concrete visual evidence", () => {
+    const validator = new ActionValidatorService(new CooldownService(() => Date.parse("2026-05-03T08:11:50.220Z")));
+    const context = createBaseContext();
+
+    const [reviewed] = validator.reviewActions(
+      [
+        {
+          type: "vts.trigger_hotkey",
+          actionId: "action_no_evidence",
+          catalogId: "greeting",
+          catalogVersion: "vts_catalog_demo",
+          confidence: 0.95,
+          reason: "Greeting reaction fits.",
+        },
+      ],
+      context,
+      false,
+    );
+
+    expect(reviewed?.status).toBe("blocked");
+    expect(reviewed?.reason).toContain("visual evidence");
   });
 
   it("blocks noop reasons that clearly support an available automation action", () => {

@@ -34,7 +34,7 @@ Recent action history now carries both:
 
 For manual text-only runs, the payload is serialized by `PromptBuilderService` and sent through `ModelRouterService`, then parsed, validated, and optionally executed by `PipelineService`.
 
-For live camera/audio runs, `PipelineService` can also attach the latest buffered webcam clip plus synchronized audio as an MP4 `video_url` input while keeping the same parse/validate/execute flow. That live path now trims prompt history aggressively and excludes noop-only memory so the current clip remains the primary evidence instead of being drowned out by prior identical monitor outputs.
+For live camera/audio runs, `PipelineService` can attach either the latest sampled webcam frame as a low-latency `image_url` input or the latest buffered webcam clip plus synchronized audio as an MP4 `video_url` input while keeping the same parse/validate/execute flow. The dashboard monitor uses the latest-frame mode by default to avoid waiting for a completed video segment and to avoid ffmpeg muxing/transcoding on the critical path. Manual live analysis can still use the clip path when audio evidence is more important than reaction latency.
 
 The live path now also stops feeding full prior plans back into the model as decision evidence. Instead it keeps:
 
@@ -45,7 +45,7 @@ The live path now also stops feeding full prior plans back into the model as dec
 
 This keeps cooldown enforcement in the validator/executor layer instead of teaching the model to self-suppress based on prior blocked outputs.
 
-The live model monitor reports stage timing separately. Provider request latency is measured only around `ModelRouter.requestActionPlan`, while pre-model latency covers observation building, live capture lookup/muxing, and prompt assembly. The end-to-end response delay still includes the capture window duration because live reactions use completed clips rather than partial in-progress media.
+The live model monitor reports stage timing separately. Provider request latency is measured only around `ModelRouter.requestActionPlan`, while pre-model latency covers observation building, live capture lookup/media preparation, and prompt assembly. In latest-frame mode, end-to-end response delay should no longer include the fixed completed-clip wait.
 
 `ModelActionMemoryService` owns the short-term model action memory in the Electron main process. The canonical automation pipeline records each parsed plan after review/execution, and the dashboard model monitor records returned plans as `not_executed` because that development loop never runs actions directly. The next prompt includes this memory so providers can make context-aware choices, such as continuing a laugh reaction when the latest observation still supports it, without mechanically repeating prior actions.
 
@@ -58,7 +58,10 @@ Noop decisions are also represented in the compact `recentActions` history. This
   - the catalog version is current
   - the selected candidate is still present
   - the candidate is classified as `safe_auto`
+  - the action includes confidence of at least `0.88`
+  - the action includes concrete visual evidence from the current media
   - the action is not cooling down or repeat-suppressed
+- Live latest-frame automation intentionally uses a high trigger threshold. Ambiguous, subtle, audio-only, or ordinary speaking cues should return `noop`; random or low-confidence emote guesses are blocked locally even if the model names a valid safe-auto catalog item.
 - `noop` is now blocked when its reason clearly argues for one of the currently available safe-auto catalog actions. This is a guard against plans that detect a cue correctly but still self-suppress.
 - When an executed VTS catalog entry is marked locally as not auto-deactivating, `ActionExecutorService` schedules a follow-up trigger of the same underlying hotkey after the configured delay to turn that state back off without asking the model to do it.
 - Raw hotkey IDs are still available for manual operator testing, but live automation does not trust the model to choose them directly.

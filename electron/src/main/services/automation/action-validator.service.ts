@@ -4,6 +4,18 @@ import type { ModelControlContext } from "../../../shared/types/observation.type
 import type { CooldownService } from "./cooldown.service";
 
 const DEFAULT_VTS_HOTKEY_REPEAT_WINDOW_MS = 6_000;
+const MIN_AUTO_VTS_CONFIDENCE = 0.88;
+const UNCERTAIN_ACTION_TERMS = [
+  "maybe",
+  "might",
+  "possibly",
+  "probably",
+  "unclear",
+  "ambiguous",
+  "guess",
+  "seems like",
+  "looks like it might",
+];
 
 export class ActionValidatorService {
   public constructor(private readonly cooldownService: CooldownService) {}
@@ -87,6 +99,30 @@ export class ActionValidatorService {
           action,
           status: "blocked",
           reason: `Catalog item "${action.catalogId}" is not approved for automatic execution.`,
+        };
+      }
+
+      if (typeof action.confidence !== "number" || action.confidence < MIN_AUTO_VTS_CONFIDENCE) {
+        return {
+          action,
+          status: "blocked",
+          reason: `VTS automation requires confidence >= ${MIN_AUTO_VTS_CONFIDENCE}.`,
+        };
+      }
+
+      if (!action.visualEvidence || action.visualEvidence.trim().length < 8) {
+        return {
+          action,
+          status: "blocked",
+          reason: "VTS automation requires concrete visual evidence from the current media.",
+        };
+      }
+
+      if (this.containsUncertainty(action.reason) || this.containsUncertainty(action.visualEvidence)) {
+        return {
+          action,
+          status: "blocked",
+          reason: "VTS automation evidence is uncertain; suppressing automatic emote trigger.",
         };
       }
 
@@ -192,5 +228,10 @@ export class ActionValidatorService {
     });
 
     return [...new Set(candidateTerms)].some((term) => term.length > 2 && normalizedReason.includes(term));
+  }
+
+  private containsUncertainty(value: string): boolean {
+    const normalized = value.toLowerCase();
+    return UNCERTAIN_ACTION_TERMS.some((term) => normalized.includes(term));
   }
 }

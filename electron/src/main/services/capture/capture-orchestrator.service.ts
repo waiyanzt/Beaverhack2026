@@ -396,6 +396,29 @@ export class CaptureOrchestratorService {
 		};
 	}
 
+	getLatestFrame(kind: "camera" | "screen"): {
+		timestampMs: number;
+		width: number;
+		height: number;
+		mimeType: string;
+		data: Buffer;
+	} | null {
+		const buffer = kind === "camera" ? this.buffers.camera : this.buffers.screen;
+		const frame = buffer?.getLatest();
+
+		if (!frame) {
+			return null;
+		}
+
+		return {
+			timestampMs: frame.timestampMs,
+			width: frame.width,
+			height: frame.height,
+			mimeType: frame.mimeType,
+			data: Buffer.from(frame.data),
+		};
+	}
+
 	getRecentRawClips(kind: CaptureClipKind, windowMs: number): Array<{
 		timestampMs: number;
 		durationMs: number;

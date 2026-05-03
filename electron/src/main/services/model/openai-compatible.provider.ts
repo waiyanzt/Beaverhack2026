@@ -85,42 +85,58 @@ function stripMarkdownCodeBlocks(text: string): string {
   return match ? match[1].trim() : text.trim();
 }
 
-function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
-  const parts: string[] = [];
-  let imageCount = 0;
-  let videoCount = 0;
-  let audioCount = 0;
+function redactModelLogValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    const dataUrlMatch = value.match(/^(data:(?:image|video|audio)\/[^;,]+(?:;[^,]*)?,)/);
 
-  for (const message of messages) {
-    let textPreview = "";
-
-    if (typeof message.content === "string") {
-      textPreview = message.content;
-    } else if (Array.isArray(message.content)) {
-      const textParts: string[] = [];
-      for (const part of message.content) {
-        if (part.type === "text") {
-          textParts.push(part.text);
-        } else if (part.type === "image_url") {
-          imageCount++;
-        } else if (part.type === "video_url") {
-          videoCount++;
-        } else if (part.type === "audio_url") {
-          audioCount++;
-        }
-      }
-      textPreview = textParts.join(" ");
+    if (dataUrlMatch) {
+      return `${dataUrlMatch[1]}<redacted ${value.length} chars>`;
     }
 
-    parts.push(`[${message.role}: ${textPreview}]`);
+    return value;
   }
 
-  const mediaParts: string[] = [];
-  if (imageCount > 0) mediaParts.push(imageCount === 1 ? "1 image" : `${imageCount} images`);
-  if (videoCount > 0) mediaParts.push(videoCount === 1 ? "1 video" : `${videoCount} videos`);
-  if (audioCount > 0) mediaParts.push(audioCount === 1 ? "1 audio" : `${audioCount} audio clips`);
+  if (Array.isArray(value)) {
+    return value.map((item) => redactModelLogValue(item));
+  }
 
-  return `${parts.join(" ")}${mediaParts.length > 0 ? ` [${mediaParts.join(", ")}]` : ""}`;
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, redactModelLogValue(entry)]),
+    );
+  }
+
+  return value;
+}
+
+function formatModelLogJson(value: unknown): string {
+  return JSON.stringify(redactModelLogValue(value), null, 2);
+}
+
+function parseModelResponseForLog(body: string): unknown {
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    return body;
+  }
+}
+
+function logModelRequest(label: string, url: string, request: OpenAICompatibleChatRequest): void {
+  console.log(
+    `${label} REQUEST ${formatModelLogJson({
+      url,
+      request,
+    })}`,
+  );
+}
+
+function logModelResponse(label: string, status: number, body: string): void {
+  console.log(
+    `${label} RESPONSE ${formatModelLogJson({
+      status,
+      body: parseModelResponseForLog(body),
+    })}`,
+  );
 }
 
 function buildActionProperties(): Record<string, unknown> {
@@ -162,6 +178,16 @@ function buildActionProperties(): Record<string, unknown> {
     intensity: {
       type: "number",
       description: "For vts.trigger_hotkey: intensity from 0 to 1.",
+    },
+    confidence: {
+      type: "number",
+      minimum: 0,
+      maximum: 1,
+      description: "For vts.trigger_hotkey: confidence from 0 to 1 that the current media directly and unambiguously supports this action.",
+    },
+    visualEvidence: {
+      type: "string",
+      description: "For vts.trigger_hotkey: concrete visual evidence from the current frame/clip, such as a visible wave, smile, laugh, surprise expression, or covered camera.",
     },
     // VTS parameter fields
     parameterId: {
@@ -546,11 +572,12 @@ export class OpenAICompatibleProvider {
       headers.Authorization = `Bearer ${config.apiKey}`;
     }
 
-    console.log(`RAW PROMPT: "${summarizeMessagesForLog(requestMessages)}"`);
+    const url = `${config.baseUrl}${this.endpointPath}`;
+    logModelRequest("MODEL ACTION PLAN", url, request);
 
-    const response = await this.client.postJson(`${config.baseUrl}${this.endpointPath}`, request, headers);
+    const response = await this.client.postJson(url, request, headers);
 
-    console.log(`RAW OUTPUT: "${response.body.replace(/"/g, '"')}"`);
+    logModelResponse("MODEL ACTION PLAN", response.status, response.body);
 
     let rawBody: unknown;
 
@@ -722,11 +749,12 @@ export class OpenAICompatibleProvider {
       headers.Authorization = `Bearer ${config.apiKey}`;
     }
 
-    console.log(`RAW PROMPT: "${summarizeMessagesForLog(messages)}"`);
+    const url = `${config.baseUrl}${this.endpointPath}`;
+    logModelRequest("MODEL CHAT", url, request);
 
-    const response = await this.client.postJson(`${config.baseUrl}${this.endpointPath}`, request, headers);
+    const response = await this.client.postJson(url, request, headers);
 
-    console.log(`RAW OUTPUT: "${response.body.replace(/"/g, '"')}"`);
+    logModelResponse("MODEL CHAT", response.status, response.body);
 
     let rawBody: unknown;
 

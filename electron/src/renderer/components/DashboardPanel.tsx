@@ -98,6 +98,8 @@ const toStoredValue = (value: string): string | null => {
 	return trimmed.length > 0 ? trimmed : null;
 };
 
+const isImageDataUrl = (value: string): boolean => value.startsWith("data:image/");
+
 const DashboardPanel = (): React.JSX.Element => {
 	const { status: captureStatus } = useCapture();
 	const [monitorStatus, setMonitorStatus] = useState<ModelMonitorStatus>(emptyMonitorStatus);
@@ -621,12 +623,16 @@ const DashboardPanel = (): React.JSX.Element => {
 				<h3>Latest Model Request Pair</h3>
 				<div className="preview preview--media">
 					{latestModelMediaUrl ? (
-						<video key={latestModelMediaUrl} src={latestModelMediaUrl} controls muted playsInline />
+						isImageDataUrl(latestModelMediaUrl) ? (
+							<img src={latestModelMediaUrl} alt="Latest frame sent to the model" />
+						) : (
+							<video key={latestModelMediaUrl} src={latestModelMediaUrl} controls muted playsInline />
+						)
 					) : (
-						<div className="preview__empty">Waiting for the first MP4 sent to the model</div>
+						<div className="preview__empty">Waiting for the first media sample sent to the model</div>
 					)}
 				</div>
-				<p className="meter__label">This video and text are from the same latest response event.</p>
+				<p className="meter__label">This media sample and text are from the same latest response event.</p>
 				<textarea
 					className="response-log"
 					readOnly

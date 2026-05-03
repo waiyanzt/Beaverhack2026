@@ -25,6 +25,14 @@ type RawClipData = {
   data: Buffer;
 };
 
+type RawFrameData = {
+  timestampMs: number;
+  width: number;
+  height: number;
+  mimeType: string;
+  data: Buffer;
+};
+
 const DEFAULT_STATUS: ModelMonitorStatus = createIdleModelMonitorStatus();
 
 const toIso = (timestampMs: number): string => new Date(timestampMs).toISOString();
@@ -215,6 +223,7 @@ export class ModelMonitorService {
       const pipelineResult = await this.pipelineService.analyzeNow({
         dryRun: false,
         useLatestCapture: true,
+        captureInputMode: "latest_frame",
         captureWindowMs: this.status.windowMs,
         allowObsActions: false,
       });
@@ -367,23 +376,39 @@ export class ModelMonitorService {
 
   private getMediaAvailability(): ModelMonitorMediaAvailability {
     return {
-      camera: this.getFreshRawClip("camera") !== null,
+      camera: this.getFreshRawFrame("camera") !== null,
       screen: this.getFreshRawClip("screen") !== null,
       audio: this.getFreshRawClip("audio") !== null,
     };
   }
 
   private getCurrentMedia(): { key: string; mediaEndMs: number; mediaDurationMs: number } | null {
-    const cameraClip = this.getFreshRawClip("camera");
+    const cameraFrame = this.getFreshRawFrame("camera");
 
-    if (!cameraClip) {
+    if (!cameraFrame) {
       return null;
     }
 
     return {
-      key: this.getClipCacheKey("camera", cameraClip),
-      mediaEndMs: cameraClip.timestampMs,
-      mediaDurationMs: cameraClip.durationMs,
+      key: this.getFrameCacheKey("camera", cameraFrame),
+      mediaEndMs: cameraFrame.timestampMs,
+      mediaDurationMs: 0,
+    };
+  }
+
+  private getFreshRawFrame(kind: "camera" | "screen"): RawFrameData | null {
+    const frame = this.captureOrchestrator.getLatestFrame(kind);
+
+    if (!frame || Date.now() - frame.timestampMs > this.status.windowMs + 500) {
+      return null;
+    }
+
+    return {
+      timestampMs: frame.timestampMs,
+      width: frame.width,
+      height: frame.height,
+      mimeType: frame.mimeType,
+      data: frame.data,
     };
   }
 
@@ -408,6 +433,14 @@ export class ModelMonitorService {
     }
 
     return `${kind}:${clip.timestampMs}:${clip.durationMs}:${clip.mimeType}`;
+  }
+
+  private getFrameCacheKey(kind: "camera" | "screen", frame: RawFrameData | null): string {
+    if (!frame) {
+      return `${kind}-frame:none`;
+    }
+
+    return `${kind}-frame:${frame.timestampMs}:${frame.width}x${frame.height}:${frame.mimeType}`;
   }
 
   private summarizePipelineRun(
