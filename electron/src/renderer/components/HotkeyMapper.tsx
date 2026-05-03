@@ -82,6 +82,8 @@ export function HotkeyMapper(): React.JSX.Element {
   });
   const [editingHotkeyId, setEditingHotkeyId] = useState<string | null>(null);
   const [editingCueLabelId, setEditingCueLabelId] = useState<string | null>(null);
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const [cueLabelsOpen, setCueLabelsOpen] = useState(false);
   const [cueLabelDraft, setCueLabelDraft] = useState<CueLabelDraft>({
     id: "",
     name: "",
@@ -295,96 +297,115 @@ export function HotkeyMapper(): React.JSX.Element {
         </div>
       </header>
 
-      <div className="panel__grid" style={{ marginTop: "24px" }}>
-        <div className="panel__card">
-          <h3 style={{ margin: 0 }}>Connection</h3>
-          <label className="field">
-            <span>Host</span>
-            <input
-              value={connectionForm.host}
-              onChange={(event) => setConnectionForm((current) => ({ ...current, host: event.target.value }))}
-            />
-          </label>
-          <label className="field">
-            <span>Port</span>
-            <input
-              type="number"
-              min="1"
-              max="65535"
-              value={connectionForm.port}
-              onChange={(event) =>
-                setConnectionForm((current) => ({
-                  ...current,
-                  port: Math.max(1, Math.min(65535, Number.parseInt(event.target.value, 10) || 8001)),
-                }))
-              }
-            />
-          </label>
-          <label className="field">
-            <span>Plugin Name</span>
-            <input
-              value={connectionForm.pluginName}
-              onChange={(event) => setConnectionForm((current) => ({ ...current, pluginName: event.target.value }))}
-            />
-          </label>
-          <label className="field">
-            <span>Plugin Developer</span>
-            <input
-              value={connectionForm.pluginDeveloper}
-              onChange={(event) => setConnectionForm((current) => ({ ...current, pluginDeveloper: event.target.value }))}
-            />
-          </label>
-          <div className="panel__actions">
-            <button onClick={() => void connect(connectionForm)} className="primary-button" disabled={loading || busyAction !== null}>
-              {busyAction === "connect" ? "Connecting..." : "Connect"}
-            </button>
-            <button onClick={() => void disconnect()} className="ghost-button" disabled={loading || busyAction !== null || !status?.connected}>
-              {busyAction === "disconnect" ? "Disconnecting..." : "Disconnect"}
-            </button>
-            <button onClick={() => void authenticate()} className="secondary-button" disabled={loading || busyAction !== null || !status?.connected}>
-              {busyAction === "authenticate" ? "Authenticating..." : "Authenticate"}
-            </button>
-          </div>
+      <div className="panel__card" style={{ marginTop: "24px" }}>
+        <h3 style={{ margin: 0 }}>Catalog Status</h3>
+        {loading || !status ? (
+          <p className="panel__hint">Loading VTube Studio status...</p>
+        ) : (
+          <>
+            <p style={{ margin: 0 }}>Readiness: <strong>{status.readinessState}</strong></p>
+            <p style={{ margin: 0 }}>Current Model: <strong>{status.modelName ?? "No model loaded"}</strong></p>
+            <p style={{ margin: 0 }}>Hotkeys Loaded: <strong>{status.hotkeyCount}</strong></p>
+            <p style={{ margin: 0 }}>Catalog Version: <strong>{status.catalog.version ?? "-"}</strong></p>
+            <p style={{ margin: 0 }}>Safe Auto: <strong>{status.catalog.safeAutoCount}</strong></p>
+            <p style={{ margin: 0 }}>Suggest-only: <strong>{status.catalog.suggestOnlyCount}</strong></p>
+            <p style={{ margin: 0 }}>Manual-only: <strong>{status.catalog.manualOnlyCount}</strong></p>
+          </>
+        )}
+        <div className="panel__actions">
+          <button onClick={() => void refreshHotkeys()} className="ghost-button" disabled={loading || busyAction !== null || !status?.authenticated}>
+            {busyAction === "refresh-hotkeys" ? "Refreshing Hotkeys..." : "Refresh Raw Hotkeys"}
+          </button>
         </div>
+      </div>
 
-        <div className="panel__card">
-          <h3 style={{ margin: 0 }}>Catalog Status</h3>
-          {loading || !status ? (
-            <p className="panel__hint">Loading VTube Studio status...</p>
-          ) : (
-            <>
-              <p style={{ margin: 0 }}>Readiness: <strong>{status.readinessState}</strong></p>
-              <p style={{ margin: 0 }}>Current Model: <strong>{status.modelName ?? "No model loaded"}</strong></p>
-              <p style={{ margin: 0 }}>Hotkeys Loaded: <strong>{status.hotkeyCount}</strong></p>
-              <p style={{ margin: 0 }}>Catalog Version: <strong>{status.catalog.version ?? "-"}</strong></p>
-              <p style={{ margin: 0 }}>Safe Auto: <strong>{status.catalog.safeAutoCount}</strong></p>
-              <p style={{ margin: 0 }}>Suggest-only: <strong>{status.catalog.suggestOnlyCount}</strong></p>
-              <p style={{ margin: 0 }}>Manual-only: <strong>{status.catalog.manualOnlyCount}</strong></p>
-            </>
-          )}
-          <div className="panel__actions">
-            <button onClick={() => void refreshHotkeys()} className="ghost-button" disabled={loading || busyAction !== null || !status?.authenticated}>
-              {busyAction === "refresh-hotkeys" ? "Refreshing Hotkeys..." : "Refresh Raw Hotkeys"}
-            </button>
+      <div className="collapsible">
+        <button
+          className="collapsible__trigger"
+          onClick={() => setConnectionOpen(!connectionOpen)}
+        >
+          {connectionOpen ? "▼" : "▶"} Connection{status?.connected ? " · Connected" : " · Disconnected"}
+        </button>
+        {connectionOpen ? (
+          <div className="collapsible__content">
+            <div className="panel__card">
+              <h3 style={{ margin: 0 }}>Connection</h3>
+              <label className="field">
+                <span>Host</span>
+                <input
+                  value={connectionForm.host}
+                  onChange={(event) => setConnectionForm((current) => ({ ...current, host: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Port</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="65535"
+                  value={connectionForm.port}
+                  onChange={(event) =>
+                    setConnectionForm((current) => ({
+                      ...current,
+                      port: Math.max(1, Math.min(65535, Number.parseInt(event.target.value, 10) || 8001)),
+                    }))
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Plugin Name</span>
+                <input
+                  value={connectionForm.pluginName}
+                  onChange={(event) => setConnectionForm((current) => ({ ...current, pluginName: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Plugin Developer</span>
+                <input
+                  value={connectionForm.pluginDeveloper}
+                  onChange={(event) => setConnectionForm((current) => ({ ...current, pluginDeveloper: event.target.value }))}
+                />
+              </label>
+              <div className="panel__actions">
+                <button onClick={() => void connect(connectionForm)} className="primary-button" disabled={loading || busyAction !== null}>
+                  {busyAction === "connect" ? "Connecting..." : "Connect"}
+                </button>
+                <button onClick={() => void disconnect()} className="ghost-button" disabled={loading || busyAction !== null || !status?.connected}>
+                  {busyAction === "disconnect" ? "Disconnecting..." : "Disconnect"}
+                </button>
+                <button onClick={() => void authenticate()} className="secondary-button" disabled={loading || busyAction !== null || !status?.connected}>
+                  {busyAction === "authenticate" ? "Authenticating..." : "Authenticate"}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       {error ? <p className="panel__error" style={{ marginTop: "16px" }}>{error}</p> : null}
       {validationError ? <p className="panel__error" style={{ marginTop: "16px" }}>{validationError}</p> : null}
 
-      <div className="panel__card" style={{ marginTop: "24px" }}>
-        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", justifyContent: "space-between" }}>
-          <div>
-            <h3 style={{ margin: 0 }}>Cue Labels</h3>
-            <p className="panel__hint" style={{ margin: "6px 0 0" }}>
-              The live model only receives labels currently used by safe-auto hotkey mappings. Removed labels are stripped from overrides.
-            </p>
-          </div>
-          <button onClick={beginCueLabelCreate} className="ghost-button" disabled={busyAction !== null}>
-            New Label
-          </button>
-        </div>
+      <div className="collapsible">
+        <button
+          className="collapsible__trigger"
+          onClick={() => setCueLabelsOpen(!cueLabelsOpen)}
+        >
+          {cueLabelsOpen ? "▼" : "▶"} Cue Labels{cueLabelDefinitions.length > 0 ? ` (${cueLabelDefinitions.length})` : ""}
+        </button>
+        {cueLabelsOpen ? (
+          <div className="collapsible__content">
+            <div className="panel__card">
+              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", justifyContent: "space-between" }}>
+                <div>
+                  <h3 style={{ margin: 0 }}>Cue Labels</h3>
+                  <p className="panel__hint" style={{ margin: "6px 0 0" }}>
+                    The live model only receives labels currently used by safe-auto hotkey mappings. Removed labels are stripped from overrides.
+                  </p>
+                </div>
+                <button onClick={beginCueLabelCreate} className="ghost-button" disabled={busyAction !== null}>
+                  New Label
+                </button>
+              </div>
 
         <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           {cueLabelDefinitions.map((cueLabel) => (
@@ -458,8 +479,11 @@ export function HotkeyMapper(): React.JSX.Element {
             <button onClick={() => void handleSaveCueLabel()} className="primary-button" disabled={busyAction !== null}>
               Save Cue Label
             </button>
+              </div>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="panel__card" style={{ marginTop: "24px", gap: "0", padding: 0 }}>
