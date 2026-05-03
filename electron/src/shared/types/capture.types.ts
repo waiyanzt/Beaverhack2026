@@ -8,6 +8,7 @@ export type CameraCaptureConfig = {
   jpegQuality: number;
   detail?: CaptureDetailLevel;
   clipDurationSeconds: number;
+  clipIntervalSeconds?: number;
   maxClips: number;
   deviceId?: string | null;
 };
@@ -20,6 +21,7 @@ export type ScreenCaptureConfig = {
   jpegQuality: number;
   detail?: CaptureDetailLevel;
   clipDurationSeconds: number;
+  clipIntervalSeconds?: number;
   maxClips: number;
   sourceId?: string | null;
 };
@@ -29,6 +31,7 @@ export type AudioCaptureConfig = {
   sampleRate: number;
   channels: number;
   bufferDurationSeconds: number;
+  clipIntervalSeconds?: number;
   transcriptionEnabled: boolean;
   sendRawAudio: boolean;
   deviceId?: string | null;

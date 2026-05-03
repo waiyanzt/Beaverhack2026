@@ -173,22 +173,35 @@ const startSegmentedRecorder = (options: {
   stream: MediaStream;
   mimeType: string;
   segmentMs: number;
+  intervalMs?: number;
   setRecorder: (recorder: MediaRecorder | null) => void;
   onSegment: (payload: { blob: Blob; timestampMs: number; durationMs: number; mimeType: string }) => Promise<void>;
 }): (() => void) => {
   let stopped = false;
   let currentRecorder: MediaRecorder | null = null;
+  const recorders = new Set<MediaRecorder>();
+  const intervalMs = options.intervalMs && options.intervalMs < options.segmentMs
+    ? Math.max(options.intervalMs, 100)
+    : null;
 
-  const startCycle = (): void => {
+  const startCycle = (restartSerially: boolean): void => {
     if (stopped) {
       return;
     }
 
-    const recorder = new MediaRecorder(
-      options.stream,
-      options.mimeType ? { mimeType: options.mimeType } : undefined,
-    );
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(
+        options.stream,
+        options.mimeType ? { mimeType: options.mimeType } : undefined,
+      );
+    } catch (error: unknown) {
+      emitError("system", error);
+      return;
+    }
+
     currentRecorder = recorder;
+    recorders.add(recorder);
     options.setRecorder(recorder);
 
     const chunks: Blob[] = [];
@@ -202,23 +215,32 @@ const startSegmentedRecorder = (options: {
 
     recorder.addEventListener("stop", () => {
       void (async () => {
+        recorders.delete(recorder);
         if (chunks.length > 0) {
+          const endedAt = Date.now();
           const mimeType = chunks[0]?.type || recorder.mimeType || options.mimeType || "application/octet-stream";
           const blob = new Blob(chunks, { type: mimeType });
           await options.onSegment({
             blob,
-            timestampMs: Date.now(),
-            durationMs: Math.max(Date.now() - startedAt, options.segmentMs),
+            timestampMs: endedAt,
+            durationMs: Math.max(endedAt - startedAt, options.segmentMs),
             mimeType,
           });
         }
 
-        if (!stopped && options.stream.getTracks().every((track) => track.readyState === "live")) {
-          startCycle();
+        if (
+          restartSerially &&
+          !stopped &&
+          options.stream.getTracks().every((track) => track.readyState === "live")
+        ) {
+          startCycle(true);
           return;
         }
 
-        options.setRecorder(null);
+        if (currentRecorder === recorder) {
+          currentRecorder = null;
+          options.setRecorder(null);
+        }
       })().catch((error: unknown) => {
         emitError("system", error);
       });
@@ -232,16 +254,27 @@ const startSegmentedRecorder = (options: {
     }, Math.max(options.segmentMs, 250));
   };
 
-  startCycle();
+  startCycle(intervalMs === null);
+  const intervalId = intervalMs === null
+    ? null
+    : window.setInterval(() => {
+        if (options.stream.getTracks().every((track) => track.readyState === "live")) {
+          startCycle(false);
+        }
+      }, intervalMs);
 
   return () => {
     stopped = true;
-
-    if (currentRecorder && currentRecorder.state !== "inactive") {
-      currentRecorder.stop();
-    } else {
-      options.setRecorder(null);
+    if (intervalId !== null) {
+      window.clearInterval(intervalId);
     }
+
+    for (const recorder of recorders) {
+      if (recorder.state !== "inactive") {
+        recorder.stop();
+      }
+    }
+    options.setRecorder(null);
   };
 };
 
@@ -280,6 +313,7 @@ const startCameraCapture = async (config: CaptureStartRequest["camera"]): Promis
       stream,
       mimeType,
       segmentMs: config.clipDurationSeconds * 1000,
+      intervalMs: config.clipIntervalSeconds ? config.clipIntervalSeconds * 1000 : undefined,
       setRecorder: (recorder) => {
         state.cameraRecorder = recorder;
       },
@@ -354,6 +388,7 @@ const startScreenCapture = async (config: CaptureStartRequest["screen"]): Promis
       stream,
       mimeType,
       segmentMs: config.clipDurationSeconds * 1000,
+      intervalMs: config.clipIntervalSeconds ? config.clipIntervalSeconds * 1000 : undefined,
       setRecorder: (recorder) => {
         state.screenRecorder = recorder;
       },
@@ -482,6 +517,7 @@ const startAudioCapture = async (config: CaptureStartRequest): Promise<void> => 
       stream,
       mimeType,
       segmentMs: chooseAudioClipDurationSeconds(config) * 1000,
+      intervalMs: config.audio.clipIntervalSeconds ? config.audio.clipIntervalSeconds * 1000 : undefined,
       setRecorder: (nextRecorder) => {
         state.audioClipRecorder = nextRecorder;
       },

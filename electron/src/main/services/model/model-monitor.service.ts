@@ -1,6 +1,10 @@
 import type { WebContents } from "electron";
 import { createHash } from "node:crypto";
 import { IpcChannels } from "../../../shared/channels";
+import {
+  createIdleModelMonitorStatus,
+  MODEL_MONITOR_DEFAULT_TIMING,
+} from "../../../shared/model-monitor.defaults";
 import type { CaptureStartRequest } from "../../../shared/types/capture.types";
 import type {
   ModelMonitorEvent,
@@ -49,25 +53,9 @@ type PreparedModelRequest = {
   modelMediaDataUrl: string | null;
 };
 
-const DEFAULT_STATUS: ModelMonitorStatus = {
-  running: false,
-  startedAt: null,
-  tickIntervalMs: 500,
-  windowMs: 2_000,
-  inFlight: false,
-  tickCount: 0,
-  skippedTickCount: 0,
-  lastTickAt: null,
-  lastResponseAt: null,
-  lastMediaEndedAt: null,
-  lastRequestStartedAt: null,
-  lastEndToResponseLatencyMs: null,
-  lastRequestLatencyMs: null,
-  lastError: null,
-};
+const DEFAULT_STATUS: ModelMonitorStatus = createIdleModelMonitorStatus();
 
 const toIso = (timestampMs: number): string => new Date(timestampMs).toISOString();
-const MAX_LIVE_CLIP_AGE_MS = 1_500;
 
 export class ModelMonitorService {
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -75,6 +63,9 @@ export class ModelMonitorService {
   private status: ModelMonitorStatus = { ...DEFAULT_STATUS };
   private convertedClipCache = new Map<string, ClipData>();
   private lastSubmittedMediaKey: string | null = null;
+  private activeRequestCount = 0;
+  private latestCompletedRequestNumber = 0;
+  private runGeneration = 0;
 
   public constructor(
     private readonly captureOrchestrator: CaptureOrchestratorService,
@@ -85,12 +76,17 @@ export class ModelMonitorService {
     await this.stop();
     this.owner = owner;
     this.lastSubmittedMediaKey = null;
+    this.activeRequestCount = 0;
+    this.latestCompletedRequestNumber = 0;
+    this.runGeneration += 1;
+    const generation = this.runGeneration;
     this.status = {
       ...DEFAULT_STATUS,
       running: true,
       startedAt: toIso(Date.now()),
       tickIntervalMs: request.tickIntervalMs,
       windowMs: request.windowMs,
+      maxInFlightRequests: MODEL_MONITOR_DEFAULT_TIMING.maxInFlightRequests,
     };
 
     setSelectedScreenSourceId(request.capture.screen.sourceId ?? null);
@@ -98,10 +94,10 @@ export class ModelMonitorService {
     this.emit({ type: "status", createdAt: toIso(Date.now()), status: this.getStatus() });
 
     this.timer = setInterval(() => {
-      void this.runTick(request.capture);
+      void this.runTick(request.capture, generation);
     }, request.tickIntervalMs);
 
-    void this.runTick(request.capture);
+    void this.runTick(request.capture, generation);
 
     return this.getStatus();
   }
@@ -111,6 +107,8 @@ export class ModelMonitorService {
       clearInterval(this.timer);
       this.timer = null;
     }
+    this.runGeneration += 1;
+    this.activeRequestCount = 0;
 
     if (this.status.running) {
       await this.captureOrchestrator.stop();
@@ -120,6 +118,7 @@ export class ModelMonitorService {
       ...this.status,
       running: false,
       inFlight: false,
+      activeRequestCount: 0,
     };
     this.emit({ type: "status", createdAt: toIso(Date.now()), status: this.getStatus() });
     this.owner = null;
@@ -131,30 +130,14 @@ export class ModelMonitorService {
     return { ...this.status };
   }
 
-  private async runTick(capture: CaptureStartRequest): Promise<void> {
-    if (!this.status.running) {
+  private async runTick(capture: CaptureStartRequest, generation: number): Promise<void> {
+    if (!this.status.running || generation !== this.runGeneration) {
       return;
     }
 
     const tickId = createId("monitor_tick");
     const createdAt = toIso(Date.now());
     const media = this.getMediaAvailability();
-
-    if (this.status.inFlight) {
-      this.status = {
-        ...this.status,
-        skippedTickCount: this.status.skippedTickCount + 1,
-      };
-      this.emit({
-        type: "tick-skipped",
-        createdAt,
-        tickId,
-        reason: "Previous model request is still in flight.",
-        status: this.getStatus(),
-        media,
-      });
-      return;
-    }
 
     if (!media.camera) {
       this.status = {
@@ -191,7 +174,7 @@ export class ModelMonitorService {
       return;
     }
 
-    if (Date.now() - currentMedia.mediaEndMs > MAX_LIVE_CLIP_AGE_MS) {
+    if (Date.now() - currentMedia.mediaEndMs > MODEL_MONITOR_DEFAULT_TIMING.maxLiveClipAgeMs) {
       this.status = {
         ...this.status,
         skippedTickCount: this.status.skippedTickCount + 1,
@@ -225,10 +208,32 @@ export class ModelMonitorService {
       return;
     }
 
+    if (this.activeRequestCount >= this.status.maxInFlightRequests) {
+      this.status = {
+        ...this.status,
+        activeRequestCount: this.activeRequestCount,
+        inFlight: true,
+        skippedTickCount: this.status.skippedTickCount + 1,
+        lastTickAt: createdAt,
+      };
+      this.emit({
+        type: "tick-skipped",
+        createdAt,
+        tickId,
+        reason: "Model dispatch cap reached; keeping vLLM queue fresh.",
+        status: this.getStatus(),
+        media,
+      });
+      return;
+    }
+
+    const requestNumber = this.status.tickCount + 1;
+    this.activeRequestCount += 1;
     this.status = {
       ...this.status,
       inFlight: true,
-      tickCount: this.status.tickCount + 1,
+      activeRequestCount: this.activeRequestCount,
+      tickCount: requestNumber,
       lastTickAt: createdAt,
     };
     this.lastSubmittedMediaKey = currentMedia.key;
@@ -236,11 +241,14 @@ export class ModelMonitorService {
 
     try {
       const conversionStartedMs = Date.now();
-      const prepared = await this.buildMessages(tickId, capture, this.status.tickCount);
+      const prepared = await this.buildMessages(tickId, capture, requestNumber);
       const requestStartedMs = Date.now();
       const result = await this.modelRouter.requestActionPlan(prepared.messages);
       const responseMs = Date.now();
       const responseAt = toIso(responseMs);
+      if (generation !== this.runGeneration) {
+        return;
+      }
       const timing = this.buildTiming({
         mediaStartMs: prepared.mediaStartMs,
         mediaEndMs: prepared.mediaEndMs,
@@ -248,16 +256,24 @@ export class ModelMonitorService {
         requestStartedMs,
         responseMs,
       });
+      this.activeRequestCount = Math.max(this.activeRequestCount - 1, 0);
+      const isNewestCompletedRequest = requestNumber >= this.latestCompletedRequestNumber;
+      if (isNewestCompletedRequest) {
+        this.latestCompletedRequestNumber = requestNumber;
+      }
 
       this.status = {
         ...this.status,
-        inFlight: false,
-        lastResponseAt: responseAt,
-        lastMediaEndedAt: timing.mediaEndedAt,
-        lastRequestStartedAt: timing.requestStartedAt,
-        lastEndToResponseLatencyMs: timing.endToResponseLatencyMs,
-        lastRequestLatencyMs: timing.requestLatencyMs,
-        lastError: result.ok ? null : result.content,
+        inFlight: this.activeRequestCount > 0,
+        activeRequestCount: this.activeRequestCount,
+        lastResponseAt: isNewestCompletedRequest ? responseAt : this.status.lastResponseAt,
+        lastMediaEndedAt: isNewestCompletedRequest ? timing.mediaEndedAt : this.status.lastMediaEndedAt,
+        lastRequestStartedAt: isNewestCompletedRequest ? timing.requestStartedAt : this.status.lastRequestStartedAt,
+        lastEndToResponseLatencyMs: isNewestCompletedRequest
+          ? timing.endToResponseLatencyMs
+          : this.status.lastEndToResponseLatencyMs,
+        lastRequestLatencyMs: isNewestCompletedRequest ? timing.requestLatencyMs : this.status.lastRequestLatencyMs,
+        lastError: isNewestCompletedRequest ? (result.ok ? null : result.content) : this.status.lastError,
       };
       this.emit({
         type: "response",
@@ -277,11 +293,20 @@ export class ModelMonitorService {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Model monitor tick failed.";
       const failedAt = toIso(Date.now());
+      if (generation !== this.runGeneration) {
+        return;
+      }
+      this.activeRequestCount = Math.max(this.activeRequestCount - 1, 0);
+      const isNewestCompletedRequest = requestNumber >= this.latestCompletedRequestNumber;
+      if (isNewestCompletedRequest) {
+        this.latestCompletedRequestNumber = requestNumber;
+      }
       this.status = {
         ...this.status,
-        inFlight: false,
-        lastResponseAt: failedAt,
-        lastError: message,
+        inFlight: this.activeRequestCount > 0,
+        activeRequestCount: this.activeRequestCount,
+        lastResponseAt: isNewestCompletedRequest ? failedAt : this.status.lastResponseAt,
+        lastError: isNewestCompletedRequest ? message : this.status.lastError,
       };
       this.emit({
         type: "error",

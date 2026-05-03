@@ -1,25 +1,15 @@
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
+import {
+	createIdleModelMonitorStatus,
+	createModelMonitorCaptureConfig,
+	MODEL_MONITOR_DEFAULT_TIMING,
+} from "../../shared/model-monitor.defaults";
 import type { CaptureMediaDeviceInfo, CaptureSourceInfo } from "../../shared/types/capture.types";
 import type { ModelMonitorEvent, ModelMonitorStatus } from "../../shared/types/model-monitor.types";
 import { useCapture } from "../hooks/useCapture";
 
-const emptyMonitorStatus: ModelMonitorStatus = {
-	running: false,
-	startedAt: null,
-	tickIntervalMs: 500,
-	windowMs: 2_000,
-	inFlight: false,
-	tickCount: 0,
-	skippedTickCount: 0,
-	lastTickAt: null,
-	lastResponseAt: null,
-	lastMediaEndedAt: null,
-	lastRequestStartedAt: null,
-	lastEndToResponseLatencyMs: null,
-	lastRequestLatencyMs: null,
-	lastError: null,
-};
+const emptyMonitorStatus: ModelMonitorStatus = createIdleModelMonitorStatus();
 
 type MonitorLogEntry = {
 	id: string;
@@ -115,6 +105,7 @@ const DashboardPanel = (): React.JSX.Element => {
 	const [liveAudioLevels, setLiveAudioLevels] = useState<number[]>([]);
 	const cameraPreviewRef = useRef<HTMLVideoElement | null>(null);
 	const screenPreviewRef = useRef<HTMLVideoElement | null>(null);
+	const latestDisplayedRequestNumberRef = useRef(0);
 
 	const buildDesktopVideoConstraints = (sourceId: string): MediaTrackConstraints =>
 		({
@@ -171,6 +162,10 @@ const DashboardPanel = (): React.JSX.Element => {
 			setMonitorStatus(event.status);
 			const logEntry = formatMonitorEvent(event);
 			if (event.type === "response") {
+				if (event.debug.requestNumber < latestDisplayedRequestNumberRef.current) {
+					return;
+				}
+				latestDisplayedRequestNumberRef.current = event.debug.requestNumber;
 				if (event.modelMediaDataUrl) {
 					setLatestModelMediaUrl(event.modelMediaDataUrl);
 				}
@@ -354,41 +349,12 @@ const DashboardPanel = (): React.JSX.Element => {
 
 		if (!monitorStatus.running) {
 			const result = await window.desktop.modelMonitorStart({
-				tickIntervalMs: 500,
-				windowMs: 2_000,
-				capture: {
-					camera: {
-						enabled: true,
-						fps: 15,
-						maxFrames: 8,
-						resolution: "640x360",
-						jpegQuality: 75,
-						detail: "low",
-						clipDurationSeconds: 2,
-						maxClips: 12,
-						deviceId: selectedVideoDeviceId || null,
-					},
-					screen: {
-						enabled: false,
-						fps: 0,
-						maxFrames: 4,
-						resolution: "640x360",
-						jpegQuality: 70,
-						detail: "low",
-						clipDurationSeconds: 2,
-						maxClips: 1,
-						sourceId: null,
-					},
-					audio: {
-						enabled: true,
-						sampleRate: 16000,
-						channels: 1,
-						bufferDurationSeconds: 2,
-						transcriptionEnabled: false,
-						sendRawAudio: false,
-						deviceId: selectedAudioDeviceId || null,
-					},
-				},
+				tickIntervalMs: MODEL_MONITOR_DEFAULT_TIMING.tickIntervalMs,
+				windowMs: MODEL_MONITOR_DEFAULT_TIMING.windowMs,
+				capture: createModelMonitorCaptureConfig({
+					audioDeviceId: selectedAudioDeviceId || null,
+					videoDeviceId: selectedVideoDeviceId || null,
+				}),
 			});
 
 			setMonitorStatus(result.status);
@@ -575,6 +541,7 @@ const DashboardPanel = (): React.JSX.Element => {
 				<div>
 					<h4>Model Loop</h4>
 					<p>In Flight: {monitorStatus.inFlight ? "Yes" : "No"}</p>
+					<p>Active Requests: {monitorStatus.activeRequestCount}/{monitorStatus.maxInFlightRequests}</p>
 					<p>Ticks Sent: {monitorStatus.tickCount}</p>
 					<p>Ticks Skipped: {monitorStatus.skippedTickCount}</p>
 				</div>

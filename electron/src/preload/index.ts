@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IpcChannels } from "../shared/channels";
+import { createIdleModelMonitorStatus } from "../shared/model-monitor.defaults";
 import type { AutomationAnalyzeNowRequest, AutomationAnalyzeNowResult } from "../shared/types/action-plan.types";
 import type { VtsConnectionConfig } from "../shared/types/config.types";
 import type {
@@ -146,22 +147,11 @@ const desktopApi = {
       return {
         ok: false as const,
         message: "Unable to start model monitor.",
-        status: {
-          running: false,
-          startedAt: null,
+        status: createIdleModelMonitorStatus({
           tickIntervalMs: request.tickIntervalMs,
           windowMs: request.windowMs,
-          inFlight: false,
-          tickCount: 0,
-          skippedTickCount: 0,
-          lastTickAt: null,
-          lastResponseAt: null,
-          lastMediaEndedAt: null,
-          lastRequestStartedAt: null,
-          lastEndToResponseLatencyMs: null,
-          lastRequestLatencyMs: null,
           lastError: "Unable to start model monitor.",
-        },
+        }),
       };
     }),
   modelMonitorStop: async (): Promise<ModelMonitorStopResponse> =>
@@ -170,22 +160,9 @@ const desktopApi = {
       return {
         ok: false as const,
         message: "Unable to stop model monitor.",
-        status: {
-          running: false,
-          startedAt: null,
-          tickIntervalMs: 500,
-          windowMs: 2_000,
-          inFlight: false,
-          tickCount: 0,
-          skippedTickCount: 0,
-          lastTickAt: null,
-          lastResponseAt: null,
-          lastMediaEndedAt: null,
-          lastRequestStartedAt: null,
-          lastEndToResponseLatencyMs: null,
-          lastRequestLatencyMs: null,
+        status: createIdleModelMonitorStatus({
           lastError: "Unable to stop model monitor.",
-        },
+        }),
       };
     }),
   modelMonitorStatus: async (): Promise<ModelMonitorStatusResponse> =>
@@ -194,22 +171,9 @@ const desktopApi = {
       return {
         ok: false as const,
         message: "Unable to get model monitor status.",
-        status: {
-          running: false,
-          startedAt: null,
-          tickIntervalMs: 500,
-          windowMs: 2_000,
-          inFlight: false,
-          tickCount: 0,
-          skippedTickCount: 0,
-          lastTickAt: null,
-          lastResponseAt: null,
-          lastMediaEndedAt: null,
-          lastRequestStartedAt: null,
-          lastEndToResponseLatencyMs: null,
-          lastRequestLatencyMs: null,
+        status: createIdleModelMonitorStatus({
           lastError: "Unable to get model monitor status.",
-        },
+        }),
       };
     }),
   onModelMonitorEvent: (handler: (event: ModelMonitorEvent) => void) => {
