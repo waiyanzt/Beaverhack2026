@@ -1,4 +1,4 @@
-import { app } from "electron";
+import { app, Menu } from "electron";
 import { registerIpcHandlers } from "./ipc";
 import { createMainWindow } from "./windows/main-window";
 import { obsConnect, obsGetStatus } from "./services/obs/obs.service";
@@ -9,6 +9,7 @@ async function main(): Promise<void> {
   try {
     await app.whenReady();
 
+    Menu.setApplicationMenu(null);
     registerIpcHandlers();
     await createMainWindow();
 

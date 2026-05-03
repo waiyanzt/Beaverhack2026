@@ -52,10 +52,13 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@tailwindcss/vite": "^4.2.4",
     "electron-store": "^11.0.2",
+    "lucide-react": "^1.14.0",
     "obs-websocket-js": "^5.0.8",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "tailwindcss": "^4.2.4",
     "ws": "^8.20.0",
     "zod": "^4.4.2"
   }
