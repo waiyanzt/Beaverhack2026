@@ -10,7 +10,7 @@ import { useCapture } from "../hooks/useCapture";
 const defaultConfig: CaptureStartRequest = {
 	camera: {
 		enabled: true,
-		fps: 1,
+		fps: 30,
 		maxFrames: 8,
 		resolution: "1280x720",
 		jpegQuality: 75,
@@ -21,7 +21,7 @@ const defaultConfig: CaptureStartRequest = {
 	},
 	screen: {
 		enabled: false,
-		fps: 0.5,
+		fps: 30,
 		maxFrames: 4,
 		resolution: "1280x720",
 		jpegQuality: 70,
