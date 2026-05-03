@@ -7,6 +7,7 @@ import type {
   OpenAICompatibleToolChoice,
 } from "../../../shared/model.types";
 import { actionPlanSchema } from "../../../shared/schemas/action-plan.schema";
+import { VTS_CUE_LABEL_VALUES } from "../../../shared/vts-cue-labels";
 
 function extractProviderError(rawBody: unknown): string | null {
   if (typeof rawBody === "object" && rawBody !== null && "error" in rawBody) {
@@ -163,14 +164,13 @@ function buildActionProperties(): Record<string, unknown> {
       type: "string",
       description: "Short explanation of why this action was chosen.",
     },
-    // VTS hotkey fields
-    catalogId: {
-      type: "string",
-      description: "For vts.trigger_hotkey: the catalogId from the user-defined services.vts.automationCatalog.candidates entry you want.",
-    },
-    catalogVersion: {
-      type: "string",
-      description: "For vts.trigger_hotkey: the current services.vts.automationCatalog.version value.",
+    cueLabels: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: [...VTS_CUE_LABEL_VALUES],
+      },
+      description: "For vts.trigger_hotkey: one or more cue labels selected only from the provided allowed cue label list.",
     },
     intensity: {
       type: "number",

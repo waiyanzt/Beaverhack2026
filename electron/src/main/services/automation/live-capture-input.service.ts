@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { OpenAICompatibleMessagePart } from "../../../shared/model.types";
+import { VTS_CUE_LABEL_VALUES } from "../../../shared/vts-cue-labels";
 import { encodeDataUrl } from "../../utils/base64";
 import { convertVideoAndAudioClipsToMp4, convertVideoClipToMp4 } from "../../utils/media-conversion";
 
@@ -65,17 +66,16 @@ export class LiveCaptureInputService {
         "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible or audible in this clip.",
         "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
         "Do not use audio to infer visual appearance such as hair, beard, room, posture, or whether a person is visible.",
-        "When choosing a VTS reaction, use only services.vts.automationCatalog.candidates from the current model context.",
-        "Use each candidate's user-provided label and description to decide the reaction.",
-        "Return vts.trigger_hotkey only with catalogId and catalogVersion from that automation catalog. Do not invent or reuse raw VTS hotkey IDs.",
-        "For vts.trigger_hotkey, include confidence and visualEvidence. confidence must be at least 0.88 and visualEvidence must name concrete evidence in this current clip.",
+        "When choosing a VTS reaction, choose only cueLabels from capture.allowedCueLabels.",
+        "Return vts.trigger_hotkey only with cueLabels, confidence, visualEvidence, actionId, and reason. Do not return catalogId, catalogVersion, hotkeyId, hotkey names, or raw tool names.",
+        "For vts.trigger_hotkey, confidence must be at least 0.88 and visualEvidence must name concrete evidence in this current clip.",
         "If the evidence is even slightly ambiguous, return noop instead of guessing.",
         "Return noop only for idle, ordinary speaking, unclear, unsupported, or covered-camera clips.",
-        "If the current clip clearly matches exactly one safe_auto candidate and cooldownSummary for that catalog item is 0 or missing, prefer that action over noop.",
       ],
       capture: {
         windowMs,
         layout: "single_fresh_webcam_mp4",
+        allowedCueLabels: VTS_CUE_LABEL_VALUES,
         camera: this.toRawClipSummary(cameraClip),
         audio: {
           ...this.toRawClipSummary(audioClip),
@@ -125,9 +125,8 @@ export class LiveCaptureInputService {
         "Audio is not included in this low-latency pass; set response.audioTranscript to '[not sent]'.",
         "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible in this frame.",
         "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
-        "When choosing a VTS reaction, use only services.vts.automationCatalog.candidates from the current model context.",
-        "Use each candidate's user-provided label and description to decide the reaction.",
-        "Return vts.trigger_hotkey only with catalogId and catalogVersion from that automation catalog. Do not invent or reuse raw VTS hotkey IDs.",
+        "When choosing a VTS reaction, choose only cueLabels from capture.allowedCueLabels.",
+        "Return vts.trigger_hotkey only with cueLabels, confidence, visualEvidence, actionId, and reason. Do not return catalogId, catalogVersion, hotkeyId, hotkey names, or raw tool names.",
         "For vts.trigger_hotkey, include confidence and visualEvidence. confidence must be at least 0.88 and visualEvidence must name concrete evidence visible in this exact frame.",
         "Use a high bar: trigger only for unmistakable visible cues like a clear wave, obvious laugh/smile expression, or strong surprise pose.",
         "Do not trigger audio-only, speech-only, greeting-only, mood, or subtle expression candidates in frame mode because audio and motion context are not sent.",
@@ -137,6 +136,7 @@ export class LiveCaptureInputService {
       capture: {
         windowMs,
         layout: "single_latest_webcam_frame",
+        allowedCueLabels: VTS_CUE_LABEL_VALUES,
         camera: this.toRawFrameSummary(cameraFrame),
         audio: {
           available: false,

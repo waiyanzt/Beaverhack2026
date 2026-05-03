@@ -36,6 +36,8 @@ For manual text-only runs, the payload is serialized by `PromptBuilderService` a
 
 For live camera/audio runs, `PipelineService` can attach either the latest sampled webcam frame as a low-latency `image_url` input or the latest buffered webcam clip plus synchronized audio as an MP4 `video_url` input while keeping the same parse/validate/execute flow. The dashboard monitor uses the latest-frame mode by default to avoid waiting for a completed video segment and to avoid ffmpeg muxing/transcoding on the critical path. Manual live analysis can still use the clip path when audio evidence is more important than reaction latency.
 
+Live model prompts do not expose VTS hotkey names, catalog IDs, catalog candidates, raw hotkey IDs, recent catalog action IDs, or catalog-keyed cooldown summaries. The model sees only the fixed supported VTS `cueLabels` list and may return a `vts.trigger_hotkey` action with cue labels, confidence, visual evidence, action ID, and reason. `PipelineService` maps cue labels to exactly one current safe-auto catalog entry in the main process. If cue labels are unsupported, ambiguous, ignored (`idle`, `manual_request`, `unknown`), or do not map to exactly one safe-auto catalog entry, the action is normalized to `noop`.
+
 The live path now also stops feeding full prior plans back into the model as decision evidence. Instead it keeps:
 
 - filtered `recentActions`
@@ -63,6 +65,7 @@ Noop decisions are also represented in the compact `recentActions` history. This
   - the action does not include conflicting raw hotkey fields or extra fields outside the action schema
   - the evidence is compatible with deterministic cue rules for sensitive reactions such as love/heart and shock/surprise
   - the action is not cooling down or repeat-suppressed
+- Live model-generated VTS actions should return cue labels rather than catalog IDs. Catalog IDs are added only by local deterministic cue-label resolution after parsing.
 - Live latest-frame automation intentionally uses a high trigger threshold. Ambiguous, subtle, audio-only, or ordinary speaking cues should return `noop`; random or low-confidence emote guesses are blocked locally even if the model names a valid safe-auto catalog item.
 - Empty model action arrays are normalized to an explicit `noop`, and model-suggested next tick delays below 500ms are clamped before use.
 - VTS hotkey classification is cached by loaded model and hotkey hash. Background VTS refreshes should not regenerate classifications unless the loaded model changes, the hotkey list hash changes, or no cached classifications exist.

@@ -82,6 +82,63 @@ describe("ActionPlanParserService", () => {
     ).toThrow();
   });
 
+  it("accepts VTS cue-label actions without model-facing catalog identifiers", () => {
+    const parser = new ActionPlanParserService();
+
+    const plan = parser.parse({
+      actions: [
+        {
+          type: "vts.trigger_hotkey",
+          actionId: "act_cue",
+          cueLabels: ["surprised", "shocked"],
+          confidence: 0.95,
+          visualEvidence: "Open mouth and widened eyes are visible.",
+          reason: "Surprise cue is clear.",
+        },
+      ],
+      safety: {
+        riskLevel: "low",
+        requiresConfirmation: false,
+      },
+      nextTick: {
+        suggestedDelayMs: 1000,
+        priority: "normal",
+      },
+    });
+
+    expect(plan.actions[0]).toMatchObject({
+      type: "vts.trigger_hotkey",
+      cueLabels: ["surprised", "shocked"],
+    });
+  });
+
+  it("rejects cue labels outside the supported VTS cue-label list", () => {
+    const parser = new ActionPlanParserService();
+
+    expect(() =>
+      parser.parse({
+        actions: [
+          {
+            type: "vts.trigger_hotkey",
+            actionId: "act_bad_cue",
+            cueLabels: ["big_smile"],
+            confidence: 0.95,
+            visualEvidence: "A big smile is visible.",
+            reason: "Unsupported cue label.",
+          },
+        ],
+        safety: {
+          riskLevel: "low",
+          requiresConfirmation: false,
+        },
+        nextTick: {
+          suggestedDelayMs: 1000,
+          priority: "normal",
+        },
+      }),
+    ).toThrow();
+  });
+
   it("rejects extra fields on VTS action payloads", () => {
     const parser = new ActionPlanParserService();
 

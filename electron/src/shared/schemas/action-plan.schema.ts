@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { VTS_CUE_LABEL_VALUES } from "../vts-cue-labels";
 
 export const triggerVtsHotkeyActionSchema = z
   .object({
@@ -7,6 +8,7 @@ export const triggerVtsHotkeyActionSchema = z
     catalogId: z.string().optional(),
     catalogVersion: z.string().optional(),
     hotkeyId: z.string().optional(),
+    cueLabels: z.array(z.enum(VTS_CUE_LABEL_VALUES)).min(1).optional(),
     intensity: z.number().optional(),
     confidence: z.number().min(0).max(1).optional(),
     visualEvidence: z.string().optional(),
@@ -14,8 +16,8 @@ export const triggerVtsHotkeyActionSchema = z
     cooldownMs: z.number().optional(),
   })
   .strict()
-  .refine((value) => typeof value.catalogId === "string" || typeof value.hotkeyId === "string", {
-    message: "VTS hotkey actions must include a catalogId or hotkeyId.",
+  .refine((value) => typeof value.catalogId === "string" || typeof value.hotkeyId === "string" || Array.isArray(value.cueLabels), {
+    message: "VTS hotkey actions must include cueLabels, catalogId, or hotkeyId.",
   })
   .refine((value) => !(typeof value.catalogId === "string" && typeof value.hotkeyId === "string"), {
     message: "VTS hotkey actions must not include both catalogId and hotkeyId.",

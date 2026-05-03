@@ -511,8 +511,7 @@ describe("PipelineService", () => {
             {
               type: "vts.trigger_hotkey",
               actionId: "act_002",
-              catalogId: "greeting",
-              catalogVersion: "vts_catalog_demo",
+              cueLabels: ["greeting", "wave"],
               confidence: 0.93,
               visualEvidence: "The streamer has a clearly raised hand waving at the camera.",
               reason: "Streamer waved at the camera.",
@@ -595,6 +594,13 @@ describe("PipelineService", () => {
           recentModelActions: unknown[];
           recentActionSummary: unknown[];
         };
+        services: {
+          vts: {
+            automationCatalog: {
+              candidates: unknown[];
+            };
+          };
+        };
       };
     };
 
@@ -605,6 +611,12 @@ describe("PipelineService", () => {
     expect(promptPayload.modelContext.context.recentActions).toEqual([]);
     expect(promptPayload.modelContext.context.recentModelActions).toEqual([]);
     expect(promptPayload.modelContext.context.recentActionSummary).toEqual([]);
+    expect(promptPayload.modelContext.services.vts.automationCatalog.candidates).toEqual([]);
+    expect(result.plan.actions[0]).toMatchObject({
+      type: "vts.trigger_hotkey",
+      catalogId: "greeting",
+      cueLabels: ["greeting", "wave"],
+    });
     expect(triggerHotkey).toHaveBeenCalledWith("wave");
   });
 });

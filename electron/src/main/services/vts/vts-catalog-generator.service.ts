@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { OpenAICompatibleMessage } from "../../../shared/model.types";
+import { VTS_CUE_LABEL_VALUES } from "../../../shared/vts-cue-labels";
 import type {
   VtsAutomationMode,
   VtsCueLabel,
@@ -17,33 +18,6 @@ export interface VtsGeneratedClassification {
   source: "model" | "heuristic";
 }
 
-const cueLabelValues = [
-  "greeting",
-  "wave",
-  "happy",
-  "excited",
-  "laughing",
-  "evil_laugh",
-  "smug",
-  "angry",
-  "frustrated",
-  "shocked",
-  "surprised",
-  "sad",
-  "crying",
-  "cute_reaction",
-  "love_reaction",
-  "confused",
-  "embarrassed",
-  "sleepy",
-  "dramatic_moment",
-  "magic_moment",
-  "hype_moment",
-  "idle",
-  "manual_request",
-  "unknown",
-] as const satisfies readonly VtsCueLabel[];
-
 const emoteKindValues = [
   "expression_reaction",
   "symbol_effect",
@@ -58,7 +32,7 @@ const emoteKindValues = [
 const classificationResponseSchema = z.object({
   items: z.array(z.object({
     id: z.string().trim().min(1),
-    cueLabels: z.array(z.enum(cueLabelValues)).min(1),
+    cueLabels: z.array(z.enum(VTS_CUE_LABEL_VALUES)).min(1),
     emoteKind: z.enum(emoteKindValues),
     autoMode: z.enum(["safe_auto", "suggest_only", "manual_only"]),
     confidence: z.number().min(0).max(1),

@@ -6,6 +6,7 @@ import type {
   ModelControlRecentActionSummary,
   ModelControlRecentModelAction,
 } from "../../../shared/types/observation.types";
+import type { VtsCueLabel } from "../../../shared/types/vts.types";
 import { createId } from "../../utils/ids";
 import type { ModelRouterService } from "../model/model-router.service";
 import { ActionExecutorService } from "./action-executor.service";
@@ -40,9 +41,12 @@ export class PipelineService {
         recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
       });
       const observationBuiltMs = Date.now();
-      const modelContext = request.useLatestCapture
+      const executionModelContext = request.useLatestCapture
         ? this.buildLivePromptContext(baseModelContext)
         : baseModelContext;
+      const promptModelContext = request.useLatestCapture
+        ? this.buildCueLabelOnlyPromptContext(executionModelContext)
+        : executionModelContext;
       const liveCaptureInput = request.useLatestCapture
         ? await this.liveCaptureInputService.buildPromptInput(
             request.captureWindowMs ?? 1_000,
@@ -50,7 +54,7 @@ export class PipelineService {
           )
         : undefined;
       const captureInputBuiltMs = Date.now();
-      const prompt = this.promptBuilder.buildMessages(modelContext, liveCaptureInput);
+      const prompt = this.promptBuilder.buildMessages(promptModelContext, liveCaptureInput);
       const promptBuiltMs = Date.now();
       const modelRequestStartedMs = Date.now();
       const modelResult = await this.modelRouter.requestActionPlan(prompt.messages);
@@ -60,10 +64,13 @@ export class PipelineService {
         throw new Error(modelResult.content || "Model provider did not return an action plan.");
       }
 
-      const parsedPlan = this.actionPlanParser.parse(modelResult.actionPlan);
+      const parsedPlan = this.resolveCueLabelActions(
+        this.actionPlanParser.parse(modelResult.actionPlan),
+        executionModelContext,
+      );
       const reviewedActions = this.actionValidator.reviewActions(
         parsedPlan.actions,
-        modelContext,
+        executionModelContext,
         parsedPlan.safety.requiresConfirmation,
       );
       const actionResults = await this.actionExecutor.execute(reviewedActions, request.dryRun ?? false);
@@ -73,9 +80,9 @@ export class PipelineService {
       return {
         ok: true,
         modelContext: {
-          ...modelContext,
+          ...executionModelContext,
           context: {
-            ...modelContext.context,
+            ...executionModelContext.context,
             recentActions: this.cooldownService.getRecentActions(),
             recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
             recentActionSummary: this.buildRecentActionSummary(this.modelActionMemoryService.getRecentModelActions()),
@@ -134,6 +141,102 @@ export class PipelineService {
         recentActionSummary: modelContext.context.recentActionSummary.slice(0, 3),
       },
     };
+  }
+
+  private buildCueLabelOnlyPromptContext(modelContext: ModelControlContext): ModelControlContext {
+    return {
+      ...modelContext,
+      services: {
+        ...modelContext.services,
+        vts: {
+          ...modelContext.services.vts,
+          availableHotkeys: [],
+          automationCatalog: {
+            ...modelContext.services.vts.automationCatalog,
+            candidates: [],
+          },
+        },
+      },
+      context: {
+        ...modelContext.context,
+        recentActions: [],
+        recentModelActions: [],
+        recentActionSummary: [],
+        cooldowns: {},
+        cooldownSummary: {},
+      },
+    };
+  }
+
+  private resolveCueLabelActions(
+    actionPlan: ReturnType<ActionPlanParserService["parse"]>,
+    modelContext: ModelControlContext,
+  ): ReturnType<ActionPlanParserService["parse"]> {
+    return {
+      ...actionPlan,
+      actions: actionPlan.actions.map((action) => this.resolveCueLabelAction(action, modelContext)),
+    };
+  }
+
+  private resolveCueLabelAction(action: LocalAction, modelContext: ModelControlContext): LocalAction {
+    if (
+      action.type !== "vts.trigger_hotkey" ||
+      action.catalogId ||
+      action.hotkeyId ||
+      !action.cueLabels ||
+      action.cueLabels.length === 0
+    ) {
+      return action;
+    }
+
+    const catalogEntry = this.selectCatalogEntryForCueLabels(action.cueLabels, modelContext);
+
+    if (!catalogEntry) {
+      return {
+        type: "noop",
+        actionId: action.actionId,
+        reason: `Cue labels ${action.cueLabels.join(", ")} did not map to exactly one safe automation action.`,
+      };
+    }
+
+    return {
+      ...action,
+      catalogId: catalogEntry.catalogId,
+      catalogVersion: modelContext.services.vts.automationCatalog.version ?? undefined,
+      reason: `${action.reason} Matched cueLabels: ${action.cueLabels.join(", ")}.`,
+    };
+  }
+
+  private selectCatalogEntryForCueLabels(
+    cueLabels: VtsCueLabel[],
+    modelContext: ModelControlContext,
+  ): ModelControlContext["services"]["vts"]["automationCatalog"]["candidates"][number] | null {
+    const ignoredCueLabels: VtsCueLabel[] = ["idle", "manual_request", "unknown"];
+    const selectableCueLabels = cueLabels.filter((cueLabel) => !ignoredCueLabels.includes(cueLabel));
+
+    if (selectableCueLabels.length === 0) {
+      return null;
+    }
+
+    const scoredCandidates = modelContext.services.vts.automationCatalog.candidates
+      .filter((candidate) => candidate.autoMode === "safe_auto")
+      .map((candidate) => ({
+        candidate,
+        score: candidate.cueLabels.filter((cueLabel) => selectableCueLabels.includes(cueLabel)).length,
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (scoredCandidates.length === 0) {
+      return null;
+    }
+
+    const [best, secondBest] = scoredCandidates;
+    if (!best || (secondBest && secondBest.score === best.score)) {
+      return null;
+    }
+
+    return best.candidate;
   }
 
   private filterLiveRecentActions(actions: ModelControlRecentAction[]): ModelControlRecentAction[] {

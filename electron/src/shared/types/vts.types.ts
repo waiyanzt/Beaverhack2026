@@ -1,33 +1,10 @@
 import type { VtsConnectionConfig } from "./config.types";
+import type { VTS_CUE_LABEL_VALUES } from "../vts-cue-labels";
 
 export type VtsConnectionState = "disconnected" | "connecting" | "connected";
 export type VtsAuthenticationState = "unauthenticated" | "authenticating" | "authenticated";
 export type VtsAutomationMode = "safe_auto" | "suggest_only" | "manual_only";
-export type VtsCueLabel =
-  | "greeting"
-  | "wave"
-  | "happy"
-  | "excited"
-  | "laughing"
-  | "evil_laugh"
-  | "smug"
-  | "angry"
-  | "frustrated"
-  | "shocked"
-  | "surprised"
-  | "sad"
-  | "crying"
-  | "cute_reaction"
-  | "love_reaction"
-  | "confused"
-  | "embarrassed"
-  | "sleepy"
-  | "dramatic_moment"
-  | "magic_moment"
-  | "hype_moment"
-  | "idle"
-  | "manual_request"
-  | "unknown";
+export type VtsCueLabel = typeof VTS_CUE_LABEL_VALUES[number];
 export type VtsEmoteKind =
   | "expression_reaction"
   | "symbol_effect"
