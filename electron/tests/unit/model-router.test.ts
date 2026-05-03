@@ -34,4 +34,57 @@ describe("ModelRouterService", () => {
     expect(result.ok).toBe(true);
     expect(providerClient.testConnection).toHaveBeenCalledTimes(1);
   });
+
+  it("returns a noop action plan for the mock provider", async () => {
+    const router = new ModelRouterService(
+      {
+        getProviders: () => [{ ...provider, id: "mock", model: "mock", baseUrl: "http://mock", supportsToolCalling: false, supportsJsonMode: false }],
+        getSelectedProviderId: () => "mock",
+      },
+      {
+        testConnection: vi.fn(),
+        createActionPlan: vi.fn(),
+      } as never,
+    );
+
+    const result = await router.createActionPlan([{ role: "system", content: "test" }]);
+
+    expect(result).toMatchObject({
+      schemaVersion: "2026-05-02",
+      actions: [
+        {
+          type: "noop",
+        },
+      ],
+    });
+  });
+
+  it("returns provider metadata for monitor requests", async () => {
+    const router = new ModelRouterService(
+      {
+        getProviders: () => [{ ...provider, id: "mock", model: "mock", baseUrl: "http://mock", supportsToolCalling: false, supportsJsonMode: false }],
+        getSelectedProviderId: () => "mock",
+      },
+      {
+        testConnection: vi.fn(),
+        createActionPlan: vi.fn(),
+      } as never,
+    );
+
+    const result = await router.requestActionPlan([{ role: "system", content: "test" }]);
+
+    expect(result).toMatchObject({
+      providerId: "mock",
+      ok: true,
+      status: 200,
+    });
+    expect(result.actionPlan).toMatchObject({
+      schemaVersion: "2026-05-02",
+      actions: [
+        {
+          type: "noop",
+        },
+      ],
+    });
+  });
 });

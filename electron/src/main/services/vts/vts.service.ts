@@ -80,6 +80,10 @@ export class VtsService {
     };
   }
 
+  getCachedHotkeys(): VtsHotkey[] {
+    return [...this.hotkeys];
+  }
+
   async connect(config: VtsConnectionConfig): Promise<VtsStatus> {
     if (this.socket) {
       await this.disconnect();

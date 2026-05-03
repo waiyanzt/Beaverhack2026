@@ -1,91 +1,165 @@
-export type ObsConnectionStatus =
-  | { connected: false }
-  | {
-      connected: true;
-      currentScene: string;
-      scenes: string[];
-      streaming: boolean;
-      recording: boolean;
-      sources: unknown[];
-    };
+import type { ObsSceneState, ObsSourceState, ObsStatus } from "../../../shared/types/obs.types";
 
-type OBSWebSocketInstance = InstanceType<typeof import("obs-websocket-js")["default"]>;
+type OBSWebSocketModule = typeof import("obs-websocket-js");
+type OBSWebSocketInstance = InstanceType<OBSWebSocketModule["default"]>;
+type OBSWebSocketLike = Pick<OBSWebSocketInstance, "connect" | "disconnect" | "call" | "on">;
 
-let ws: OBSWebSocketInstance | null = null;
-let connected = false;
+export interface ObsServiceClientFactory {
+  create(): Promise<OBSWebSocketLike>;
+}
 
-export async function obsConnect(host = "localhost", port = 4455): Promise<void> {
-  if (ws) {
-    await obsDisconnect();
+class DefaultObsServiceClientFactory implements ObsServiceClientFactory {
+  public async create(): Promise<OBSWebSocketLike> {
+    const { default: OBSWebSocket } = await import("obs-websocket-js");
+    return new OBSWebSocket();
+  }
+}
+
+export class ObsService {
+  private ws: OBSWebSocketLike | null = null;
+  private connected = false;
+
+  public constructor(
+    private readonly clientFactory: ObsServiceClientFactory = new DefaultObsServiceClientFactory(),
+  ) {}
+
+  public async connect(host = "localhost", port = 4455): Promise<void> {
+    if (this.ws) {
+      await this.disconnect();
+    }
+
+    const client = await this.clientFactory.create();
+    client.on("ConnectionClosed", () => {
+      this.connected = false;
+      console.log("[OBS] Connection closed");
+    });
+    client.on("ConnectionError", (error) => {
+      console.error("[OBS] WebSocket error:", error);
+    });
+    client.on("CurrentProgramSceneChanged", (event) => {
+      console.log("[OBS] Scene changed:", event);
+    });
+    client.on("StreamStateChanged", (event) => {
+      console.log("[OBS] Stream state changed:", event);
+    });
+    client.on("RecordStateChanged", (event) => {
+      console.log("[OBS] Record state changed:", event);
+    });
+    client.on("SceneItemEnableStateChanged", (event) => {
+      console.log("[OBS] Source visibility changed:", event);
+    });
+
+    await client.connect(`ws://${host}:${port}`);
+    this.ws = client;
+    this.connected = true;
+    console.log(`[OBS] Connected to ws://${host}:${port}`);
   }
 
-  const { default: OBSWebSocket } = await import("obs-websocket-js");
-  ws = new OBSWebSocket();
+  public async disconnect(): Promise<void> {
+    if (this.ws) {
+      await this.ws.disconnect();
+      this.ws = null;
+    }
 
-  ws.on("ConnectionClosed", () => {
-    connected = false;
-    console.log("[OBS] Connection closed");
-  });
+    this.connected = false;
+  }
 
-  ws.on("ConnectionError", (err) => {
-    console.error("[OBS] WebSocket error:", err);
-  });
+  public async getStatus(): Promise<ObsStatus> {
+    if (!this.ws || !this.connected) {
+      return { connected: false };
+    }
 
-  ws.on("CurrentProgramSceneChanged", (e) => {
-    console.log("[OBS] Scene changed:", e.sceneName);
-  });
+    try {
+      const [sceneData, streamData, recordData] = await Promise.all([
+        this.ws.call("GetSceneList"),
+        this.ws.call("GetStreamStatus"),
+        this.ws.call("GetRecordStatus"),
+      ]);
 
-  ws.on("StreamStateChanged", (e) => {
-    console.log("[OBS] Stream:", e.outputActive ? "started" : "stopped");
-  });
+      const rawScenes = Array.isArray(sceneData.scenes) ? sceneData.scenes : [];
+      const scenes = await Promise.all(
+        rawScenes.map(async (rawScene): Promise<ObsSceneState> => {
+          const sceneName = String((rawScene as { sceneName?: unknown }).sceneName ?? "");
+          const sceneItems = await this.ws?.call("GetSceneItemList", { sceneName });
+          const sources: ObsSourceState[] = Array.isArray(sceneItems?.sceneItems)
+            ? sceneItems.sceneItems.map((item) => ({
+                name: String((item as { sourceName?: unknown }).sourceName ?? ""),
+                visible: Boolean((item as { sceneItemEnabled?: unknown }).sceneItemEnabled),
+              }))
+            : [];
 
-  ws.on("RecordStateChanged", (e) => {
-    console.log("[OBS] Recording:", e.outputActive ? "started" : "stopped");
-  });
+          return {
+            name: sceneName,
+            sources,
+          };
+        }),
+      );
 
-  ws.on("SceneItemEnableStateChanged", (e) => {
-    console.log("[OBS] Source toggled:", e.sceneItemId, "enabled:", e.sceneItemEnabled);
-  });
+      return {
+        connected: true,
+        currentScene: String(sceneData.currentProgramSceneName),
+        streamStatus: streamData.outputActive ? "live" : "inactive",
+        recordingStatus: recordData.outputActive ? "active" : "inactive",
+        scenes,
+      };
+    } catch (error: unknown) {
+      console.error("[OBS] Failed to get status:", error);
+      return { connected: false };
+    }
+  }
 
-  await ws.connect(`ws://${host}:${port}`);
-  connected = true;
-  console.log(`[OBS] Connected to ws://${host}:${port}`);
+  public async setCurrentScene(sceneName: string): Promise<void> {
+    this.ensureConnected();
+    await this.ws.call("SetCurrentProgramScene", { sceneName });
+  }
+
+  public async setSourceVisibility(
+    sceneName: string,
+    sourceName: string,
+    visible: boolean,
+  ): Promise<void> {
+    this.ensureConnected();
+
+    const sceneItems = await this.ws.call("GetSceneItemList", { sceneName });
+    const item = Array.isArray(sceneItems.sceneItems)
+      ? sceneItems.sceneItems.find(
+          (candidate) => String((candidate as { sourceName?: unknown }).sourceName ?? "") === sourceName,
+        )
+      : null;
+
+    if (!item) {
+      throw new Error(`Source "${sourceName}" was not found in scene "${sceneName}".`);
+    }
+
+    const sceneItemId = Number((item as { sceneItemId?: unknown }).sceneItemId);
+    if (!Number.isFinite(sceneItemId)) {
+      throw new Error(`Source "${sourceName}" in scene "${sceneName}" has no valid scene item id.`);
+    }
+
+    await this.ws.call("SetSceneItemEnabled", {
+      sceneName,
+      sceneItemId,
+      sceneItemEnabled: visible,
+    });
+  }
+
+  private ensureConnected(): asserts this is { ws: OBSWebSocketLike; connected: true } {
+    if (!this.ws || !this.connected) {
+      throw new Error("OBS is not connected.");
+    }
+  }
+}
+
+export const obsService = new ObsService();
+
+export async function obsConnect(host = "localhost", port = 4455): Promise<void> {
+  await obsService.connect(host, port);
 }
 
 export async function obsDisconnect(): Promise<void> {
-  if (ws) {
-    await ws.disconnect();
-    ws = null;
-  }
-  connected = false;
+  await obsService.disconnect();
 }
 
-export async function obsGetStatus(): Promise<ObsConnectionStatus> {
-  if (!ws || !connected) {
-    return { connected: false };
-  }
-
-  try {
-    const [sceneData, streamData, recordData] = await Promise.all([
-      ws.call("GetSceneList"),
-      ws.call("GetStreamStatus"),
-      ws.call("GetRecordStatus"),
-    ]);
-
-    const sceneItems = await ws.call("GetSceneItemList", {
-      sceneName: sceneData.currentProgramSceneName,
-    });
-
-    return {
-      connected: true,
-      currentScene: sceneData.currentProgramSceneName,
-      scenes: sceneData.scenes.map((s) => String(s.sceneName)),
-      streaming: streamData.outputActive,
-      recording: recordData.outputActive,
-      sources: sceneItems.sceneItems,
-    };
-  } catch (err) {
-    console.error("[OBS] Failed to get status:", err);
-    return { connected: false };
-  }
+export async function obsGetStatus(): Promise<ObsStatus> {
+  return obsService.getStatus();
 }

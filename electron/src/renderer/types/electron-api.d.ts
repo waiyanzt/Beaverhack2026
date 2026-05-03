@@ -1,4 +1,8 @@
 import type {
+	AutomationAnalyzeNowRequest,
+	AutomationAnalyzeNowResult,
+} from "../../shared/types/action-plan.types";
+import type {
 	CaptureAudioPayload,
 	CaptureAudioLevelPayload,
 	CaptureClipPayload,
@@ -41,6 +45,7 @@ type CaptureStopResponse =
 
 type DesktopApi = {
 	getAppVersion: () => Promise<string>;
+	automationAnalyzeNow: (request: AutomationAnalyzeNowRequest) => Promise<AutomationAnalyzeNowResult>;
 	vtsGetStatus: () => Promise<VtsStatusResult>;
 	vtsConnect: (config: VtsConnectionConfig) => Promise<VtsStatusResult>;
 	vtsDisconnect: () => Promise<VtsStatusResult>;

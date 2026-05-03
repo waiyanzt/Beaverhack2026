@@ -50,6 +50,7 @@ The authentication token is not exposed to the renderer.
 
 ## Current Limitations
 
-- The current slice supports connection, authentication, current-model hotkey listing, and manual hotkey triggering.
-- VTS parameter writes and automation-pipeline execution are not wired to the VTS service yet.
+- The current slice supports connection, authentication, current-model hotkey listing, manual hotkey triggering, and automation-pipeline hotkey execution.
+- The automation pipeline now sends VTS connection state, current model name, and cached hotkeys to the model as structured capability data.
+- VTS parameter writes are still not wired to the VTS service yet.
 - Packaging verification currently depends on network access for `electron-builder` to download Electron artifacts in this environment.

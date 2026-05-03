@@ -238,7 +238,7 @@ export class ModelMonitorService {
       const conversionStartedMs = Date.now();
       const prepared = await this.buildMessages(tickId, capture, this.status.tickCount);
       const requestStartedMs = Date.now();
-      const result = await this.modelRouter.createActionPlan(prepared.messages);
+      const result = await this.modelRouter.requestActionPlan(prepared.messages);
       const responseMs = Date.now();
       const responseAt = toIso(responseMs);
       const timing = this.buildTiming({

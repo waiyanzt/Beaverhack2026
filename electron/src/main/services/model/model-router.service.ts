@@ -4,11 +4,21 @@ import type {
   ModelProviderTestResult,
   OpenAICompatibleMessage,
 } from "../../../shared/model.types";
-import { OpenAICompatibleProvider } from "./openai-compatible.provider";
+import { createId } from "../../utils/ids";
+import { OpenAICompatibleProvider, type OpenAICompatibleProviderResult } from "./openai-compatible.provider";
 
 export interface ModelProviderStore {
   getProviders(): ModelProviderConfig[];
   getSelectedProviderId(): ModelProviderId;
+}
+
+export interface ModelActionPlanResponse {
+  providerId: ModelProviderId;
+  ok: boolean;
+  status: number | null;
+  content: string;
+  actionPlan?: unknown;
+  usage?: OpenAICompatibleProviderResult["usage"];
 }
 
 export class ModelRouterService {
@@ -18,7 +28,7 @@ export class ModelRouterService {
   ) {}
 
   public async testConnection(): Promise<ModelProviderTestResult> {
-    const provider = this.store.getProviders().find((candidate) => candidate.id === this.store.getSelectedProviderId());
+    const provider = this.getSelectedProvider();
 
     if (!provider) {
       return {
@@ -57,14 +67,18 @@ export class ModelRouterService {
     };
   }
 
-  public async createActionPlan(messages: OpenAICompatibleMessage[]): Promise<{
-    providerId: ModelProviderId;
-    ok: boolean;
-    status: number | null;
-    content: string;
-    actionPlan?: unknown;
-  }> {
-    const provider = this.store.getProviders().find((candidate) => candidate.id === this.store.getSelectedProviderId());
+  public async createActionPlan(messages: OpenAICompatibleMessage[]): Promise<unknown> {
+    const result = await this.requestActionPlan(messages);
+
+    if (!result.ok || !result.actionPlan) {
+      throw new Error(result.content || "Model provider did not return an action plan.");
+    }
+
+    return result.actionPlan;
+  }
+
+  public async requestActionPlan(messages: OpenAICompatibleMessage[]): Promise<ModelActionPlanResponse> {
+    const provider = this.getSelectedProvider();
 
     if (!provider) {
       return {
@@ -90,6 +104,30 @@ export class ModelRouterService {
         ok: true,
         status: 200,
         content: "Mock provider received the rolling capture window.",
+        actionPlan: {
+          schemaVersion: "2026-05-02",
+          tickId: createId("tick"),
+          createdAt: new Date().toISOString(),
+          actions: [
+            {
+              type: "noop",
+              actionId: createId("act"),
+              reason: "Mock provider returned a safe noop plan.",
+            },
+          ],
+          safety: {
+            riskLevel: "low",
+            requiresConfirmation: false,
+          },
+          nextTick: {
+            suggestedDelayMs: 5000,
+            priority: "normal",
+          },
+          debug: {
+            provider: provider.id,
+            model: provider.model,
+          },
+        },
       };
     }
 
@@ -101,6 +139,11 @@ export class ModelRouterService {
       status: result.status,
       content: result.content,
       actionPlan: result.actionPlan,
+      usage: result.usage,
     };
+  }
+
+  private getSelectedProvider(): ModelProviderConfig | undefined {
+    return this.store.getProviders().find((candidate) => candidate.id === this.store.getSelectedProviderId());
   }
 }

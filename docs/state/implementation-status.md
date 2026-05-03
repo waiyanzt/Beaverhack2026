@@ -8,27 +8,33 @@
 
 A feature is only complete when it has the needed service logic, typed IPC/API boundary, UI/status path, logs, tests where applicable, and docs.
 
+Current snapshot:
+
+- VTube Studio connection, authentication, hotkey loading, and capture ingestion are the most complete areas.
+- OBS controls, settings/logs IPC, model-provider management UI, and the end-to-end automation pipeline are still incomplete.
+- The model pipeline files exist in the tree, but most of them are still placeholders or partial scaffolding.
+
 ---
 
 ## 0. Minimum Demo Checklist
 
-- [~] App launches
+- [x] App launches
 - [ ] User can connect to OBS
 - [x] User can connect to VTube Studio
 - [x] User can authenticate VTube Studio plugin
 - [x] App fetches VTS hotkeys
 - [ ] User can configure model provider
 - [ ] User can test model provider connection
-- [~] User can click Analyze Now
-- [~] App builds observation using OBS state and VTS state
-- [~] App sends prompt to model provider
-- [~] Model returns structured ActionPlan
-- [~] App parses ActionPlan
-- [~] App validates ActionPlan
-- [~] App blocks unsafe actions
+- [ ] User can click Analyze Now
+- [ ] App builds observation using OBS state and VTS state
+- [ ] App sends prompt to model provider
+- [ ] Model returns structured ActionPlan
+- [ ] App parses ActionPlan
+- [ ] App validates ActionPlan
+- [ ] App blocks unsafe actions
 - [x] App triggers allowed VTS hotkey
-- [~] App logs full pipeline result
-- [~] User can review action results in LogViewer
+- [ ] App logs full pipeline result
+- [ ] User can review action results in LogViewer
 
 ---
 
@@ -182,14 +188,14 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 ### IPC Channels
 
-- [x] Implement `settings:get`
-- [x] Implement `settings:update`
-- [x] Implement `logs:list`
+- [ ] Implement `settings:get`
+- [ ] Implement `settings:update`
+- [ ] Implement `logs:list`
 - [ ] Implement `logs:clear`
 - [ ] Implement `logs:event`
-- [x] Implement `obs:connect`
-- [x] Implement `obs:disconnect`
-- [x] Implement `obs:get-status`
+- [ ] Implement `obs:connect`
+- [ ] Implement `obs:disconnect`
+- [ ] Implement `obs:get-status`
 - [x] Implement `vts:connect`
 - [x] Implement `vts:disconnect`
 - [x] Implement `vts:authenticate`
@@ -198,10 +204,10 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 - [x] Implement `model:test-connection`
 - [x] Implement `model:set-provider`
 - [x] Implement `model:list-providers`
-- [x] Implement `automation:start`
-- [x] Implement `automation:stop`
-- [x] Implement `automation:analyze-now`
-- [x] Implement `automation:get-status`
+- [ ] Implement `automation:start`
+- [ ] Implement `automation:stop`
+- [ ] Implement `automation:analyze-now`
+- [ ] Implement `automation:get-status`
 - [x] Implement `capture:get-sources`
 - [x] Implement `capture:start-camera`
 - [x] Implement `capture:stop-camera`
@@ -218,9 +224,9 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 - [x] Create main renderer layout
 - [x] Create setup/status navigation
-- [~] Add app loading state
-- [~] Add first-run setup state
-- [~] Add global error display
+- [ ] Add app loading state
+- [ ] Add first-run setup state
+- [ ] Add global error display
 - [x] Add light/dark compatible base styling
 
 ### Panels
@@ -232,13 +238,13 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 - [x] Create `ManualControlPanel.tsx`
 - [x] Create `HotkeyMapper.tsx`
 - [x] Create `LogViewer.tsx`
-- [~] Add loading skeleton for status panel
-- [~] Add loading skeleton for settings panel
-- [~] Add loading skeleton for model provider panel
-- [~] Add loading skeleton for capture panel
-- [~] Add loading skeleton for logs viewer
-- [~] Add empty states
-- [~] Add actionable error states
+- [ ] Add loading skeleton for status panel
+- [ ] Add loading skeleton for settings panel
+- [ ] Add loading skeleton for model provider panel
+- [ ] Add loading skeleton for capture panel
+- [ ] Add loading skeleton for logs viewer
+- [ ] Add empty states
+- [ ] Add actionable error states
 
 ### Hooks
 
@@ -271,22 +277,22 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 ### OBS Actions
 
-- [x] Implement `setCurrentScene`
-- [x] Implement `setSourceVisibility`
-- [x] Require confirmation for scene changes by default
-- [x] Require confirmation for source visibility changes by default
-- [x] Log all OBS actions
-- [x] Log all blocked OBS actions
+- [ ] Implement `setCurrentScene`
+- [ ] Implement `setSourceVisibility`
+- [ ] Require confirmation for scene changes by default
+- [ ] Require confirmation for source visibility changes by default
+- [ ] Log all OBS actions
+- [ ] Log all blocked OBS actions
 
 ### OBS UI
 
-- [x] Add OBS connect button
-- [x] Add OBS disconnect button
-- [x] Show OBS connection status
-- [x] Show current scene
-- [x] Show stream status
-- [x] Show recording status
-- [x] Show OBS errors in user-friendly language
+- [ ] Add OBS connect button
+- [ ] Add OBS disconnect button
+- [ ] Show OBS connection status
+- [ ] Show current scene
+- [ ] Show stream status
+- [ ] Show recording status
+- [ ] Show OBS errors in user-friendly language
 
 ---
 
@@ -308,11 +314,11 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 ### VTS Actions
 
 - [x] Implement `triggerHotkey`
-- [x] Implement optional `setParameter`
+- [ ] Implement optional `setParameter`
 - [x] Keep `vts.trigger_hotkey` allowed in `auto_safe`
-- [x] Require confirmation for `vts.set_parameter`
-- [x] Log all VTS actions
-- [x] Log all blocked VTS actions
+- [ ] Require confirmation for `vts.set_parameter`
+- [ ] Log all VTS actions
+- [ ] Log all blocked VTS actions
 
 ### VTS UI
 
@@ -361,19 +367,19 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 - [ ] Fallback to configured fallback provider
 - [ ] Return pipeline failure if all providers fail
 - [ ] Enter safe mode if model provider fails critically
-- [x] Log provider errors without exposing API keys
-- [x] Add ModelRouter fallback tests
+- [ ] Log provider errors without exposing API keys
+- [ ] Add ModelRouter fallback tests
 
 ### Model UI
 
-- [x] Add provider selector
-- [x] Add model name field
-- [x] Add base URL field
-- [x] Add API key field with secret-safe behavior
-- [x] Add provider capability display
-- [x] Add test connection button
-- [x] Show provider test result
-- [x] Show provider failure logs
+- [ ] Add provider selector
+- [ ] Add model name field
+- [ ] Add base URL field
+- [ ] Add API key field with secret-safe behavior
+- [ ] Add provider capability display
+- [ ] Add test connection button
+- [ ] Show provider test result
+- [ ] Show provider failure logs
 
 ---
 
@@ -381,84 +387,84 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 ### Prompt Builder
 
-- [x] Create `prompt-builder.service.ts`
-- [x] Add system prompt template
-- [x] Build observation summary for model
-- [x] Build tool schemas based on policy
-- [x] Ensure prompt excludes secrets
-- [x] Add PromptBuilder tests
+- [ ] Create `prompt-builder.service.ts`
+- [ ] Add system prompt template
+- [ ] Build observation summary for model
+- [ ] Build tool schemas based on policy
+- [ ] Ensure prompt excludes secrets
+- [ ] Add PromptBuilder tests
 
 ### Action Plan Tool
 
-- [x] Create `create_action_plan` tool schema
-- [x] Enforce required `actions`
-- [x] Enforce required `safety`
-- [x] Enforce required `nextTick`
-- [x] Add tests for valid tool schema
+- [ ] Create `create_action_plan` tool schema
+- [ ] Enforce required `actions`
+- [ ] Enforce required `safety`
+- [ ] Enforce required `nextTick`
+- [ ] Add tests for valid tool schema
 
 ### Action Plan Parser
 
-- [x] Create `action-plan-parser.service.ts`
-- [x] Parse tool call response
-- [x] Parse JSON response fallback if needed
-- [x] Attach observation `tickId`
-- [x] Validate parsed plan with Zod
-- [x] Return safe parse errors
-- [x] Log parse failures
-- [x] Add parser tests
+- [ ] Create `action-plan-parser.service.ts`
+- [ ] Parse tool call response
+- [ ] Parse JSON response fallback if needed
+- [ ] Attach observation `tickId`
+- [ ] Validate parsed plan with Zod
+- [ ] Return safe parse errors
+- [ ] Log parse failures
+- [ ] Add parser tests
 
 ### Action Validator
 
-- [x] Create `action-validator.service.ts`
-- [x] Validate schema
-- [x] Enforce `maxActionsPerTick`
-- [x] Enforce allowed action list
-- [x] Enforce blocked action list
-- [x] Enforce action-specific validation
-- [x] Enforce cooldowns
-- [x] Enforce autonomy level
-- [x] Require confirmation for high-risk actions
-- [x] Return blocked action results
-- [x] Log blocked action reasons
-- [x] Add validator tests
+- [ ] Create `action-validator.service.ts`
+- [ ] Validate schema
+- [ ] Enforce `maxActionsPerTick`
+- [ ] Enforce allowed action list
+- [ ] Enforce blocked action list
+- [ ] Enforce action-specific validation
+- [ ] Enforce cooldowns
+- [ ] Enforce autonomy level
+- [ ] Require confirmation for high-risk actions
+- [ ] Return blocked action results
+- [ ] Log blocked action reasons
+- [ ] Add validator tests
 
 ### Cooldown Service
 
-- [x] Create `cooldown.service.ts`
-- [x] Track global action cooldown
-- [x] Track per-action cooldown
-- [x] Track repeated VTS hotkey cooldown
-- [x] Add cooldown tests
+- [ ] Create `cooldown.service.ts`
+- [ ] Track global action cooldown
+- [ ] Track per-action cooldown
+- [ ] Track repeated VTS hotkey cooldown
+- [ ] Add cooldown tests
 
 ### Action Executor
 
-- [x] Create `action-executor.service.ts`
-- [x] Execute `vts.trigger_hotkey`
-- [x] Execute `vts.set_parameter`
-- [x] Execute `obs.set_scene`
-- [x] Execute `obs.set_source_visibility`
-- [x] Execute `overlay.message`
-- [x] Execute `log.event`
-- [x] Execute `noop`
-- [x] Return `LocalActionResult` for every action
-- [x] Handle partial action failure
-- [x] Log executed actions
-- [x] Add executor tests with mocked OBS/VTS
+- [ ] Create `action-executor.service.ts`
+- [ ] Execute `vts.trigger_hotkey`
+- [ ] Execute `vts.set_parameter`
+- [ ] Execute `obs.set_scene`
+- [ ] Execute `obs.set_source_visibility`
+- [ ] Execute `overlay.message`
+- [ ] Execute `log.event`
+- [ ] Execute `noop`
+- [ ] Return `LocalActionResult` for every action
+- [ ] Handle partial action failure
+- [ ] Log executed actions
+- [ ] Add executor tests with mocked OBS/VTS
 
 ### Pipeline Service
 
-- [x] Create `pipeline.service.ts`
-- [x] Build observation
-- [x] Build prompt
-- [x] Call model router
-- [x] Parse action plan
-- [x] Validate action plan
-- [x] Execute approved actions
-- [x] Return completed result
-- [x] Return blocked result
-- [x] Return failed result
-- [x] Log pipeline tick start/end
-- [x] Add pipeline tests with mock provider
+- [ ] Create `pipeline.service.ts`
+- [ ] Build observation
+- [ ] Build prompt
+- [ ] Call model router
+- [ ] Parse action plan
+- [ ] Validate action plan
+- [ ] Execute approved actions
+- [ ] Return completed result
+- [ ] Return blocked result
+- [ ] Return failed result
+- [ ] Log pipeline tick start/end
+- [ ] Add pipeline tests with mock provider
 
 ---
 
@@ -466,34 +472,34 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 ### Observation Envelope
 
-- [x] Create `observation-builder.service.ts`
-- [x] Generate session ID
-- [x] Generate tick ID
-- [x] Add created timestamp
-- [x] Add source metadata
-- [x] Add OBS snapshot
-- [x] Add VTS snapshot
-- [x] Add runtime snapshot
-- [x] Add runtime policy
-- [x] Add recent action history
-- [x] Add optional user text
-- [x] Add optional camera frames
-- [x] Add optional screen/window frames
-- [x] Add optional audio chunks
-- [x] Add optional transcript segments
-- [x] Validate final ObservationEnvelope
-- [x] Add observation builder tests
+- [ ] Create `observation-builder.service.ts`
+- [ ] Generate session ID
+- [ ] Generate tick ID
+- [ ] Add created timestamp
+- [ ] Add source metadata
+- [ ] Add OBS snapshot
+- [ ] Add VTS snapshot
+- [ ] Add runtime snapshot
+- [ ] Add runtime policy
+- [ ] Add recent action history
+- [ ] Add optional user text
+- [ ] Add optional camera frames
+- [ ] Add optional screen/window frames
+- [ ] Add optional audio chunks
+- [ ] Add optional transcript segments
+- [ ] Validate final ObservationEnvelope
+- [ ] Add observation builder tests
 
 ### Runtime Policy
 
-- [x] Implement `paused`
-- [x] Implement `suggest_only`
-- [x] Implement `auto_safe`
-- [x] Implement `auto_full`
-- [x] Implement `safe_mode`
-- [x] Default allowed actions to VTS hotkey, overlay message, log event, noop
-- [x] Default blocked actions to OBS scene, OBS source visibility, VTS parameter
-- [x] Add runtime policy tests
+- [ ] Implement `paused`
+- [ ] Implement `suggest_only`
+- [ ] Implement `auto_safe`
+- [ ] Implement `auto_full`
+- [ ] Implement `safe_mode`
+- [ ] Default allowed actions to VTS hotkey, overlay message, log event, noop
+- [ ] Default blocked actions to OBS scene, OBS source visibility, VTS parameter
+- [ ] Add runtime policy tests
 
 ---
 
@@ -501,30 +507,30 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 ### Scheduler
 
-- [x] Create `scheduler.service.ts`
-- [x] Start automation loop
-- [x] Stop automation loop
-- [x] Respect `tickIntervalMs`
-- [x] Prevent overlapping ticks
-- [x] Trigger pipeline on timer
-- [x] Trigger pipeline on manual Analyze Now
-- [x] Support OBS event trigger
-- [x] Support VTS event trigger
-- [x] Support capture event trigger
-- [x] Add scheduler tests
+- [ ] Create `scheduler.service.ts`
+- [ ] Start automation loop
+- [ ] Stop automation loop
+- [ ] Respect `tickIntervalMs`
+- [ ] Prevent overlapping ticks
+- [ ] Trigger pipeline on timer
+- [ ] Trigger pipeline on manual Analyze Now
+- [ ] Support OBS event trigger
+- [ ] Support VTS event trigger
+- [ ] Support capture event trigger
+- [ ] Add scheduler tests
 
 ### Automation UI
 
-- [x] Add start automation button
-- [x] Add stop automation button
-- [x] Add Analyze Now button
-- [x] Add autonomy level selector
-- [x] Show automation enabled/disabled status
-- [x] Show last tick status
-- [x] Show recent action history
-- [x] Show blocked action visibility
-- [x] Show cooldown state
-- [x] Show safe mode state
+- [ ] Add start automation button
+- [ ] Add stop automation button
+- [ ] Add Analyze Now button
+- [ ] Add autonomy level selector
+- [ ] Show automation enabled/disabled status
+- [ ] Show last tick status
+- [ ] Show recent action history
+- [ ] Show blocked action visibility
+- [ ] Show cooldown state
+- [ ] Show safe mode state
 
 ---
 
@@ -586,15 +592,15 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 ### Local API Foundation
 
-- [x] Create `electron/src/main/local-api/server.ts`
-- [x] Create `electron/src/main/local-api/routes.ts`
-- [x] Create `electron/src/main/local-api/auth.ts`
-- [x] Keep local API disabled by default
-- [x] Bind only to `100.93.134.64`
-- [x] Require bearer token
-- [x] Validate all request bodies
-- [x] Never expose secrets
-- [x] Never allow unauthenticated action execution
+- [ ] Create `electron/src/main/local-api/server.ts`
+- [ ] Create `electron/src/main/local-api/routes.ts`
+- [ ] Create `electron/src/main/local-api/auth.ts`
+- [ ] Keep local API disabled by default
+- [ ] Bind only to `100.93.134.64`
+- [ ] Require bearer token
+- [ ] Validate all request bodies
+- [ ] Never expose secrets
+- [ ] Never allow unauthenticated action execution
 - [ ] Add local API docs if enabled
 - [ ] Add local API tests if enabled
 
@@ -632,7 +638,7 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 - [x] Document action validation behavior
 - [x] Document safe defaults
 - [x] Document known limitations
-- [~] Document current implementation status
+- [x] Document current implementation status
 
 ---
 
@@ -640,16 +646,16 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 ### Unit Tests
 
-- [x] Add Zod schema tests
-- [x] Add ActionPlanParser tests
-- [x] Add ActionValidator tests
-- [x] Add CooldownService tests
-- [x] Add ModelRouter fallback tests
-- [x] Add PromptBuilder tests
-- [x] Add SettingsService tests
-- [x] Add secret redaction tests
-- [x] Add IPC validation tests
-- [x] Add PipelineService tests with mock provider
+- [ ] Add Zod schema tests
+- [ ] Add ActionPlanParser tests
+- [ ] Add ActionValidator tests
+- [ ] Add CooldownService tests
+- [ ] Add ModelRouter fallback tests
+- [ ] Add PromptBuilder tests
+- [ ] Add SettingsService tests
+- [ ] Add secret redaction tests
+- [ ] Add IPC validation tests
+- [ ] Add PipelineService tests with mock provider
 
 ### Integration Tests
 
@@ -660,7 +666,7 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 
 ### E2E / Demo Tests
 
-- [~] App launches
+- [x] App launches
 - [ ] Settings load
 - [ ] Logs render
 - [ ] OBS connect flow works
@@ -672,7 +678,7 @@ A feature is only complete when it has the needed service logic, typed IPC/API b
 - [ ] Analyze Now works with mock provider
 - [ ] Analyze Now works with real configured provider
 - [ ] Unsafe actions are blocked or require confirmation
-- [~] Pipeline result appears in logs
+- [ ] Pipeline result appears in logs
 
 ---
 
@@ -737,20 +743,20 @@ Run from repository root.
 
 ### Person 3: Model / Pipeline / Automation
 
-- [x] Model provider interface
-- [x] Mock provider
-- [x] OpenRouter provider
-- [x] Self-hosted provider
-- [x] Model router
-- [x] Prompt builder
-- [x] Action plan parser
-- [x] Action validator
-- [x] Cooldown service
-- [x] Action executor
-- [x] Pipeline service
-- [x] Scheduler service
-- [x] Pipeline tests
-- [x] Automation docs
+- [ ] Model provider interface
+- [ ] Mock provider
+- [ ] OpenRouter provider
+- [ ] Self-hosted provider
+- [ ] Model router
+- [ ] Prompt builder
+- [ ] Action plan parser
+- [ ] Action validator
+- [ ] Cooldown service
+- [ ] Action executor
+- [ ] Pipeline service
+- [ ] Scheduler service
+- [ ] Pipeline tests
+- [ ] Automation docs
 
 ### Person 4: Renderer UX / Capture / Demo Flow
 

@@ -1,6 +1,16 @@
 import { app, ipcMain } from "electron";
 import { IpcChannels } from "../../shared/channels";
+import { actionPlanSchema } from "../../shared/schemas/action-plan.schema";
 import { modelMonitorStartRequestSchema } from "../../shared/schemas/model-monitor.schema";
+import { modelControlContextSchema } from "../../shared/schemas/observation.schema";
+import type { AutomationAnalyzeNowRequest } from "../../shared/types/action-plan.types";
+import { ActionExecutorService } from "../services/automation/action-executor.service";
+import { ActionPlanParserService } from "../services/automation/action-plan-parser.service";
+import { ActionValidatorService } from "../services/automation/action-validator.service";
+import { CooldownService } from "../services/automation/cooldown.service";
+import { ObservationBuilderService } from "../services/automation/observation-builder.service";
+import { PipelineService } from "../services/automation/pipeline.service";
+import { PromptBuilderService } from "../services/automation/prompt-builder.service";
 import { captureOrchestrator } from "../services/capture/capture-orchestrator.instance";
 import { ModelMonitorService } from "../services/model/model-monitor.service";
 import { ModelRouterService } from "../services/model/model-router.service";
@@ -10,8 +20,10 @@ import {
   getSelectedModelProviderId,
   setSelectedModelProviderId,
 } from "../services/model/model-provider-store";
-import { registerVtsIpcHandlers } from "./vts.ipc";
+import { obsService } from "../services/obs/obs.service";
+import { vtsService } from "../services/vts/vts.service";
 import { registerCaptureIpcHandlers } from "./capture.ipc";
+import { registerVtsIpcHandlers } from "./vts.ipc";
 
 const modelRouter = new ModelRouterService(
   {
@@ -34,6 +46,16 @@ const modelRouter = new ModelRouterService(
   }),
 );
 
+const cooldownService = new CooldownService();
+const pipelineService = new PipelineService(
+  new ObservationBuilderService(obsService, vtsService, cooldownService),
+  new PromptBuilderService(),
+  modelRouter,
+  new ActionPlanParserService(),
+  new ActionValidatorService(cooldownService),
+  new ActionExecutorService(obsService, vtsService, cooldownService),
+  cooldownService,
+);
 const modelMonitor = new ModelMonitorService(captureOrchestrator, modelRouter);
 
 export function registerIpcHandlers(): void {
@@ -45,6 +67,25 @@ export function registerIpcHandlers(): void {
     } catch (error: unknown) {
       console.error("Failed to resolve app version:", error);
       return "unknown";
+    }
+  });
+
+  ipcMain.handle(IpcChannels.AutomationAnalyzeNow, async (_event, request: AutomationAnalyzeNowRequest | undefined) => {
+    try {
+      const result = await pipelineService.analyzeNow(request ?? {});
+
+      if (result.ok) {
+        modelControlContextSchema.parse(result.modelContext);
+        actionPlanSchema.parse(result.plan);
+      }
+
+      return result;
+    } catch (error: unknown) {
+      console.error("Failed to run automation analysis:", error);
+      return {
+        ok: false as const,
+        message: "Unable to run automation analysis.",
+      };
     }
   });
 

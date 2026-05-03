@@ -19,7 +19,7 @@ Planning priorities:
 
 Action-specific rules:
 
-- When triggering VTS hotkeys, use the semantic name (e.g., "wave", "laugh", "surprise"). The app maps these to actual hotkey IDs.
+- When triggering VTS hotkeys, use the exact `availableHotkeys[].id` value from the payload.
 - Do not trigger the same hotkey repeatedly without a clear reason.
 - Do not switch OBS scenes unless policy allows it.
 - Keep visible messages short.

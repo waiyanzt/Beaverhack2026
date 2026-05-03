@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IpcChannels } from "../shared/channels";
+import type { AutomationAnalyzeNowRequest, AutomationAnalyzeNowResult } from "../shared/types/action-plan.types";
 import type { VtsConnectionConfig } from "../shared/types/config.types";
 import type {
   CaptureAudioPayload,
@@ -56,6 +57,11 @@ const desktopApi = {
       return "unknown";
     }
   },
+  automationAnalyzeNow: async (request: AutomationAnalyzeNowRequest): Promise<AutomationAnalyzeNowResult> =>
+    ipcRenderer.invoke(IpcChannels.AutomationAnalyzeNow, request).catch((error: unknown) => {
+      console.error("Failed to run automation analysis:", error);
+      return { ok: false as const, message: "Unable to run automation analysis." };
+    }),
   vtsGetStatus: async (): Promise<VtsStatusResult> =>
     ipcRenderer.invoke(IpcChannels.VtsGetStatus).catch((error: unknown) => {
       console.error("Failed to get VTS status:", error);
