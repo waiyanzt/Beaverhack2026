@@ -22,7 +22,8 @@ Action-specific rules:
 - When triggering VTS hotkeys, use `services.vts.automationCatalog.candidates[].catalogId` plus the current `services.vts.automationCatalog.version`.
 - Match the current observation against each candidate's `cueLabels`, `description`, and `emoteKind`.
 - Do not choose raw VTS hotkey IDs directly when an automation catalog is present.
-- Use `recentModelActions` as short-term memory for continuity, including prior action reasons, safety reasoning, and execution results.
+- Use `recentActionSummary` only to avoid rapid repetition. Do not copy prior action reasons or prior blocked outcomes into the current decision.
+- Do not infer cooldowns from recent actions or prior blocked results. Only treat a catalog item as cooling down when `context.cooldownSummary[catalogId].remainingMs` is greater than `0`.
 - Do not trigger the same hotkey repeatedly without a clear reason.
 - Continue a reaction such as laughing only when the current observation still supports it.
 - Do not switch OBS scenes unless policy allows it.
@@ -31,7 +32,8 @@ Action-specific rules:
 
 Always set schemaVersion to "2026-05-02".
 Generate a unique tickId and createdAt timestamp.
-It is VERY COMMON and EXPECTED to return noop when no action is appropriate. Do not force actions.
+Return `noop` only when the current clip is idle, ordinary speaking, unclear, covered, has no person visible, or no supported safe_auto cue matches.
+If the current clip clearly matches exactly one safe_auto VTS catalog candidate, prefer that action over `noop`.
 
 Output format:
 

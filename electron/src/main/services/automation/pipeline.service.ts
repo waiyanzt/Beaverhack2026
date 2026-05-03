@@ -1,5 +1,11 @@
 import type { AutomationAnalyzeNowRequest, AutomationAnalyzeNowResult } from "../../../shared/types/action-plan.types";
-import type { ModelControlContext, ModelControlRecentAction, ModelControlRecentModelAction } from "../../../shared/types/observation.types";
+import type { LocalAction } from "../../../shared/schemas/action-plan.schema";
+import type {
+  ModelControlContext,
+  ModelControlRecentAction,
+  ModelControlRecentActionSummary,
+  ModelControlRecentModelAction,
+} from "../../../shared/types/observation.types";
 import { createId } from "../../utils/ids";
 import type { ModelRouterService } from "../model/model-router.service";
 import { ActionExecutorService } from "./action-executor.service";
@@ -62,7 +68,9 @@ export class PipelineService {
             ...modelContext.context,
             recentActions: this.cooldownService.getRecentActions(),
             recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
+            recentActionSummary: this.buildRecentActionSummary(this.modelActionMemoryService.getRecentModelActions()),
             cooldowns: this.cooldownService.getRemainingCooldowns(),
+            cooldownSummary: this.buildCooldownSummary(this.cooldownService.getRemainingCooldowns()),
           },
         },
         plan: parsedPlan,
@@ -103,7 +111,8 @@ export class PipelineService {
       context: {
         ...modelContext.context,
         recentActions: this.filterLiveRecentActions(modelContext.context.recentActions),
-        recentModelActions: this.filterLiveRecentModelActions(modelContext.context.recentModelActions),
+        recentModelActions: [],
+        recentActionSummary: modelContext.context.recentActionSummary.slice(0, 3),
       },
     };
   }
@@ -114,9 +123,43 @@ export class PipelineService {
       .slice(0, 4);
   }
 
-  private filterLiveRecentModelActions(actions: ModelControlRecentModelAction[]): ModelControlRecentModelAction[] {
+  private buildRecentActionSummary(actions: ModelControlRecentModelAction[]): ModelControlRecentActionSummary[] {
+    const nowMs = Date.now();
+
     return actions
-      .filter((entry) => entry.actionPlan.actions.some((action) => action.type !== "noop"))
-      .slice(0, 2);
+      .flatMap((entry) => {
+        const ageMs = Math.max(nowMs - Date.parse(entry.storedAt), 0);
+
+        return entry.actionPlan.actions
+          .filter((action): action is Extract<LocalAction, { type: "vts.trigger_hotkey" }> => {
+            return action.type === "vts.trigger_hotkey" && typeof action.catalogId === "string";
+          })
+          .map((action) => {
+            const result = entry.actionResults.find((candidate) => candidate.actionId === action.actionId);
+            const reason = result?.reason.toLowerCase() ?? "";
+            const blockedReasonCode = result?.status === "blocked"
+              ? reason.includes("cooldown") || reason.includes("suppressed")
+                ? "cooldown"
+                : "policy"
+              : undefined;
+
+            return {
+              catalogId: action.catalogId,
+              actionType: action.type,
+              ageMs,
+              status: result?.status ?? "not_executed",
+              blockedReasonCode,
+            } satisfies ModelControlRecentActionSummary;
+          });
+      })
+      .slice(0, 4);
+  }
+
+  private buildCooldownSummary(cooldowns: Record<string, number>): Record<string, { remainingMs: number }> {
+    return Object.fromEntries(
+      Object.entries(cooldowns)
+        .filter(([key]) => key.startsWith("vts.catalog:"))
+        .map(([key, remainingMs]) => [key.replace("vts.catalog:", ""), { remainingMs }]),
+    );
   }
 }

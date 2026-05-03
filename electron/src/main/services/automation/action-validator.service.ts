@@ -99,6 +99,14 @@ export class ActionValidatorService {
       }
     }
 
+    if (action.type === "noop" && this.noopReasonSuggestsAvailableAction(action.reason, modelContext)) {
+      return {
+        action,
+        status: "blocked",
+        reason: "Noop reason appears to support an available current automation action.",
+      };
+    }
+
     if (action.type === "obs.set_scene" || action.type === "obs.set_source_visibility") {
       if (!modelContext.services.obs.connected) {
         return {
@@ -162,5 +170,27 @@ export class ActionValidatorService {
         : DEFAULT_VTS_HOTKEY_REPEAT_WINDOW_MS;
 
     return contextTimestampMs - latestActionMs < repeatWindowMs;
+  }
+
+  private noopReasonSuggestsAvailableAction(reason: string, modelContext: ModelControlContext): boolean {
+    const normalizedReason = reason.toLowerCase();
+    const supportiveTerms = ["match", "matches", "matching", "indicates", "supports", "clearly", "visible"];
+    const mentionsSupportiveTerm = supportiveTerms.some((term) => normalizedReason.includes(term));
+
+    if (!mentionsSupportiveTerm) {
+      return false;
+    }
+
+    const candidateTerms = modelContext.services.vts.automationCatalog.candidates.flatMap((candidate) => {
+      const labelTerms = candidate.label.toLowerCase().split(/[^a-z0-9]+/).filter((term) => term.length > 2);
+      return [
+        candidate.catalogId.toLowerCase(),
+        candidate.label.toLowerCase(),
+        ...candidate.cueLabels.map((cueLabel) => cueLabel.toLowerCase()),
+        ...labelTerms,
+      ];
+    });
+
+    return [...new Set(candidateTerms)].some((term) => term.length > 2 && normalizedReason.includes(term));
   }
 }

@@ -135,6 +135,8 @@ This policy is local app behavior only. The live model does not see or choose it
 
 Only effective `safe_auto` entries are sent to the model as live automation candidates. Raw VTS hotkey IDs stay in the main process; the loop prompt receives the current `catalogId`, label, description, cue labels, emote kind, and catalog version.
 
+During live automation ticks, the model no longer receives full prior VTS action-plan reasoning as short-term memory. Instead it gets compact recent action and cooldown summaries so cooldown interpretation stays local to the app validator/executor layer.
+
 ## Activation And Retry
 
 VTube Studio activation is now handled from the Electron main process service layer instead of relying only on manual renderer clicks.

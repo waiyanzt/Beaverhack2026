@@ -153,6 +153,19 @@ describe("PipelineService", () => {
     }
 
     expect(result.modelContext.services.vts.availableHotkeys).toEqual([]);
+    expect(result.modelContext.context.recentActionSummary).toEqual([
+      {
+        catalogId: "laugh",
+        actionType: "vts.trigger_hotkey",
+        ageMs: 0,
+        status: "executed",
+      },
+    ]);
+    expect(result.modelContext.context.cooldownSummary).toEqual({
+      laugh: {
+        remainingMs: 5000,
+      },
+    });
     expect(result.modelContext.services.vts.automationCatalog.candidates).toEqual([
       {
         catalogId: "laugh",
@@ -381,11 +394,16 @@ describe("PipelineService", () => {
               safety: { reason?: string };
             };
           }>;
+          recentActionSummary: Array<{
+            actionType: string;
+            status: string;
+          }>;
         };
       };
     };
 
     expect(payload.modelContext.context.recentModelActions).toHaveLength(1);
+    expect(payload.modelContext.context.recentActionSummary).toEqual([]);
     expect(payload.modelContext.context.recentModelActions[0]?.actionPlan.actions[0]).toMatchObject({
       actionId: "act_memory_001",
       reason: "No contextual action is needed.",
@@ -573,6 +591,7 @@ describe("PipelineService", () => {
         context: {
           recentActions: unknown[];
           recentModelActions: unknown[];
+          recentActionSummary: unknown[];
         };
       };
     };
@@ -583,6 +602,7 @@ describe("PipelineService", () => {
     expect(result.requestDebug.modelMediaDataUrl).toBe("data:video/mp4;base64,Zm9v");
     expect(promptPayload.modelContext.context.recentActions).toEqual([]);
     expect(promptPayload.modelContext.context.recentModelActions).toEqual([]);
+    expect(promptPayload.modelContext.context.recentActionSummary).toEqual([]);
     expect(triggerHotkey).toHaveBeenCalledWith("wave");
   });
 });

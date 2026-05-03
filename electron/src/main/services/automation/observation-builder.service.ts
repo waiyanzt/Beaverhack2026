@@ -4,8 +4,10 @@ import type {
   AutomationAutonomyLevel,
   ModelControlContext,
   ModelControlRecentModelAction,
+  ModelControlRecentActionSummary,
   SupportedActionType,
 } from "../../../shared/types/observation.types";
+import type { LocalAction } from "../../../shared/schemas/action-plan.schema";
 import type { VtsHotkey, VtsStatus } from "../../../shared/types/vts.types";
 import type { CooldownService } from "./cooldown.service";
 
@@ -80,7 +82,7 @@ export class ObservationBuilderService {
           currentScene: obsStatus.connected ? obsStatus.currentScene : null,
           streamStatus: obsStatus.connected ? obsStatus.streamStatus : "inactive",
           recordingStatus: obsStatus.connected ? obsStatus.recordingStatus : "inactive",
-          scenes: obsStatus.connected ? obsStatus.scenes : [],
+          scenes: obsStatus.connected && (request.allowObsActions ?? true) ? obsStatus.scenes : [],
         },
         policy: {
           allowedActions,
@@ -90,7 +92,9 @@ export class ObservationBuilderService {
         autonomyLevel: request.autonomyLevel ?? "auto_safe",
         recentActions: this.cooldownService.getRecentActions(),
         recentModelActions: request.recentModelActions ?? [],
+        recentActionSummary: this.buildRecentActionSummary(request.recentModelActions ?? []),
         cooldowns: this.cooldownService.getRemainingCooldowns(),
+        cooldownSummary: this.buildCooldownSummary(this.cooldownService.getRemainingCooldowns()),
       },
     });
 
@@ -113,5 +117,45 @@ export class ObservationBuilderService {
     }
 
     return [...new Set(allowedActions)];
+  }
+
+  private buildRecentActionSummary(actions: ModelControlRecentModelAction[]): ModelControlRecentActionSummary[] {
+    const nowMs = Date.now();
+
+    return actions
+      .flatMap((entry) => {
+        const ageMs = Math.max(nowMs - Date.parse(entry.storedAt), 0);
+
+        return entry.actionPlan.actions
+          .filter((action): action is Extract<LocalAction, { type: "vts.trigger_hotkey" }> => {
+            return action.type === "vts.trigger_hotkey" && typeof action.catalogId === "string";
+          })
+          .map((action) => {
+            const result = entry.actionResults.find((candidate) => candidate.actionId === action.actionId);
+            const reason = result?.reason.toLowerCase() ?? "";
+            const blockedReasonCode = result?.status === "blocked"
+              ? reason.includes("cooldown") || reason.includes("suppressed")
+                ? "cooldown"
+                : "policy"
+              : undefined;
+
+            return {
+              catalogId: action.catalogId,
+              actionType: action.type,
+              ageMs,
+              status: result?.status ?? "not_executed",
+              blockedReasonCode,
+            } satisfies ModelControlRecentActionSummary;
+          });
+      })
+      .slice(0, 4);
+  }
+
+  private buildCooldownSummary(cooldowns: Record<string, number>): Record<string, { remainingMs: number }> {
+    return Object.fromEntries(
+      Object.entries(cooldowns)
+        .filter(([key]) => key.startsWith("vts.catalog:"))
+        .map(([key, remainingMs]) => [key.replace("vts.catalog:", ""), { remainingMs }]),
+    );
   }
 }

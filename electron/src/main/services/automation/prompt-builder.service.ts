@@ -25,9 +25,9 @@ export class PromptBuilderService {
     const systemPrompt = `${loadPrompt("system").content}\n\n${loadPrompt("action-planner").content}`;
     const basePrompt = {
       instructions: [
-        "Here are the current stream controls, observation context, cooldowns, and recent model action plans.",
-        "Use recentModelActions as short-term memory for continuity. Take the prior full ActionPlan JSON, action reasons, safety assessment, and execution results into account before choosing the next action.",
-        "Avoid repeating an action just because it appears in memory; repeat only when the current observation clearly supports continuing that reaction or behavior.",
+        "Here are the current stream controls, observation context, cooldown state, and compact recent action summaries.",
+        "Use recentActionSummary only to avoid rapid repetition. Do not copy prior action reasons or prior blocked outcomes into the current decision.",
+        "Do not infer cooldowns from recentActionSummary or recentActions. Only treat a catalog item as cooling down when cooldownSummary[catalogId].remainingMs is greater than 0.",
       ],
       modelContext,
     };
@@ -74,7 +74,8 @@ export class PromptBuilderService {
       .filter((text) => text.length > 0);
     const userText = [
       "Treat the attached video as the primary evidence for this decision.",
-      "If the video contradicts recentModelActions or prior context, trust the video.",
+      "If the video contradicts recent history or prior context, trust the video.",
+      "If the current clip clearly matches exactly one safe_auto catalog candidate and cooldownSummary for that catalog item is 0 or missing, prefer that action over noop.",
       ...livePromptTexts,
       modelContextText,
     ].join("\n\n");

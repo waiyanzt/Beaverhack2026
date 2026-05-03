@@ -47,7 +47,9 @@ const modelContext: ModelControlContext = {
     autonomyLevel: "auto_safe",
     recentActions: [],
     recentModelActions: [],
+    recentActionSummary: [],
     cooldowns: {},
+    cooldownSummary: {},
   },
 };
 
@@ -101,6 +103,7 @@ describe("PromptBuilderService", () => {
     expect(userMessage.content[1].text).toContain("Treat the attached video as the primary evidence");
     expect(userMessage.content[1].text).toContain("{\"capture\":true}");
     expect(userMessage.content[1].text).toContain("\"liveObservation\": true");
+    expect(userMessage.content[1].text).toContain("cooldownSummary");
     expect(result.requestDebug.mediaDataUrlBytes).toBe(24);
   });
 });

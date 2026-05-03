@@ -24,6 +24,8 @@ That payload includes:
 - policy `allowedActions`
 - recent actions and active cooldowns
 - recent model action plans, kept in a transient 10-entry sliding window with the full parsed `ActionPlan`, action reasons, safety assessment, and execution results
+- a compact `recentActionSummary` derived from recent VTS catalog actions for the live loop
+- a compact `cooldownSummary` keyed by `catalogId` so the model does not have to infer cooldown state from prior blocked results
 
 Recent action history now carries both:
 
@@ -33,6 +35,15 @@ Recent action history now carries both:
 For manual text-only runs, the payload is serialized by `PromptBuilderService` and sent through `ModelRouterService`, then parsed, validated, and optionally executed by `PipelineService`.
 
 For live camera/audio runs, `PipelineService` can also attach the latest buffered webcam clip plus synchronized audio as an MP4 `video_url` input while keeping the same parse/validate/execute flow. That live path now trims prompt history aggressively and excludes noop-only memory so the current clip remains the primary evidence instead of being drowned out by prior identical monitor outputs.
+
+The live path now also stops feeding full prior plans back into the model as decision evidence. Instead it keeps:
+
+- filtered `recentActions`
+- empty `recentModelActions`
+- compact `recentActionSummary`
+- explicit `cooldownSummary`
+
+This keeps cooldown enforcement in the validator/executor layer instead of teaching the model to self-suppress based on prior blocked outputs.
 
 `ModelActionMemoryService` owns the short-term model action memory in the Electron main process. The canonical automation pipeline records each parsed plan after review/execution, and the dashboard model monitor records returned plans as `not_executed` because that development loop never runs actions directly. The next prompt includes this memory so providers can make context-aware choices, such as continuing a laugh reaction when the latest observation still supports it, without mechanically repeating prior actions.
 
@@ -46,6 +57,7 @@ Noop decisions are also represented in the compact `recentActions` history. This
   - the selected candidate is still present
   - the candidate is classified as `safe_auto`
   - the action is not cooling down or repeat-suppressed
+- `noop` is now blocked when its reason clearly argues for one of the currently available safe-auto catalog actions. This is a guard against plans that detect a cue correctly but still self-suppress.
 - When an executed VTS catalog entry is marked locally as not auto-deactivating, `ActionExecutorService` schedules a follow-up trigger of the same underlying hotkey after the configured delay to turn that state back off without asking the model to do it.
 - Raw hotkey IDs are still available for manual operator testing, but live automation does not trust the model to choose them directly.
 - `obs.set_scene` and `obs.set_source_visibility` are surfaced to the model and validated, but they currently stay in `confirmation_required` until a confirmation workflow is added.

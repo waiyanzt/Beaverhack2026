@@ -53,7 +53,8 @@ export class LiveCaptureInputService {
         "When choosing a VTS reaction, use only services.vts.automationCatalog.candidates from the current model context.",
         "Use each candidate's user-provided label and description to decide the reaction.",
         "Return vts.trigger_hotkey only with catalogId and catalogVersion from that automation catalog. Do not invent or reuse raw VTS hotkey IDs.",
-        "Use exactly one noop action for idle, unclear, covered-camera, or ordinary speaking/sitting clips.",
+        "Return noop only for idle, ordinary speaking, unclear, unsupported, or covered-camera clips.",
+        "If the current clip clearly matches exactly one safe_auto candidate and cooldownSummary for that catalog item is 0 or missing, prefer that action over noop.",
       ],
       capture: {
         windowMs,

@@ -47,7 +47,9 @@ const createBaseContext = (): ModelControlContext => ({
     autonomyLevel: "auto_safe",
     recentActions: [],
     recentModelActions: [],
+    recentActionSummary: [],
     cooldowns: {},
+    cooldownSummary: {},
   },
 });
 
@@ -133,5 +135,25 @@ describe("ActionValidatorService", () => {
     );
 
     expect(reviewed?.status).toBe("approved");
+  });
+
+  it("blocks noop reasons that clearly support an available automation action", () => {
+    const validator = new ActionValidatorService(new CooldownService(() => Date.parse("2026-05-03T08:11:35.220Z")));
+    const context = createBaseContext();
+
+    const [reviewed] = validator.reviewActions(
+      [
+        {
+          type: "noop",
+          actionId: "noop_1",
+          reason: "Current clip clearly matches the greeting cue and visible hello reaction.",
+        },
+      ],
+      context,
+      false,
+    );
+
+    expect(reviewed?.status).toBe("blocked");
+    expect(reviewed?.reason).toContain("Noop reason appears to support");
   });
 });

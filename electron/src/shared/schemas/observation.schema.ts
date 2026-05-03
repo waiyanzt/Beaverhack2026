@@ -154,6 +154,16 @@ export const modelControlRecentModelActionSchema = z
   })
   .strict();
 
+export const modelControlRecentActionSummarySchema = z
+  .object({
+    catalogId: z.string().trim().min(1),
+    actionType: supportedActionTypeSchema,
+    ageMs: z.number().int().nonnegative(),
+    status: z.enum(["executed", "blocked", "failed", "confirmation_required", "noop", "not_executed"]),
+    blockedReasonCode: z.enum(["cooldown", "policy", "unknown"]).optional(),
+  })
+  .strict();
+
 export const modelControlContextSchema = z
   .object({
     tickId: z.string().trim().min(1),
@@ -171,7 +181,9 @@ export const modelControlContextSchema = z
         autonomyLevel: z.enum(["manual", "auto_safe", "auto_full"]),
         recentActions: z.array(modelControlRecentActionSchema),
         recentModelActions: z.array(modelControlRecentModelActionSchema),
+        recentActionSummary: z.array(modelControlRecentActionSummarySchema),
         cooldowns: z.record(z.string(), z.number().int().nonnegative()),
+        cooldownSummary: z.record(z.string(), z.object({ remainingMs: z.number().int().nonnegative() }).strict()),
       })
       .strict(),
   })

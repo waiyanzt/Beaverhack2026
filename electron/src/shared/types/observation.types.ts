@@ -127,6 +127,14 @@ export interface ModelControlRecentModelAction {
   actionResults: ModelControlRecentModelActionResult[];
 }
 
+export interface ModelControlRecentActionSummary {
+  catalogId: string;
+  actionType: SupportedActionType;
+  ageMs: number;
+  status: ModelControlRecentModelActionResult["status"];
+  blockedReasonCode?: "cooldown" | "policy" | "unknown";
+}
+
 export interface ModelControlContext {
   tickId: string;
   timestamp: string;
@@ -140,6 +148,8 @@ export interface ModelControlContext {
     autonomyLevel: AutomationAutonomyLevel;
     recentActions: ModelControlRecentAction[];
     recentModelActions: ModelControlRecentModelAction[];
+    recentActionSummary: ModelControlRecentActionSummary[];
     cooldowns: Record<string, number>;
+    cooldownSummary: Record<string, { remainingMs: number }>;
   };
 }
