@@ -1,6 +1,9 @@
-import type React from 'react';
+import type React from "react";
+import { useVTS } from "../hooks/useVTS";
 
 export function StatusPanel(): React.JSX.Element {
+  const { status, loading, error, refreshStatus } = useVTS();
+
   return (
     <section className="panel">
       <header className="panel__header">
@@ -9,6 +12,9 @@ export function StatusPanel(): React.JSX.Element {
           <h2 className="panel__title">Status</h2>
           <p className="panel__subtitle">Connection and agent health at a glance.</p>
         </div>
+        <button className="ghost-button" onClick={() => void refreshStatus()} disabled={loading}>
+          Refresh
+        </button>
       </header>
 
       <div className="panel__status-grid">
@@ -24,8 +30,11 @@ export function StatusPanel(): React.JSX.Element {
         </div>
         <div>
           <h4>VTube Studio Connection</h4>
-          <p>Connected: -</p>
-          <p>Hotkeys: -</p>
+          <p>Connected: {loading ? "-" : status?.connected ? "Yes" : "No"}</p>
+          <p>Authenticated: {loading ? "-" : status?.authenticated ? "Yes" : "No"}</p>
+          <p>Hotkeys: {loading ? "-" : status?.hotkeyCount ?? 0}</p>
+          <p>Model: {loading ? "-" : status?.modelName ?? "Unknown"}</p>
+          {error ? <p className="panel__error">{error}</p> : null}
         </div>
         <div>
           <h4>Capture</h4>

@@ -48,7 +48,7 @@ export const logEventActionSchema = z.object({
   actionId: z.string(),
   level: z.enum(["debug", "info", "warn", "error"]),
   message: z.string(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const noopActionSchema = z.object({

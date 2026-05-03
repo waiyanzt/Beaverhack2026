@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import { IpcChannels } from "../shared/channels";
+import type { VtsConnectionConfig } from "../shared/types/config.types";
 import type {
   CaptureAudioPayload,
   CaptureAudioLevelPayload,
@@ -20,6 +21,31 @@ import type {
   ModelMonitorStatusResponse,
   ModelMonitorStopResponse,
 } from "../shared/types/model-monitor.types";
+import type {
+  VtsHotkeysResult,
+  VtsStatus,
+  VtsStatusResult,
+  VtsTriggerHotkeyRequest,
+  VtsTriggerHotkeyResult,
+} from "../shared/types/vts.types";
+
+const fallbackVtsStatus: VtsStatus = {
+  connectionState: "disconnected",
+  authenticationState: "unauthenticated",
+  connected: false,
+  authenticated: false,
+  config: {
+    host: "127.0.0.1",
+    port: 8001,
+    pluginName: "AuTuber",
+    pluginDeveloper: "AuTuber Development Team",
+  },
+  modelLoaded: false,
+  modelName: null,
+  modelId: null,
+  hotkeyCount: 0,
+  lastError: null,
+};
 
 const desktopApi = {
   getAppVersion: async (): Promise<string> => {
@@ -30,14 +56,36 @@ const desktopApi = {
       return "unknown";
     }
   },
-  getHotkeys: async (): Promise<unknown> => {
-    try {
-      return await ipcRenderer.invoke(IpcChannels.VtsGetHotkeys);
-    } catch (error: unknown) {
+  vtsGetStatus: async (): Promise<VtsStatusResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsGetStatus).catch((error: unknown) => {
+      console.error("Failed to get VTS status:", error);
+      return { ok: false as const, message: "Unable to get VTube Studio status.", status: fallbackVtsStatus };
+    }),
+  vtsConnect: async (config: VtsConnectionConfig): Promise<VtsStatusResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsConnect, config).catch((error: unknown) => {
+      console.error("Failed to connect to VTS:", error);
+      return { ok: false as const, message: "Unable to connect to VTube Studio.", status: fallbackVtsStatus };
+    }),
+  vtsDisconnect: async (): Promise<VtsStatusResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsDisconnect).catch((error: unknown) => {
+      console.error("Failed to disconnect from VTS:", error);
+      return { ok: false as const, message: "Unable to disconnect from VTube Studio.", status: fallbackVtsStatus };
+    }),
+  vtsAuthenticate: async (): Promise<VtsStatusResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsAuthenticate).catch((error: unknown) => {
+      console.error("Failed to authenticate with VTS:", error);
+      return { ok: false as const, message: "Unable to authenticate with VTube Studio.", status: fallbackVtsStatus };
+    }),
+  vtsGetHotkeys: async (): Promise<VtsHotkeysResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsGetHotkeys).catch((error: unknown) => {
       console.error("Failed to get VTS hotkeys:", error);
-      return [];
-    }
-  },
+      return { ok: false as const, message: "Unable to fetch VTube Studio hotkeys.", hotkeys: [], status: fallbackVtsStatus };
+    }),
+  vtsTriggerHotkey: async (request: VtsTriggerHotkeyRequest): Promise<VtsTriggerHotkeyResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsTriggerHotkey, request).catch((error: unknown) => {
+      console.error("Failed to trigger VTS hotkey:", error);
+      return { ok: false as const, message: "Unable to trigger VTube Studio hotkey.", status: fallbackVtsStatus };
+    }),
   captureStart: async (config: CaptureStartRequest) =>
     ipcRenderer.invoke(IpcChannels.CaptureStart, config).catch((error: unknown) => {
       console.error("Failed to start capture:", error);
