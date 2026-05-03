@@ -22,6 +22,7 @@ Flow summary:
 ## Operator Visibility
 
 - The capture panel renders live camera/screen preview streams directly in renderer `<video>` elements (instead of polling frame thumbnails).
+- The dashboard shows live camera and screen previews from the current capture status plus a compact audio waveform so operators can monitor signal health at a glance.
 - Audio activity is surfaced via a level meter driven by the hidden capture window.
 - Buffer counts/bytes are displayed so operators can confirm chunks are arriving.
 - Screen capture requires a selected desktop source from the capture panel.

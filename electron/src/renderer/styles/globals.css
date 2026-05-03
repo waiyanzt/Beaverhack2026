@@ -255,6 +255,19 @@ code {
   width: 100%;
 }
 
+.app-shell .preview--media,
+.capture-dev-shell .preview--media {
+  min-height: 180px;
+}
+
+.app-shell .preview__image,
+.capture-dev-shell .preview__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
 .app-shell .preview__empty,
 .capture-dev-shell .preview__empty {
   font-size: 0.85rem;
@@ -294,6 +307,11 @@ code {
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.7);
   padding: 6px 4px;
+}
+
+.app-shell .waveform--compact,
+.capture-dev-shell .waveform--compact {
+  height: 48px;
 }
 
 .app-shell .waveform__bar,
