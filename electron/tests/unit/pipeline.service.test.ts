@@ -610,7 +610,12 @@ describe("PipelineService", () => {
       };
     };
 
-    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000, "clip", ["greeting", "wave", "vacant"]);
+    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(
+      2_000,
+      "clip",
+      ["greeting", "wave", "vacant"],
+      false,
+    );
     expect(result.modelContext.services.policy.allowedActions).not.toContain("obs.set_scene");
     expect(result.modelContext.services.policy.allowedActions).toContain("vts.trigger_hotkey");
     expect(result.requestDebug.modelMediaDataUrl).toBe("data:video/mp4;base64,Zm9v");

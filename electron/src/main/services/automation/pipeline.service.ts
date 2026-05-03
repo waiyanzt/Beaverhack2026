@@ -40,28 +40,34 @@ export class PipelineService {
         tickId: createId("tick"),
         transcript: request.transcript,
         allowObsActions: request.allowObsActions ?? true,
-        includeObsScenes: request.includeObsScenes ?? false,
+        vtsCandidateMode: request.vtsCandidateMode ?? "safe_auto",
         recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
       });
       const observationBuiltMs = Date.now();
+      const decisionRole = request.decisionRole ?? "primary_emote";
       const executionModelContext = request.useLatestCapture
         ? this.buildLivePromptContext(baseModelContext)
         : baseModelContext;
       const promptModelContext = request.useLatestCapture
-        ? this.buildCueLabelOnlyPromptContext(executionModelContext)
+        ? this.buildCueLabelOnlyPromptContext(
+            executionModelContext,
+            request.vtsCandidateMode ?? "safe_auto",
+            request.allowObsActions ?? true,
+          )
         : executionModelContext;
       const liveCaptureInput = request.useLatestCapture
         ? await this.liveCaptureInputService.buildPromptInput(
             request.captureWindowMs ?? 1_000,
             request.captureInputMode ?? "clip",
-            this.getMappedSafeAutoCueLabels(executionModelContext),
+            this.getMappedCueLabels(executionModelContext, request.vtsCandidateMode ?? "safe_auto"),
+            request.includeSeparateAudio ?? false,
           )
         : undefined;
       const captureInputBuiltMs = Date.now();
       const prompt = this.promptBuilder.buildMessages(promptModelContext, liveCaptureInput);
       const promptBuiltMs = Date.now();
       const modelRequestStartedMs = Date.now();
-      const modelResult = await this.modelRouter.requestActionPlan(prompt.messages);
+      const modelResult = await this.modelRouter.requestActionPlan(prompt.messages, request.modelProviderId);
       const modelResponseReceivedMs = Date.now();
 
       if (!modelResult.ok || !modelResult.actionPlan) {
@@ -69,7 +75,11 @@ export class PipelineService {
       }
 
       const rawPlan = this.actionPlanParser.parse(modelResult.actionPlan);
-      const parsedPlan = this.resolveCueLabelActions(rawPlan, executionModelContext);
+      const parsedPlan = this.resolveCueLabelActions(
+        rawPlan,
+        executionModelContext,
+        request.vtsCandidateMode ?? "safe_auto",
+      );
       const afkOverlayTransitionActions = this.afkOverlayService.reviewTransitions(
         rawPlan,
         executionModelContext,
@@ -104,6 +114,7 @@ export class PipelineService {
         actionResults,
         requestDebug: {
           providerId: modelResult.providerId,
+          decisionRole,
           statusCode: modelResult.status,
           promptTokens: modelResult.usage?.promptTokens ?? null,
           completionTokens: modelResult.usage?.completionTokens ?? null,
@@ -152,7 +163,11 @@ export class PipelineService {
     };
   }
 
-  private buildCueLabelOnlyPromptContext(modelContext: ModelControlContext): ModelControlContext {
+  private buildCueLabelOnlyPromptContext(
+    modelContext: ModelControlContext,
+    candidateMode: "safe_auto" | "inferable",
+    allowObsActions: boolean,
+  ): ModelControlContext {
     return {
       ...modelContext,
       services: {
@@ -162,19 +177,25 @@ export class PipelineService {
           availableHotkeys: [],
           automationCatalog: {
             ...modelContext.services.vts.automationCatalog,
-            candidates: [],
+            candidates: candidateMode === "inferable"
+              ? modelContext.services.vts.automationCatalog.candidates
+              : [],
           },
         },
-        obs: {
-          ...modelContext.services.obs,
-          scenes: [],
-        },
-        policy: {
-          ...modelContext.services.policy,
-          allowedActions: modelContext.services.policy.allowedActions.filter(
-            (actionType) => actionType !== "obs.set_scene" && actionType !== "obs.set_source_visibility",
-          ),
-        },
+        obs: allowObsActions
+          ? modelContext.services.obs
+          : {
+              ...modelContext.services.obs,
+              scenes: [],
+            },
+        policy: allowObsActions
+          ? modelContext.services.policy
+          : {
+              ...modelContext.services.policy,
+              allowedActions: modelContext.services.policy.allowedActions.filter(
+                (actionType) => actionType !== "obs.set_scene" && actionType !== "obs.set_source_visibility",
+              ),
+            },
       },
       context: {
         ...modelContext.context,
@@ -190,14 +211,19 @@ export class PipelineService {
   private resolveCueLabelActions(
     actionPlan: ReturnType<ActionPlanParserService["parse"]>,
     modelContext: ModelControlContext,
+    candidateMode: "safe_auto" | "inferable",
   ): ReturnType<ActionPlanParserService["parse"]> {
     return {
       ...actionPlan,
-      actions: actionPlan.actions.map((action) => this.resolveCueLabelAction(action, modelContext)),
+      actions: actionPlan.actions.map((action) => this.resolveCueLabelAction(action, modelContext, candidateMode)),
     };
   }
 
-  private resolveCueLabelAction(action: LocalAction, modelContext: ModelControlContext): LocalAction {
+  private resolveCueLabelAction(
+    action: LocalAction,
+    modelContext: ModelControlContext,
+    candidateMode: "safe_auto" | "inferable",
+  ): LocalAction {
     if (
       action.type !== "vts.trigger_hotkey" ||
       this.isVacantCueAction(action) ||
@@ -209,7 +235,7 @@ export class PipelineService {
       return action;
     }
 
-    const catalogEntry = this.selectCatalogEntryForCueLabels(action.cueLabels, modelContext);
+    const catalogEntry = this.selectCatalogEntryForCueLabels(action.cueLabels, modelContext, candidateMode);
 
     if (!catalogEntry) {
       return {
@@ -230,6 +256,7 @@ export class PipelineService {
   private selectCatalogEntryForCueLabels(
     cueLabels: VtsCueLabel[],
     modelContext: ModelControlContext,
+    candidateMode: "safe_auto" | "inferable",
   ): ModelControlContext["services"]["vts"]["automationCatalog"]["candidates"][number] | null {
     const ignoredCueLabels: VtsCueLabel[] = ["idle", "manual_request", "unknown"];
     const selectableCueLabels = cueLabels.filter((cueLabel) => !ignoredCueLabels.includes(cueLabel));
@@ -239,7 +266,7 @@ export class PipelineService {
     }
 
     const scoredCandidates = modelContext.services.vts.automationCatalog.candidates
-      .filter((candidate) => candidate.autoMode === "safe_auto")
+      .filter((candidate) => candidateMode === "inferable" || candidate.autoMode === "safe_auto")
       .map((candidate) => ({
         candidate,
         score: candidate.cueLabels.filter((cueLabel) => selectableCueLabels.includes(cueLabel)).length,
@@ -267,11 +294,14 @@ export class PipelineService {
     );
   }
 
-  private getMappedSafeAutoCueLabels(modelContext: ModelControlContext): VtsCueLabel[] {
+  private getMappedCueLabels(
+    modelContext: ModelControlContext,
+    candidateMode: "safe_auto" | "inferable",
+  ): VtsCueLabel[] {
     const cueLabels = [
       ...new Set(
         modelContext.services.vts.automationCatalog.candidates
-          .filter((candidate) => candidate.autoMode === "safe_auto")
+          .filter((candidate) => candidateMode === "inferable" || candidate.autoMode === "safe_auto")
           .flatMap((candidate) => candidate.cueLabels)
           .filter((cueLabel) => !["idle", "manual_request", "unknown"].includes(cueLabel)),
       ),

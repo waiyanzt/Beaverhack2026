@@ -1,4 +1,4 @@
-export type ModelProviderId = "openrouter" | "vllm" | "mock";
+export type ModelProviderId = "openrouter" | "vllm" | "secondary" | "mock";
 
 export interface ModelProviderConfig {
   id: ModelProviderId;
@@ -7,6 +7,9 @@ export interface ModelProviderConfig {
   model: string;
   apiKey: string | null;
   enabled: boolean;
+  timeoutMs?: number;
+  supportsVision?: boolean;
+  supportsAudioInput?: boolean;
   supportsToolCalling: boolean;
   supportsJsonMode: boolean;
   supportsForcedToolChoice?: boolean;
@@ -64,11 +67,22 @@ export interface OpenAICompatibleMessagePartAudioUrl {
   audio_url: OpenAICompatibleAudioUrl;
 }
 
+export interface OpenAICompatibleInputAudio {
+  data: string;
+  format: "wav" | "mp3" | "flac" | "m4a" | "ogg" | "webm";
+}
+
+export interface OpenAICompatibleMessagePartInputAudio {
+  type: "input_audio";
+  input_audio: OpenAICompatibleInputAudio;
+}
+
 export type OpenAICompatibleMessagePart =
   | OpenAICompatibleMessagePartText
   | OpenAICompatibleMessagePartImageUrl
   | OpenAICompatibleMessagePartVideoUrl
-  | OpenAICompatibleMessagePartAudioUrl;
+  | OpenAICompatibleMessagePartAudioUrl
+  | OpenAICompatibleMessagePartInputAudio;
 
 export interface OpenAICompatibleMessage {
   role: "system" | "user" | "assistant";

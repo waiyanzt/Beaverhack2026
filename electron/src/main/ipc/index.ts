@@ -38,17 +38,29 @@ const modelRouter = new ModelRouterService(
     getSelectedProviderId: getSelectedModelProviderId,
   },
   new OpenAICompatibleProvider({
-    postJson: async (url, body, headers) => {
-      const response = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-      });
+    postJson: async (url, body, headers, timeoutMs) => {
+      const abortController = new AbortController();
+      const timeout = typeof timeoutMs === "number"
+        ? setTimeout(() => abortController.abort(), timeoutMs)
+        : null;
 
-      return {
-        status: response.status,
-        body: await response.text(),
-      };
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+          signal: abortController.signal,
+        });
+
+        return {
+          status: response.status,
+          body: await response.text(),
+        };
+      } finally {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+      }
     },
   }),
 );

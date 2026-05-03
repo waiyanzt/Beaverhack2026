@@ -37,12 +37,12 @@ export class ModelRouterService {
     private readonly openAICompatibleProvider: OpenAICompatibleProvider,
   ) {}
 
-  public async testConnection(): Promise<ModelProviderTestResult> {
-    const provider = this.getSelectedProvider();
+  public async testConnection(providerId?: ModelProviderId): Promise<ModelProviderTestResult> {
+    const provider = this.getProvider(providerId);
 
     if (!provider) {
       return {
-        providerId: this.store.getSelectedProviderId(),
+        providerId: providerId ?? this.store.getSelectedProviderId(),
         ok: false,
         status: null,
         message: "No selected provider is configured.",
@@ -58,7 +58,7 @@ export class ModelRouterService {
       };
     }
 
-    if (provider.id === "openrouter" || provider.id === "vllm") {
+    if (provider.id === "openrouter" || provider.id === "vllm" || provider.id === "secondary") {
       const result = await this.openAICompatibleProvider.testConnection(provider);
 
       return {
@@ -77,8 +77,8 @@ export class ModelRouterService {
     };
   }
 
-  public async createActionPlan(messages: OpenAICompatibleMessage[]): Promise<unknown> {
-    const result = await this.requestActionPlan(messages);
+  public async createActionPlan(messages: OpenAICompatibleMessage[], providerId?: ModelProviderId): Promise<unknown> {
+    const result = await this.requestActionPlan(messages, providerId);
 
     if (!result.ok || !result.actionPlan) {
       throw new Error(result.content || "Model provider did not return an action plan.");
@@ -87,12 +87,15 @@ export class ModelRouterService {
     return result.actionPlan;
   }
 
-  public async requestActionPlan(messages: OpenAICompatibleMessage[]): Promise<ModelActionPlanResponse> {
-    const provider = this.getSelectedProvider();
+  public async requestActionPlan(
+    messages: OpenAICompatibleMessage[],
+    providerId?: ModelProviderId,
+  ): Promise<ModelActionPlanResponse> {
+    const provider = this.getProvider(providerId);
 
     if (!provider) {
       return {
-        providerId: this.store.getSelectedProviderId(),
+        providerId: providerId ?? this.store.getSelectedProviderId(),
         ok: false,
         status: null,
         content: "No selected provider is configured.",
@@ -154,12 +157,12 @@ export class ModelRouterService {
     };
   }
 
-  public async requestChat(messages: OpenAICompatibleMessage[]): Promise<ModelChatResponse> {
-    const provider = this.getSelectedProvider();
+  public async requestChat(messages: OpenAICompatibleMessage[], providerId?: ModelProviderId): Promise<ModelChatResponse> {
+    const provider = this.getProvider(providerId);
 
     if (!provider) {
       return {
-        providerId: this.store.getSelectedProviderId(),
+        providerId: providerId ?? this.store.getSelectedProviderId(),
         ok: false,
         status: null,
         content: "No selected provider is configured.",
@@ -196,7 +199,8 @@ export class ModelRouterService {
     };
   }
 
-  private getSelectedProvider(): ModelProviderConfig | undefined {
-    return this.store.getProviders().find((candidate) => candidate.id === this.store.getSelectedProviderId());
+  private getProvider(providerId?: ModelProviderId): ModelProviderConfig | undefined {
+    const selectedProviderId = providerId ?? this.store.getSelectedProviderId();
+    return this.store.getProviders().find((candidate) => candidate.id === selectedProviderId);
   }
 }

@@ -4,7 +4,7 @@ import type { ModelMonitorStatus } from "./types/model-monitor.types";
 export const MODEL_MONITOR_DEFAULT_TIMING = {
   tickIntervalMs: 100,
   clipIntervalMs: 250,
-  windowMs: 1_000,
+  windowMs: 2_000,
   maxLiveClipAgeMs: 750,
   maxInFlightRequests: 2,
 } as const;
@@ -81,6 +81,7 @@ export const createIdleModelMonitorStatus = (
   startedAt: null,
   tickIntervalMs: MODEL_MONITOR_DEFAULT_TIMING.tickIntervalMs,
   windowMs: MODEL_MONITOR_DEFAULT_TIMING.windowMs,
+  secondaryMode: "auto_unsupported",
   inFlight: false,
   activeRequestCount: 0,
   maxInFlightRequests: MODEL_MONITOR_DEFAULT_TIMING.maxInFlightRequests,

@@ -15,6 +15,7 @@ export const modelMonitorStartRequestSchema = z
       .int()
       .min(MODEL_MONITOR_VALIDATION_LIMITS.minWindowMs)
       .max(MODEL_MONITOR_VALIDATION_LIMITS.maxWindowMs),
+    secondaryMode: z.enum(["off", "auto_unsupported", "forced"]).default("auto_unsupported"),
   })
   .strict();
 

@@ -1,10 +1,13 @@
 import type { CaptureStartRequest } from "./capture.types";
-import type { ActionExecutionResult, ReviewedAction } from "./action-plan.types";
+import type { ActionExecutionResult, AutomationDecisionRole, ReviewedAction } from "./action-plan.types";
+
+export type SecondaryModelMode = "off" | "auto_unsupported" | "forced";
 
 export type ModelMonitorStartRequest = {
   capture: CaptureStartRequest;
   tickIntervalMs: number;
   windowMs: number;
+  secondaryMode: SecondaryModelMode;
 };
 
 export type ModelMonitorStatus = {
@@ -12,6 +15,7 @@ export type ModelMonitorStatus = {
   startedAt: string | null;
   tickIntervalMs: number;
   windowMs: number;
+  secondaryMode: SecondaryModelMode;
   inFlight: boolean;
   activeRequestCount: number;
   maxInFlightRequests: number;
@@ -46,6 +50,7 @@ export type ModelMonitorTiming = {
 
 export type ModelMonitorRequestDebug = {
   requestNumber: number;
+  decisionRole: AutomationDecisionRole;
   pipelineLatencyMs: number | null;
   observationLatencyMs: number | null;
   captureInputLatencyMs: number | null;

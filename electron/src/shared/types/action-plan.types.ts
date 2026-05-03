@@ -1,5 +1,9 @@
 import type { ActionPlan, LocalAction } from "../schemas/action-plan.schema";
+import type { ModelProviderId } from "../model.types";
 import type { ModelControlContext } from "./observation.types";
+
+export type AutomationDecisionRole = "primary_emote" | "secondary_director";
+export type VtsCandidateMode = "safe_auto" | "inferable";
 
 export type ActionReviewStatus =
   | "approved"
@@ -33,12 +37,16 @@ export interface AutomationAnalyzeNowRequest {
   useLatestCapture?: boolean;
   captureInputMode?: "latest_frame" | "clip";
   captureWindowMs?: number;
+  includeSeparateAudio?: boolean;
   allowObsActions?: boolean;
-  includeObsScenes?: boolean;
+  modelProviderId?: ModelProviderId;
+  decisionRole?: AutomationDecisionRole;
+  vtsCandidateMode?: VtsCandidateMode;
 }
 
 export interface AutomationRequestDebug {
   providerId: string;
+  decisionRole: AutomationDecisionRole;
   statusCode: number | null;
   promptTokens: number | null;
   completionTokens: number | null;

@@ -7,6 +7,7 @@ import type {
   ModelControlRecentActionSummary,
   SupportedActionType,
 } from "../../../shared/types/observation.types";
+import type { VtsCandidateMode } from "../../../shared/types/action-plan.types";
 import type { LocalAction } from "../../../shared/schemas/action-plan.schema";
 import type { VtsHotkey, VtsStatus } from "../../../shared/types/vts.types";
 import type { CooldownService } from "./cooldown.service";
@@ -27,7 +28,7 @@ export interface BuildModelContextRequest {
   autonomyLevel?: AutomationAutonomyLevel;
   recentModelActions?: ModelControlRecentModelAction[];
   allowObsActions?: boolean;
-  includeObsScenes?: boolean;
+  vtsCandidateMode?: VtsCandidateMode;
 }
 
 export class ObservationBuilderService {
@@ -48,6 +49,7 @@ export class ObservationBuilderService {
       })(),
     ]);
 
+    const candidateMode = request.vtsCandidateMode ?? "safe_auto";
     const allowedActions = this.getAllowedActions(obsStatus, vtsStatus, request.allowObsActions ?? true);
     const context = modelControlContextSchema.parse({
       tickId: request.tickId,
@@ -67,7 +69,7 @@ export class ObservationBuilderService {
             suggestOnlyCount: vtsStatus.catalog.suggestOnlyCount,
             manualOnlyCount: vtsStatus.catalog.manualOnlyCount,
             candidates: vtsStatus.catalog.entries
-              .filter((entry) => entry.autoMode === "safe_auto")
+              .filter((entry) => this.isVisibleVtsCandidate(entry.autoMode, candidateMode))
               .map((entry) => ({
                 catalogId: entry.catalogId,
                 label: entry.promptName,
@@ -83,7 +85,7 @@ export class ObservationBuilderService {
           currentScene: obsStatus.connected ? obsStatus.currentScene : null,
           streamStatus: obsStatus.connected ? obsStatus.streamStatus : "inactive",
           recordingStatus: obsStatus.connected ? obsStatus.recordingStatus : "inactive",
-          scenes: obsStatus.connected && ((request.allowObsActions ?? true) || (request.includeObsScenes ?? false))
+          scenes: obsStatus.connected && (request.allowObsActions ?? true)
             ? obsStatus.scenes
             : [],
         },
@@ -102,6 +104,14 @@ export class ObservationBuilderService {
     });
 
     return context;
+  }
+
+  private isVisibleVtsCandidate(autoMode: "safe_auto" | "suggest_only" | "manual_only", mode: VtsCandidateMode): boolean {
+    if (mode === "inferable") {
+      return autoMode === "safe_auto" || autoMode === "suggest_only";
+    }
+
+    return autoMode === "safe_auto";
   }
 
   private getAllowedActions(

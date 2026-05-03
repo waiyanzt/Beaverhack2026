@@ -1,4 +1,4 @@
-import type { ModelMonitorStartRequest } from "./model-monitor.types";
+import type { ModelMonitorStartRequest, SecondaryModelMode } from "./model-monitor.types";
 import type { ModelProviderId } from "../model.types";
 import type { VtsCatalogOverride, VtsCueLabelDefinition } from "./vts.types";
 
@@ -13,6 +13,7 @@ export interface DashboardConfig {
   selectedAudioDeviceId: string | null;
   selectedVideoDeviceId: string | null;
   selectedScreenSourceId: string | null;
+  secondaryModelMode: SecondaryModelMode;
 }
 
 export interface ModelConfig {

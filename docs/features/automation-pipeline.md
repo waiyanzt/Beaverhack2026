@@ -4,7 +4,7 @@ The canonical automation flow is:
 
 `ObservationBuilder -> PromptBuilder -> ModelRouter -> ActionPlanParser -> ActionValidator -> ActionExecutor`
 
-The dashboard model monitor now uses the canonical pipeline for live VTS automation. It starts the selected capture sources, waits for fresh buffered camera/audio clips, sends the latest webcam clip through `PipelineService`, and executes only VTS-safe approved actions. OBS actions are intentionally excluded from this live path for now.
+The dashboard model monitor now uses the canonical pipeline for live VTS automation. It starts the selected capture sources, runs a fast primary frame pass against LM Studio, and can run a slower secondary clip pass against the remote Nemotron endpoint for video/audio-aware direction.
 
 See [SPEC.md](../../SPEC.md) for the full contract.
 
@@ -34,7 +34,13 @@ Recent action history now carries both:
 
 For manual text-only runs, the payload is serialized by `PromptBuilderService` and sent through `ModelRouterService`, then parsed, validated, and optionally executed by `PipelineService`.
 
-For live camera/audio runs, `PipelineService` can attach either the latest sampled webcam frame as a low-latency `image_url` input or the latest buffered webcam clip plus synchronized audio as an MP4 `video_url` input while keeping the same parse/validate/execute flow. The dashboard monitor uses the latest-frame mode by default to avoid waiting for a completed video segment and to avoid ffmpeg muxing/transcoding on the critical path. Manual live analysis can still use the clip path when audio evidence is more important than reaction latency.
+For live camera/audio runs, `PipelineService` can attach either the latest sampled webcam frame as a low-latency `image_url` input or the latest buffered webcam clip as a `video_url` input while keeping the same parse/validate/execute flow. The primary pass uses latest-frame mode for LM Studio because that route currently supports only image/text chat payloads. The secondary pass uses a 2-second webcam clip and a separate audio attachment for the remote multimodal provider. Manual live analysis can still use the clip path when audio evidence is more important than reaction latency.
+
+The dashboard secondary-model routing setting controls how these live passes run:
+
+- `Primary model only`: latest-frame LM Studio pass only, with OBS actions disabled.
+- `Run primary + secondary`: run the primary frame pass and the remote secondary clip/audio pass independently in parallel.
+- `Force secondary model`: skip the primary frame pass and run only the remote multimodal secondary path.
 
 Live model prompts do not expose VTS hotkey names, catalog IDs, catalog candidates, raw hotkey IDs, recent catalog action IDs, or catalog-keyed cooldown summaries. The model sees only the operator-managed cue labels that are currently used by effective `safe_auto` VTS catalog entries and may return a `vts.trigger_hotkey` action with cue labels, confidence, visual evidence, action ID, and reason. `PipelineService` maps cue labels to exactly one current safe-auto catalog entry in the main process. If cue labels are unsupported, ambiguous, ignored (`idle`, `manual_request`, `unknown`), or do not map to exactly one safe-auto catalog entry, the action is normalized to `noop`.
 
@@ -78,7 +84,7 @@ Noop decisions are also represented in the compact `recentActions` history. This
 - `noop` is now blocked when its reason clearly argues for one of the currently available safe-auto catalog actions. This is a guard against plans that detect a cue correctly but still self-suppress.
 - When an executed VTS catalog entry is marked locally as not auto-deactivating, `ActionExecutorService` schedules a follow-up trigger of the same underlying hotkey after the configured delay to turn that state back off without asking the model to do it.
 - Raw hotkey IDs are still available for manual operator testing, but live automation does not trust the model to choose them directly.
-- `obs.set_scene` and `obs.set_source_visibility` are surfaced to the model and validated, but they currently stay in `confirmation_required` until a confirmation workflow is added.
+- `obs.set_scene` and `obs.set_source_visibility` are surfaced only to the secondary remote pass and are validated, but they currently stay in `confirmation_required` until a confirmation workflow is added.
 - Configured AFK overlay show/hide actions are local deterministic transitions, not model-generated OBS actions, and only run when the operator has enabled and selected an OBS scene/source in the dashboard.
 - `vts.set_parameter` remains unsupported in execution.
 - `overlay.message`, `log.event`, and `noop` are accepted as low-risk local actions.

@@ -39,6 +39,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     selectedAudioDeviceId: null,
     selectedVideoDeviceId: null,
     selectedScreenSourceId: null,
+    secondaryModelMode: "auto_unsupported",
   },
   model: {
     selectedProviderId: "vllm",

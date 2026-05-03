@@ -46,7 +46,12 @@ const toolCallResponseSchema = z.object({
 });
 
 export interface OpenAICompatibleProviderClient {
-  postJson(url: string, body: unknown, headers: Record<string, string>): Promise<{ status: number; body: string }>;
+  postJson(
+    url: string,
+    body: unknown,
+    headers: Record<string, string>,
+    timeoutMs?: number,
+  ): Promise<{ status: number; body: string }>;
 }
 
 export interface OpenAICompatibleProviderResult {
@@ -103,7 +108,12 @@ function redactModelLogValue(value: unknown): unknown {
 
   if (typeof value === "object" && value !== null) {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, redactModelLogValue(entry)]),
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+        key,
+        key === "data" && typeof entry === "string" && entry.length > 128
+          ? `<redacted base64 ${entry.length} chars>`
+          : redactModelLogValue(entry),
+      ]),
     );
   }
 
@@ -140,6 +150,16 @@ function logModelResponse(label: string, status: number, body: string): void {
   );
 }
 
+function buildEndpointUrl(baseUrl: string, endpointPath: string): string {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+
+  if (normalizedBaseUrl.endsWith("/v1") && endpointPath.startsWith("/v1/")) {
+    return `${normalizedBaseUrl}${endpointPath.slice(3)}`;
+  }
+
+  return `${normalizedBaseUrl}${endpointPath}`;
+}
+
 function createFallbackActionPlan(reason: string): ActionPlan {
   return {
     schemaVersion: "2026-05-02",
@@ -147,7 +167,7 @@ function createFallbackActionPlan(reason: string): ActionPlan {
     createdAt: new Date().toISOString(),
     response: {
       text: "No valid model action plan was produced.",
-      audioTranscript: "[not sent]",
+      audioTranscript: "[model returned no transcript]",
       confidence: 0,
       visibleToUser: false,
     },
@@ -174,7 +194,7 @@ function fallbackProviderResult(status: number, reason: string, usage?: OpenAICo
   const fallbackPlan = createFallbackActionPlan(reason);
 
   return {
-    ok: status >= 200 && status < 300,
+    ok: true,
     status,
     content: JSON.stringify(fallbackPlan, null, 2),
     actionPlan: fallbackPlan,
@@ -754,10 +774,10 @@ export class OpenAICompatibleProvider {
       headers.Authorization = `Bearer ${config.apiKey}`;
     }
 
-    const url = `${config.baseUrl}${this.endpointPath}`;
+    const url = buildEndpointUrl(config.baseUrl, this.endpointPath);
     logModelRequest("MODEL ACTION PLAN", url, request);
 
-    const response = await this.client.postJson(url, request, headers);
+    const response = await this.client.postJson(url, request, headers, config.timeoutMs);
 
     logModelResponse("MODEL ACTION PLAN", response.status, response.body);
 
@@ -871,7 +891,26 @@ export class OpenAICompatibleProvider {
       }
     }
 
-    // If tool mode produced no tool calls and no parseable content, report failure
+    if (useTools && config.supportsJsonMode) {
+      return this.createActionPlan(
+        {
+          ...config,
+          supportsToolCalling: false,
+        },
+        messages,
+      );
+    }
+
+    if (useJsonMode && !content) {
+      return this.createActionPlan(
+        {
+          ...config,
+          supportsJsonMode: false,
+        },
+        injectJsonModeInstructions(messages, true),
+      );
+    }
+
     if (useTools && !content) {
       return {
         ok: false,
@@ -881,10 +920,14 @@ export class OpenAICompatibleProvider {
       };
     }
 
+    if (!content) {
+      return fallbackProviderResult(response.status, "Model provider returned no response content.", usage);
+    }
+
     return {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
-      content: content ?? "No response content.",
+      content,
       finishReason: choice?.finish_reason ?? null,
       usage,
     };
@@ -936,10 +979,10 @@ export class OpenAICompatibleProvider {
       headers.Authorization = `Bearer ${config.apiKey}`;
     }
 
-    const url = `${config.baseUrl}${this.endpointPath}`;
+    const url = buildEndpointUrl(config.baseUrl, this.endpointPath);
     logModelRequest("MODEL CHAT", url, request);
 
-    const response = await this.client.postJson(url, request, headers);
+    const response = await this.client.postJson(url, request, headers, config.timeoutMs);
 
     logModelResponse("MODEL CHAT", response.status, response.body);
 

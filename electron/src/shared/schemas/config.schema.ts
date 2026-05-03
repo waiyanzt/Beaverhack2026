@@ -17,12 +17,13 @@ export const dashboardConfigSchema = z
     selectedAudioDeviceId: z.string().trim().min(1).max(512).nullable(),
     selectedVideoDeviceId: z.string().trim().min(1).max(512).nullable(),
     selectedScreenSourceId: z.string().trim().min(1).max(1024).nullable(),
+    secondaryModelMode: z.enum(["off", "auto_unsupported", "forced"]).default("auto_unsupported"),
   })
   .strict();
 
 export const modelConfigSchema = z
   .object({
-    selectedProviderId: z.enum(["openrouter", "vllm", "mock"]),
+    selectedProviderId: z.enum(["openrouter", "vllm", "secondary", "mock"]),
   })
   .strict();
 

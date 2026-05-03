@@ -5,9 +5,10 @@ import {
   createModelMonitorCaptureConfig,
   MODEL_MONITOR_DEFAULT_TIMING,
 } from "../../shared/model-monitor.defaults";
+import type { AutomationDecisionRole } from "../../shared/types/action-plan.types";
 import type { CaptureMediaDeviceInfo, CaptureSourceInfo } from "../../shared/types/capture.types";
 import type { AfkOverlayConfig, DashboardConfig } from "../../shared/types/config.types";
-import type { ModelMonitorEvent, ModelMonitorStatus } from "../../shared/types/model-monitor.types";
+import type { ModelMonitorEvent, ModelMonitorStatus, SecondaryModelMode } from "../../shared/types/model-monitor.types";
 import type { ObsStatus } from "../../shared/types/obs.types";
 import { useCapture } from "../hooks/useCapture";
 
@@ -26,6 +27,10 @@ type MonitorLogEntry = {
 };
 
 type ModelMonitorResponseEvent = Extract<ModelMonitorEvent, { type: "response" }>;
+type ModelPreview = {
+  response: MonitorLogEntry | null;
+  mediaUrl: string | null;
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -142,6 +147,10 @@ const toStoredValue = (value: string): string | null => {
 };
 
 const isImageDataUrl = (value: string): boolean => value.startsWith("data:image/");
+const emptyPreview: ModelPreview = {
+  response: null,
+  mediaUrl: null,
+};
 
 const getAfkOverlayStatus = (
   config: AfkOverlayConfig,
@@ -200,8 +209,8 @@ const getAfkOverlayStatus = (
 const DashboardPanel = (): React.JSX.Element => {
   const { status: captureStatus } = useCapture();
   const [monitorStatus, setMonitorStatus] = useState<ModelMonitorStatus>(emptyMonitorStatus);
-  const [latestModelResponse, setLatestModelResponse] = useState<MonitorLogEntry | null>(null);
-  const [latestModelMediaUrl, setLatestModelMediaUrl] = useState<string | null>(null);
+  const [primaryPreview, setPrimaryPreview] = useState<ModelPreview>(emptyPreview);
+  const [secondaryPreview, setSecondaryPreview] = useState<ModelPreview>(emptyPreview);
   const [isServiceBusy, setIsServiceBusy] = useState(false);
 
   const [sources, setSources] = useState<CaptureSourceInfo[]>([]);
@@ -213,6 +222,7 @@ const DashboardPanel = (): React.JSX.Element => {
   const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<string>("");
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<string>("");
   const [selectedScreenSourceId, setSelectedScreenSourceId] = useState<string>("");
+  const [secondaryModelMode, setSecondaryModelMode] = useState<SecondaryModelMode>("auto_unsupported");
   const [cameraPreviewError, setCameraPreviewError] = useState<string | null>(null);
   const [screenPreviewError, setScreenPreviewError] = useState<string | null>(null);
   const [audioPreviewError, setAudioPreviewError] = useState<string | null>(null);
@@ -220,13 +230,24 @@ const DashboardPanel = (): React.JSX.Element => {
   const [liveAudioLevels, setLiveAudioLevels] = useState<number[]>([]);
   const cameraPreviewRef = useRef<HTMLVideoElement | null>(null);
   const screenPreviewRef = useRef<HTMLVideoElement | null>(null);
-  const latestDisplayedRequestNumberRef = useRef(0);
+  const latestDisplayedRequestNumberByRoleRef = useRef<Record<AutomationDecisionRole, number>>({
+    primary_emote: 0,
+    secondary_director: 0,
+  });
 
   const persistDashboardConfig = async (config: DashboardConfig): Promise<void> => {
     await window.desktop.settingsUpdate({
       dashboard: config,
     });
   };
+
+  const buildDashboardConfig = (overrides: Partial<DashboardConfig> = {}): DashboardConfig => ({
+    selectedAudioDeviceId: toStoredValue(selectedAudioDeviceId),
+    selectedVideoDeviceId: toStoredValue(selectedVideoDeviceId),
+    selectedScreenSourceId: toStoredValue(selectedScreenSourceId),
+    secondaryModelMode,
+    ...overrides,
+  });
 
   const persistAfkOverlayConfig = async (config: AfkOverlayConfig): Promise<void> => {
     setAfkOverlayConfig(config);
@@ -259,6 +280,7 @@ const DashboardPanel = (): React.JSX.Element => {
     let nextAudioDeviceId = toSelectValue(storedDashboard.selectedAudioDeviceId);
     let nextVideoDeviceId = toSelectValue(storedDashboard.selectedVideoDeviceId);
     let nextScreenSourceId = toSelectValue(storedDashboard.selectedScreenSourceId);
+    const nextSecondaryModelMode = storedDashboard.secondaryModelMode;
 
     if (sourcesResult.ok) {
       setSources(sourcesResult.sources);
@@ -306,10 +328,13 @@ const DashboardPanel = (): React.JSX.Element => {
       setAfkOverlayConfig(storedAfkOverlay);
     }
 
+    setSecondaryModelMode(nextSecondaryModelMode);
+
     await persistDashboardConfig({
       selectedAudioDeviceId: toStoredValue(nextAudioDeviceId),
       selectedVideoDeviceId: toStoredValue(nextVideoDeviceId),
       selectedScreenSourceId: toStoredValue(nextScreenSourceId),
+      secondaryModelMode: nextSecondaryModelMode,
     });
     setIsLoadingSources(false);
   };
@@ -323,18 +348,26 @@ const DashboardPanel = (): React.JSX.Element => {
       setMonitorStatus(event.status);
       const logEntry = formatMonitorEvent(event);
       if (event.type === "response") {
-        if (event.debug.requestNumber < latestDisplayedRequestNumberRef.current) {
+        const role = event.debug.decisionRole;
+        if (event.debug.requestNumber < latestDisplayedRequestNumberByRoleRef.current[role]) {
           return;
         }
-        latestDisplayedRequestNumberRef.current = event.debug.requestNumber;
-        if (event.modelMediaDataUrl) {
-          setLatestModelMediaUrl(event.modelMediaDataUrl);
-        }
-        if (logEntry) {
-          setLatestModelResponse(logEntry);
+        latestDisplayedRequestNumberByRoleRef.current[role] = event.debug.requestNumber;
+        const updatePreview = (previousPreview: ModelPreview): ModelPreview => ({
+          response: logEntry ?? previousPreview.response,
+          mediaUrl: event.modelMediaDataUrl ?? previousPreview.mediaUrl,
+        });
+
+        if (role === "secondary_director") {
+          setSecondaryPreview(updatePreview);
+        } else {
+          setPrimaryPreview(updatePreview);
         }
       } else if (event.type === "error" && logEntry) {
-        setLatestModelResponse(logEntry);
+        setSecondaryPreview((previousPreview) => ({
+          ...previousPreview,
+          response: logEntry,
+        }));
       }
     });
 
@@ -517,6 +550,7 @@ const DashboardPanel = (): React.JSX.Element => {
       const result = await window.desktop.modelMonitorStart({
         tickIntervalMs: MODEL_MONITOR_DEFAULT_TIMING.tickIntervalMs,
         windowMs: MODEL_MONITOR_DEFAULT_TIMING.windowMs,
+        secondaryMode: secondaryModelMode,
         capture: createModelMonitorCaptureConfig({
           audioDeviceId: selectedAudioDeviceId || null,
           screenSourceId: selectedScreenSourceId || null,
@@ -526,21 +560,27 @@ const DashboardPanel = (): React.JSX.Element => {
 
       setMonitorStatus(result.status);
       if (!result.ok) {
-        setLatestModelResponse({
-          id: `start-error-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          text: result.message,
-        });
+        setSecondaryPreview((previousPreview) => ({
+          ...previousPreview,
+          response: {
+            id: `start-error-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            text: result.message,
+          },
+        }));
       }
     } else {
       const result = await window.desktop.modelMonitorStop();
       setMonitorStatus(result.status);
       if (!result.ok) {
-        setLatestModelResponse({
-          id: `stop-error-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          text: result.message,
-        });
+        setSecondaryPreview((previousPreview) => ({
+          ...previousPreview,
+          response: {
+            id: `stop-error-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            text: result.message,
+          },
+        }));
       }
     }
 
@@ -561,6 +601,33 @@ const DashboardPanel = (): React.JSX.Element => {
     videoDevices.find((device) => device.deviceId === selectedVideoDeviceId)?.label || "Default camera";
   const selectedScreenSourceLabel =
     sources.find((source) => source.id === selectedScreenSourceId)?.name || "No screen source selected";
+  const renderModelPreview = (
+    title: string,
+    preview: ModelPreview,
+    emptyText: string,
+    imageAlt: string,
+  ): React.JSX.Element => (
+    <div className="panel__card panel__card--wide">
+      <h3>{title}</h3>
+      <div className="preview preview--media">
+        {preview.mediaUrl ? (
+          isImageDataUrl(preview.mediaUrl) ? (
+            <img src={preview.mediaUrl} alt={imageAlt} />
+          ) : (
+            <video key={preview.mediaUrl} src={preview.mediaUrl} controls muted playsInline />
+          )
+        ) : (
+          <div className="preview__empty">{emptyText}</div>
+        )}
+      </div>
+      <p className="meter__label">This media sample and text are from the same model response event.</p>
+      <textarea
+        className="response-log"
+        readOnly
+        value={preview.response?.text || "Waiting for the first paired model response."}
+      />
+    </div>
+  );
 
   return (
     <section className="panel">
@@ -636,11 +703,7 @@ const DashboardPanel = (): React.JSX.Element => {
               onChange={(event) => {
                 const nextValue = event.target.value;
                 setSelectedAudioDeviceId(nextValue);
-                void persistDashboardConfig({
-                  selectedAudioDeviceId: toStoredValue(nextValue),
-                  selectedVideoDeviceId: toStoredValue(selectedVideoDeviceId),
-                  selectedScreenSourceId: toStoredValue(selectedScreenSourceId),
-                });
+                void persistDashboardConfig(buildDashboardConfig({ selectedAudioDeviceId: toStoredValue(nextValue) }));
               }}
             >
               <option value="">Default microphone</option>
@@ -663,11 +726,7 @@ const DashboardPanel = (): React.JSX.Element => {
               onChange={(event) => {
                 const nextValue = event.target.value;
                 setSelectedVideoDeviceId(nextValue);
-                void persistDashboardConfig({
-                  selectedAudioDeviceId: toStoredValue(selectedAudioDeviceId),
-                  selectedVideoDeviceId: toStoredValue(nextValue),
-                  selectedScreenSourceId: toStoredValue(selectedScreenSourceId),
-                });
+                void persistDashboardConfig(buildDashboardConfig({ selectedVideoDeviceId: toStoredValue(nextValue) }));
               }}
             >
               <option value="">Default camera</option>
@@ -690,11 +749,7 @@ const DashboardPanel = (): React.JSX.Element => {
               onChange={(event) => {
                 const nextValue = event.target.value;
                 setSelectedScreenSourceId(nextValue);
-                void persistDashboardConfig({
-                  selectedAudioDeviceId: toStoredValue(selectedAudioDeviceId),
-                  selectedVideoDeviceId: toStoredValue(selectedVideoDeviceId),
-                  selectedScreenSourceId: toStoredValue(nextValue),
-                });
+                void persistDashboardConfig(buildDashboardConfig({ selectedScreenSourceId: toStoredValue(nextValue) }));
               }}
             >
               <option value="">Select a source</option>
@@ -808,6 +863,27 @@ const DashboardPanel = (): React.JSX.Element => {
             {afkOverlayStatus.message}
           </p>
         </div>
+
+        <div className="panel__card">
+          <h3>Secondary Model</h3>
+          <div className="field">
+            <span>Routing</span>
+            <select
+              value={secondaryModelMode}
+              disabled={isLoadingSources || monitorStatus.running}
+              onChange={(event) => {
+                const nextMode = event.target.value as SecondaryModelMode;
+                setSecondaryModelMode(nextMode);
+                void persistDashboardConfig(buildDashboardConfig({ secondaryModelMode: nextMode }));
+              }}
+            >
+              <option value="auto_unsupported">Run primary + secondary</option>
+              <option value="forced">Force secondary model</option>
+              <option value="off">Primary model only</option>
+            </select>
+          </div>
+          <p className="meter__label">Primary uses LM Studio frame analysis. Secondary uses remote video/audio analysis.</p>
+        </div>
       </div>
 
       <div className="panel__actions">
@@ -841,6 +917,7 @@ const DashboardPanel = (): React.JSX.Element => {
           <p>Active Requests: {monitorStatus.activeRequestCount}/{monitorStatus.maxInFlightRequests}</p>
           <p>Ticks Sent: {monitorStatus.tickCount}</p>
           <p>Ticks Skipped: {monitorStatus.skippedTickCount}</p>
+          <p>Secondary: {monitorStatus.secondaryMode}</p>
         </div>
         <div>
           <h4>Timing</h4>
@@ -858,26 +935,19 @@ const DashboardPanel = (): React.JSX.Element => {
         </div>
       </div>
 
-      <div className="panel__card panel__card--wide">
-        <h3>Latest Model Request Pair</h3>
-        <div className="preview preview--media">
-          {latestModelMediaUrl ? (
-            isImageDataUrl(latestModelMediaUrl) ? (
-              <img src={latestModelMediaUrl} alt="Latest frame sent to the model" />
-            ) : (
-              <video key={latestModelMediaUrl} src={latestModelMediaUrl} controls muted playsInline />
-            )
-          ) : (
-            <div className="preview__empty">Waiting for the first media sample sent to the model</div>
-          )}
-        </div>
-        <p className="meter__label">This media sample and text are from the same latest response event.</p>
-        <textarea
-          className="response-log"
-          readOnly
-          value={latestModelResponse?.text || "Waiting for the first paired model response."}
-        />
-      </div>
+      {renderModelPreview(
+        "Primary Model Request Pair",
+        primaryPreview,
+        "Waiting for the first primary frame sent to the model",
+        "Latest frame sent to the primary model",
+      )}
+
+      {renderModelPreview(
+        "Secondary Model Request Pair",
+        secondaryPreview,
+        "Waiting for the first secondary clip sent to the model",
+        "Latest media sent to the secondary model",
+      )}
     </section>
   );
 };

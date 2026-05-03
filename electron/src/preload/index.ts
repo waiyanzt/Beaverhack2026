@@ -86,6 +86,7 @@ const fallbackSettings = {
     selectedAudioDeviceId: null,
     selectedVideoDeviceId: null,
     selectedScreenSourceId: null,
+    secondaryModelMode: "auto_unsupported" as const,
   },
   model: {
     selectedProviderId: "vllm" as const,
