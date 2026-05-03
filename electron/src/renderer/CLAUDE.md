@@ -90,3 +90,87 @@ Provides the user-facing interface for the Beaverhack2026 desktop application. M
 ## Subdirectories
 
 - `styles/` — Global CSS stylesheets applied to the entire renderer
+
+---
+
+## Standards (from AGENTS.md)
+
+### Architecture Boundaries
+
+The renderer owns: setup UI, status UI, controls, logs, and user interaction only.
+
+Renderer code must NOT import:
+- Electron main-process services
+- Node-only packages
+- secret storage helpers
+- OBS/VTS clients directly
+- model provider clients directly
+- filesystem APIs
+- modules that transitively depend on privileged APIs
+
+All renderer-to-main communication goes through the typed preload IPC API only.
+
+### Security Requirements
+
+Renderer windows must use secure defaults:
+
+```typescript
+webPreferences: {
+  nodeIntegration: false,
+  contextIsolation: true,
+  sandbox: true,
+  preload: path.join(__dirname, "preload.js"),
+}
+```
+
+Renderer must never access: model API keys, OBS passwords, VTube Studio auth tokens, local API bearer tokens, raw secret-store values, or Node.js/filesystem APIs directly.
+
+### Loading States
+
+Every user-facing view that can suspend, wait for IPC data, load settings, or depend on external connection state needs an appropriate loading skeleton or state. This applies to:
+
+- setup flow
+- settings panel
+- status panel
+- capture panel
+- model provider panel
+- OBS/VTS connection panels
+- logs viewer
+- manual control panel
+
+Update loading skeletons whenever the layout of a panel or view changes.
+
+### TypeScript And Code Style
+
+- TypeScript, strict typing, two-space indentation, semicolons
+- `React.JSX.Element` for component return types
+- `unknown` instead of `any` for untrusted data
+- Zod validation at runtime boundaries (IPC responses, external payloads)
+- `try/catch` around async IPC calls
+- No hardcoded secrets, no commented-out dead code, no vague TODOs
+
+### IPC Usage
+
+IPC channel names follow `domain:operation` format (e.g. `obs:connect`, `settings:update`).
+
+Never send raw errors or secrets through IPC. Validate all IPC response shapes before use. All trust boundaries must use runtime validation.
+
+### Quality Bar
+
+Every renderer feature must include:
+- OBS/VTS connection state visibility
+- automation start/stop controls
+- model-generated action log viewer
+- actionable error messages (not raw stack traces)
+- loading states for all async views
+- settings UI for any user-configurable behavior
+
+### Definition Of Done
+
+A renderer change is complete only when:
+- Code compiles with no type errors
+- Loading states exist for affected views
+- IPC response shapes are validated at runtime
+- Errors are handled and presented as actionable messages
+- Secrets are not accessed or exposed
+- Architecture boundaries are preserved (no privileged imports)
