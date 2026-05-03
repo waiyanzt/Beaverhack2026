@@ -1,4 +1,4 @@
-# Beaverhack2026 Frontend Design Elements
+# AuTuber Frontend Design Elements
 
 Derived from SPEC.md. Intended as a design draft reference, not implementation code.
 

@@ -49,7 +49,7 @@ async function main(): Promise<void> {
 
   const responseMode = config.supportsToolCalling ? "tool" : "json";
 
-  const systemPrompt = `You are Beaverhack2026, a VTuber stream-direction agent running inside a local desktop app.
+  const systemPrompt = `You are AuTuber, a VTuber stream-direction agent running inside a local desktop app.
 
 You receive structured observations from local capture, OBS, and VTube Studio. You do not directly control the stream. You produce a structured ActionPlan. The desktop app validates and executes only allowed actions.
 

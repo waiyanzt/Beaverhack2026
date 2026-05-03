@@ -1,8 +1,8 @@
 {
-  "name": "beaverhack2026",
+  "name": "autuber",
   "private": true,
   "version": "0.1.0",
-  "description": "Beaverhack2026 workspace.",
+  "description": "AuTuber workspace.",
   "homepage": "https://github.com/waiyanzt/AuTuber",
   "license": "Apache-2.0",
   "contributors": [
@@ -25,12 +25,12 @@
     }
   ],
   "scripts": {
-    "dev": "pnpm --filter @beaverhack/electron dev",
-    "dev:electron": "pnpm --filter @beaverhack/electron dev",
-    "build": "pnpm --filter @beaverhack/electron build",
-    "build:electron": "pnpm --filter @beaverhack/electron electron:build",
-    "lint": "pnpm --filter @beaverhack/electron lint",
-    "test": "pnpm --filter @beaverhack/electron test"
+    "dev": "pnpm --filter @autuber/electron dev",
+    "dev:electron": "pnpm --filter @autuber/electron dev",
+    "build": "pnpm --filter @autuber/electron build",
+    "build:electron": "pnpm --filter @autuber/electron electron:build",
+    "lint": "pnpm --filter @autuber/electron lint",
+    "test": "pnpm --filter @autuber/electron test"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

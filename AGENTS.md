@@ -1,10 +1,10 @@
-# AGENTS.md — Beaverhack2026 AI Coder Router
+# AGENTS.md — AuTuber AI Coder Router
 
 ## Purpose
 
-This file defines the workspace-level instructions for AI coding agents working on Beaverhack2026.
+This file defines the workspace-level instructions for AI coding agents working on AuTuber.
 
-Beaverhack2026 is a desktop background agent that observes local streaming context, calls a configured model provider, receives a structured action plan, validates it, and executes approved local actions through OBS and VTube Studio.
+AuTuber is a desktop background agent that observes local streaming context, calls a configured model provider, receives a structured action plan, validates it, and executes approved local actions through OBS and VTube Studio.
 
 Primary implementation flow:
 
@@ -15,7 +15,7 @@ Capture inputs -> Build observation -> Call model -> Parse action plan -> Valida
 Main app location:
 
 ~~~text
-beaverhack2026/electron
+autuber/electron
 ~~~
 
 The root workspace is reserved for documentation, workspace config, shared packages, future apps, scripts, and repository-level coordination.
@@ -70,7 +70,7 @@ Do not ship reduced, half-finished, placeholder-grade, or “hacky but works” 
 
 If a modern equivalent would normally include management, filtering, detail views, lifecycle states, analytics, applicant/operator/admin workflows, or safe rollback paths, treat those as part of a complete implementation rather than optional stretch work.
 
-For Beaverhack2026, this means:
+For AuTuber, this means:
 
 - model-provider configuration must be testable from the UI
 - OBS/VTS connection state must be visible
@@ -232,7 +232,7 @@ Do not implement basement-project amateur code.
 Expected workspace structure:
 
 ~~~text
-beaverhack2026/
+autuber/
 ├── AGENTS.md
 ├── package.json
 ├── pnpm-workspace.yaml
@@ -531,9 +531,9 @@ Before considering work complete, run relevant checks from the repository root:
 
 ~~~bash
 pnpm install
-pnpm --filter @beaverhack/electron build
-pnpm --filter @beaverhack/electron test
-pnpm --filter @beaverhack/electron lint
+pnpm --filter @autuber/electron build
+pnpm --filter @autuber/electron test
+pnpm --filter @autuber/electron lint
 ~~~
 
 If a command cannot run, document why.

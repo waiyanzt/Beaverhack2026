@@ -1,10 +1,10 @@
-# Beaverhack2026
+# AuTuber
 
 A desktop background agent that observes local streaming context and intelligently controls local streaming tools using AI-powered action planning.
 
 ## Overview
 
-Beaverhack2026 runs as a background desktop app that captures your streaming environment (camera, screen, audio), sends structured observations to a language model, receives an action plan, validates it for safety, and executes approved actions through OBS and VTube Studio.
+AuTuber runs as a background desktop app that captures your streaming environment (camera, screen, audio), sends structured observations to a language model, receives an action plan, validates it for safety, and executes approved actions through OBS and VTube Studio.
 
 **Primary workflow:**
 ```
@@ -66,7 +66,7 @@ pnpm build:electron
 ## Project Structure
 
 ```
-beaverhack2026/
+autuber/
 ├── electron/                    # Main Electron app
 │   ├── src/
 │   │   ├── main/               # Main process & services

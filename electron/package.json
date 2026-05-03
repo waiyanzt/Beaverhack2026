@@ -1,8 +1,8 @@
 {
-  "name": "@beaverhack/electron",
+  "name": "@autuber/electron",
   "private": true,
   "version": "0.1.0",
-  "description": "Desktop background agent for Beaverhack2026.",
+  "description": "Desktop background agent for AuTuber.",
   "homepage": "https://github.com/waiyanzt/AuTuber",
   "license": "Apache-2.0",
   "contributors": [

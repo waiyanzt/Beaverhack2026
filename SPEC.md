@@ -1,8 +1,8 @@
-# Beaverhack2026 Desktop Agent Specification
+# AuTuber Desktop Agent Specification
 
 ## 1. Purpose
 
-Beaverhack2026 is a desktop background agent that observes local streaming context and controls local streaming tools.
+AuTuber is a desktop background agent that observes local streaming context and controls local streaming tools.
 
 The app captures selected local inputs, builds a structured observation, sends it to a configured model provider, receives an action plan, validates the action plan, and executes approved local actions through OBS and VTube Studio.
 
@@ -15,7 +15,7 @@ Capture inputs -> Build observation -> Call model -> Parse action plan -> Valida
 The app lives in:
 
 ~~~text
-beaverhack2026/electron
+autuber/electron
 ~~~
 
 The repository root is reserved for workspace configuration, docs, shared packages, and future apps.
@@ -25,7 +25,7 @@ The repository root is reserved for workspace configuration, docs, shared packag
 ## 2. Repository Structure
 
 ~~~text
-beaverhack2026/
+autuber/
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── turbo.json
@@ -492,7 +492,7 @@ export type ObservationEnvelope = {
   createdAt: string;
 
   source: {
-    app: "beaverhack-electron-agent";
+    app: "autuber-electron-agent";
     hostId: string;
     userMode: "background" | "setup" | "manual";
   };
@@ -1022,7 +1022,7 @@ export type ModelProvider = {
 ### 8.1 System Prompt Template
 
 ~~~text
-You are Beaverhack2026, a VTuber stream-direction agent running inside a local desktop app.
+You are AuTuber, a VTuber stream-direction agent running inside a local desktop app.
 
 You receive structured observations from local capture, OBS, and VTube Studio. You do not directly control the stream. You produce a structured ActionPlan. The desktop app validates and executes only allowed actions.
 
@@ -1334,7 +1334,7 @@ export type SetVtsParameterInput = {
 ~~~typescript
 import { contextBridge, ipcRenderer } from "electron";
 
-contextBridge.exposeInMainWorld("beaverhack", {
+contextBridge.exposeInMainWorld("autuber", {
   automation: {
     start: () => ipcRenderer.invoke("automation:start"),
     stop: () => ipcRenderer.invoke("automation:stop"),
@@ -1579,17 +1579,17 @@ packages:
 
 ~~~json
 {
-  "name": "beaverhack2026",
+  "name": "autuber",
   "private": true,
   "version": "0.1.0",
-  "description": "Beaverhack2026 workspace.",
+  "description": "AuTuber workspace.",
   "scripts": {
-    "dev": "pnpm --filter @beaverhack/electron dev",
-    "dev:electron": "pnpm --filter @beaverhack/electron dev",
-    "build": "pnpm --filter @beaverhack/electron build",
-    "build:electron": "pnpm --filter @beaverhack/electron build",
-    "lint": "pnpm --filter @beaverhack/electron lint",
-    "test": "pnpm --filter @beaverhack/electron test"
+    "dev": "pnpm --filter @autuber/electron dev",
+    "dev:electron": "pnpm --filter @autuber/electron dev",
+    "build": "pnpm --filter @autuber/electron build",
+    "build:electron": "pnpm --filter @autuber/electron build",
+    "lint": "pnpm --filter @autuber/electron lint",
+    "test": "pnpm --filter @autuber/electron test"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
@@ -1603,10 +1603,10 @@ packages:
 
 ~~~json
 {
-  "name": "@beaverhack/electron",
+  "name": "@autuber/electron",
   "private": true,
   "version": "0.1.0",
-  "description": "Desktop background agent for Beaverhack2026.",
+  "description": "Desktop background agent for AuTuber.",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "vite --config vite.config.ts",
@@ -1654,20 +1654,20 @@ pnpm dev
 Run Electron app explicitly:
 
 ~~~bash
-pnpm --filter @beaverhack/electron dev
+pnpm --filter @autuber/electron dev
 ~~~
 
 Build Electron app:
 
 ~~~bash
-pnpm --filter @beaverhack/electron build
-pnpm --filter @beaverhack/electron electron:build
+pnpm --filter @autuber/electron build
+pnpm --filter @autuber/electron electron:build
 ~~~
 
 Run tests:
 
 ~~~bash
-pnpm --filter @beaverhack/electron test
+pnpm --filter @autuber/electron test
 ~~~
 
 ---

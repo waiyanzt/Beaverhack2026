@@ -55,7 +55,7 @@ A model-provider feature only adds:
 
 ---
 
-## Beaverhack2026 Application
+## AuTuber Application
 
 For this project, complete features should generally include:
 

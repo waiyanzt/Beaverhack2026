@@ -70,7 +70,7 @@ const exportMp4 = async (options: {
 	audioClip?: { data: Buffer; mimeType: string };
 	outputPath: string;
 }): Promise<void> => {
-	const tempDir = await mkdtemp(join(tmpdir(), "beaverhack-capture-"));
+	const tempDir = await mkdtemp(join(tmpdir(), "autuber-capture-"));
 
 	try {
 		const args = ["-y"];
