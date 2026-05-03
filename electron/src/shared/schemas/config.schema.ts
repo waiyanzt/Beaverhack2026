@@ -32,6 +32,13 @@ export const monitorConfigSchema = z
   })
   .strict();
 
+export const vacancyOverlayConfigSchema = z
+  .object({
+    sourceName: z.string().trim().min(1).max(256),
+    vacantEnterDelayMs: z.number().int().min(0).max(300000),
+  })
+  .strict();
+
 const vtsCueLabelValues = [
   "greeting",
   "wave",
@@ -57,6 +64,7 @@ const vtsCueLabelValues = [
   "idle",
   "manual_request",
   "unknown",
+  "vacant",
 ] as const satisfies readonly VtsCueLabel[];
 
 const vtsEmoteKindValues = [
@@ -88,6 +96,7 @@ export const appConfigSchema = z
     dashboard: dashboardConfigSchema,
     model: modelConfigSchema,
     monitor: monitorConfigSchema,
+    vacancyOverlay: vacancyOverlayConfigSchema,
   })
   .strict();
 

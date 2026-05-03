@@ -24,12 +24,18 @@ export interface MonitorConfig {
   lastStartRequest: ModelMonitorStartRequest | null;
 }
 
+export interface VacancyOverlayConfig {
+  sourceName: string;
+  vacantEnterDelayMs: number;
+}
+
 export interface AppConfig {
   vts: VtsConnectionConfig;
   vtsCatalogOverrides: Record<string, VtsCatalogOverride>;
   dashboard: DashboardConfig;
   model: ModelConfig;
   monitor: MonitorConfig;
+  vacancyOverlay: VacancyOverlayConfig;
 }
 
 export type SettingsGetResult =

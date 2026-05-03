@@ -23,4 +23,5 @@ export const VTS_CUE_LABEL_VALUES = [
   "idle",
   "manual_request",
   "unknown",
+  "vacant",
 ] as const;

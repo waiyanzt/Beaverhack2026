@@ -54,6 +54,7 @@ export const vtsCatalogOverrideSchema = z
       "idle",
       "manual_request",
       "unknown",
+      "vacant",
     ])).min(1),
     emoteKind: z.enum([
       "expression_reaction",

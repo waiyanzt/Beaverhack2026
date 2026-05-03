@@ -64,6 +64,7 @@ const pipelineService = new PipelineService(
   cooldownService,
   new LiveCaptureInputService(captureOrchestrator),
   modelActionMemoryService,
+  settingsService.getSettings().vacancyOverlay,
 );
 const modelMonitor = new ModelMonitorService(captureOrchestrator, pipelineService);
 export const serviceActivationService = new ServiceActivationService({

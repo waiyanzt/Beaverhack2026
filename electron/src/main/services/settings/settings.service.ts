@@ -44,6 +44,10 @@ export const DEFAULT_CONFIG: AppConfig = {
     resumeOnLaunch: false,
     lastStartRequest: null,
   },
+  vacancyOverlay: {
+    sourceName: "BRB Overlay",
+    vacantEnterDelayMs: 5_000,
+  },
 };
 
 const APP_CONFIG_KEY = "appConfig";
