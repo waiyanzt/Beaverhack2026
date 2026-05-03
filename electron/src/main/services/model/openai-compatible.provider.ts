@@ -55,6 +55,29 @@ export interface OpenAICompatibleProviderResult {
   content: string;
   actionPlan?: unknown;
   toolCalls?: Array<{ id: string; name: string; arguments: string }>;
+  usage?: {
+    promptTokens: number | null;
+    completionTokens: number | null;
+    totalTokens: number | null;
+  };
+}
+
+function extractUsage(rawBody: unknown): OpenAICompatibleProviderResult["usage"] {
+  if (typeof rawBody !== "object" || rawBody === null || !("usage" in rawBody)) {
+    return undefined;
+  }
+
+  const usage = (rawBody as Record<string, unknown>).usage;
+  if (typeof usage !== "object" || usage === null) {
+    return undefined;
+  }
+
+  const record = usage as Record<string, unknown>;
+  return {
+    promptTokens: typeof record.prompt_tokens === "number" ? record.prompt_tokens : null,
+    completionTokens: typeof record.completion_tokens === "number" ? record.completion_tokens : null,
+    totalTokens: typeof record.total_tokens === "number" ? record.total_tokens : null,
+  };
 }
 
 function stripMarkdownCodeBlocks(text: string): string {
@@ -66,6 +89,7 @@ function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
   const parts: string[] = [];
   let imageCount = 0;
   let videoCount = 0;
+  let audioCount = 0;
 
   for (const message of messages) {
     let textPreview = "";
@@ -81,6 +105,8 @@ function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
           imageCount++;
         } else if (part.type === "video_url") {
           videoCount++;
+        } else if (part.type === "audio_url") {
+          audioCount++;
         }
       }
       textPreview = textParts.join(" ");
@@ -92,6 +118,7 @@ function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
   const mediaParts: string[] = [];
   if (imageCount > 0) mediaParts.push(imageCount === 1 ? "1 image" : `${imageCount} images`);
   if (videoCount > 0) mediaParts.push(videoCount === 1 ? "1 video" : `${videoCount} videos`);
+  if (audioCount > 0) mediaParts.push(audioCount === 1 ? "1 audio" : `${audioCount} audio clips`);
 
   return `${parts.join(" ")}${mediaParts.length > 0 ? ` [${mediaParts.join(", ")}]` : ""}`;
 }
@@ -208,6 +235,10 @@ function buildActionPlanJsonSchema(): Record<string, unknown> {
             type: "string",
             description: "Optional response text to show the user.",
           },
+          audioTranscript: {
+            type: "string",
+            description: "Full transcript of audible speech in the clip. Use '[no speech]' when no speech is audible and '[inaudible]' when speech is present but unclear.",
+          },
           confidence: {
             type: "number",
             minimum: 0,
@@ -219,7 +250,7 @@ function buildActionPlanJsonSchema(): Record<string, unknown> {
             description: "Whether this response should be visible to the user.",
           },
         },
-        required: ["visibleToUser"],
+        required: ["visibleToUser", "audioTranscript"],
       },
       actions: {
         type: "array",
@@ -278,7 +309,7 @@ function buildActionPlanJsonSchema(): Record<string, unknown> {
         },
       },
     },
-    required: ["schemaVersion", "tickId", "createdAt", "actions", "safety", "nextTick"],
+    required: ["schemaVersion", "tickId", "createdAt", "response", "actions", "safety", "nextTick"],
   };
 }
 
@@ -333,6 +364,10 @@ export const createActionPlanTool: OpenAICompatibleTool = {
               type: "string",
               description: "Optional response text to show the user.",
             },
+            audioTranscript: {
+              type: "string",
+              description: "Full transcript of audible speech in the clip. Use '[no speech]' when no speech is audible and '[inaudible]' when speech is present but unclear.",
+            },
             confidence: {
               type: "number",
               minimum: 0,
@@ -344,7 +379,7 @@ export const createActionPlanTool: OpenAICompatibleTool = {
               description: "Whether this response should be visible to the user.",
             },
           },
-          required: ["visibleToUser"],
+          required: ["visibleToUser", "audioTranscript"],
         },
         actions: {
           type: "array",
@@ -399,7 +434,7 @@ export const createActionPlanTool: OpenAICompatibleTool = {
           },
         },
       },
-      required: ["schemaVersion", "tickId", "createdAt", "actions", "safety", "nextTick"],
+      required: ["schemaVersion", "tickId", "createdAt", "response", "actions", "safety", "nextTick"],
     },
   },
 };
@@ -440,7 +475,9 @@ export class OpenAICompatibleProvider {
       const extra: Record<string, unknown> = {};
       const vllm = config.vllm;
 
-      if (vllm.thinkingTokenBudget !== undefined || vllm.enableThinking !== undefined) {
+      if (vllm.enableThinking === false) {
+        extra.chat_template_kwargs = { enable_thinking: false };
+      } else if (vllm.thinkingTokenBudget !== undefined || vllm.enableThinking !== undefined) {
         const thinkingBudget = vllm.thinkingTokenBudget ?? 16384;
         const gracePeriod = vllm.thinkingGracePeriod ?? 1024;
         extra.thinking_token_budget = thinkingBudget + gracePeriod;
@@ -455,7 +492,7 @@ export class OpenAICompatibleProvider {
       }
 
       if (Object.keys(extra).length > 0) {
-        request.extra_body = extra;
+        request = { ...request, ...extra };
       }
     }
 
@@ -519,6 +556,7 @@ export class OpenAICompatibleProvider {
       };
     }
 
+    const usage = extractUsage(rawBody);
     const parsed = toolCallResponseSchema.safeParse(rawBody);
 
     if (!parsed.success) {
@@ -527,6 +565,7 @@ export class OpenAICompatibleProvider {
         ok: false,
         status: response.status,
         content: providerError ?? "Invalid model provider response structure.",
+        usage,
       };
     }
 
@@ -543,6 +582,7 @@ export class OpenAICompatibleProvider {
           ok: false,
           status: response.status,
           content: `Unexpected tool call: ${toolCall.function.name}`,
+          usage,
         };
       }
 
@@ -555,6 +595,7 @@ export class OpenAICompatibleProvider {
           ok: false,
           status: response.status,
           content: "Tool call arguments are not valid JSON.",
+          usage,
         };
       }
 
@@ -565,6 +606,7 @@ export class OpenAICompatibleProvider {
           ok: false,
           status: response.status,
           content: `Action plan validation failed: ${validated.error.message}`,
+          usage,
         };
       }
 
@@ -578,6 +620,7 @@ export class OpenAICompatibleProvider {
           name: tc.function.name,
           arguments: tc.function.arguments,
         })),
+        usage,
       };
     }
 
@@ -599,6 +642,7 @@ export class OpenAICompatibleProvider {
             status: response.status,
             content: stripped,
             actionPlan: validated.data,
+            usage,
           };
         }
       } catch {
@@ -612,6 +656,7 @@ export class OpenAICompatibleProvider {
         ok: false,
         status: response.status,
         content: "Model returned no tool calls and no content. The model may not support the requested tool or forced tool_choice.",
+        usage,
       };
     }
 
@@ -619,11 +664,12 @@ export class OpenAICompatibleProvider {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
       content: content ?? "No response content.",
+      usage,
     };
   }
 
   public async chat(config: ModelProviderConfig, messages: OpenAICompatibleMessage[]): Promise<OpenAICompatibleProviderResult> {
-    const request: OpenAICompatibleChatRequest = {
+    let request: OpenAICompatibleChatRequest = {
       model: config.model,
       messages,
       temperature: config.temperature ?? 0.4,
@@ -639,7 +685,9 @@ export class OpenAICompatibleProvider {
       const extra: Record<string, unknown> = {};
       const vllm = config.vllm;
 
-      if (vllm.thinkingTokenBudget !== undefined || vllm.enableThinking !== undefined) {
+      if (vllm.enableThinking === false) {
+        extra.chat_template_kwargs = { enable_thinking: false };
+      } else if (vllm.thinkingTokenBudget !== undefined || vllm.enableThinking !== undefined) {
         const thinkingBudget = vllm.thinkingTokenBudget ?? 16384;
         const gracePeriod = vllm.thinkingGracePeriod ?? 1024;
         extra.thinking_token_budget = thinkingBudget + gracePeriod;
@@ -654,7 +702,7 @@ export class OpenAICompatibleProvider {
       }
 
       if (Object.keys(extra).length > 0) {
-        request.extra_body = extra;
+        request = { ...request, ...extra };
       }
     }
 
@@ -691,6 +739,7 @@ export class OpenAICompatibleProvider {
         ok: false,
         status: response.status,
         content: "Invalid model provider response",
+        usage,
       };
     }
 
@@ -698,6 +747,7 @@ export class OpenAICompatibleProvider {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
       content: parsed.data.choices?.[0]?.message?.content ?? "",
+      usage,
     };
   }
 

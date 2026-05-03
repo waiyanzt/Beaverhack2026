@@ -1,10 +1,8 @@
 import type { ModelProviderConfig, ModelProviderId, VllmOptions } from "../../../shared/model.types";
 
 const vllmOptions: VllmOptions = {
-  thinkingTokenBudget: 16384,
-  thinkingGracePeriod: 1024,
-  enableThinking: true,
-  useAudioInVideo: false,
+  enableThinking: false,
+  useAudioInVideo: true,
 };
 
 const providers: ModelProviderConfig[] = [
@@ -31,9 +29,9 @@ const providers: ModelProviderConfig[] = [
     supportsJsonMode: true,
     supportsForcedToolChoice: true,
     supportsStrictJsonSchema: true,
-    maxTokens: 25600,
-    temperature: 0.6,
-    topP: 0.95,
+    maxTokens: 512,
+    temperature: 0.2,
+    topP: 0.9,
     vllm: vllmOptions,
   },
   {

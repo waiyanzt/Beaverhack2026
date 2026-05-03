@@ -13,6 +13,13 @@ import type {
   CaptureSourceInfo,
   CaptureStartRequest,
 } from "../shared/types/capture.types";
+import type {
+  ModelMonitorEvent,
+  ModelMonitorStartRequest,
+  ModelMonitorStartResponse,
+  ModelMonitorStatusResponse,
+  ModelMonitorStopResponse,
+} from "../shared/types/model-monitor.types";
 
 const desktopApi = {
   getAppVersion: async (): Promise<string> => {
@@ -79,6 +86,89 @@ const desktopApi = {
       console.error("Failed to export capture clip:", error);
       return { ok: false as const, message: "Unable to export capture clip." };
     }),
+  modelMonitorStart: async (request: ModelMonitorStartRequest): Promise<ModelMonitorStartResponse> =>
+    ipcRenderer.invoke(IpcChannels.ModelMonitorStart, request).catch((error: unknown) => {
+      console.error("Failed to start model monitor:", error);
+      return {
+        ok: false as const,
+        message: "Unable to start model monitor.",
+        status: {
+          running: false,
+          startedAt: null,
+          tickIntervalMs: request.tickIntervalMs,
+          windowMs: request.windowMs,
+          inFlight: false,
+          tickCount: 0,
+          skippedTickCount: 0,
+          lastTickAt: null,
+          lastResponseAt: null,
+          lastMediaEndedAt: null,
+          lastRequestStartedAt: null,
+          lastEndToResponseLatencyMs: null,
+          lastRequestLatencyMs: null,
+          lastError: "Unable to start model monitor.",
+        },
+      };
+    }),
+  modelMonitorStop: async (): Promise<ModelMonitorStopResponse> =>
+    ipcRenderer.invoke(IpcChannels.ModelMonitorStop).catch((error: unknown) => {
+      console.error("Failed to stop model monitor:", error);
+      return {
+        ok: false as const,
+        message: "Unable to stop model monitor.",
+        status: {
+          running: false,
+          startedAt: null,
+          tickIntervalMs: 500,
+          windowMs: 2_000,
+          inFlight: false,
+          tickCount: 0,
+          skippedTickCount: 0,
+          lastTickAt: null,
+          lastResponseAt: null,
+          lastMediaEndedAt: null,
+          lastRequestStartedAt: null,
+          lastEndToResponseLatencyMs: null,
+          lastRequestLatencyMs: null,
+          lastError: "Unable to stop model monitor.",
+        },
+      };
+    }),
+  modelMonitorStatus: async (): Promise<ModelMonitorStatusResponse> =>
+    ipcRenderer.invoke(IpcChannels.ModelMonitorStatus).catch((error: unknown) => {
+      console.error("Failed to get model monitor status:", error);
+      return {
+        ok: false as const,
+        message: "Unable to get model monitor status.",
+        status: {
+          running: false,
+          startedAt: null,
+          tickIntervalMs: 500,
+          windowMs: 2_000,
+          inFlight: false,
+          tickCount: 0,
+          skippedTickCount: 0,
+          lastTickAt: null,
+          lastResponseAt: null,
+          lastMediaEndedAt: null,
+          lastRequestStartedAt: null,
+          lastEndToResponseLatencyMs: null,
+          lastRequestLatencyMs: null,
+          lastError: "Unable to get model monitor status.",
+        },
+      };
+    }),
+  onModelMonitorEvent: (handler: (event: ModelMonitorEvent) => void) => {
+    const listener = (_event: IpcRendererEvent, payload: ModelMonitorEvent) => {
+      handler(payload);
+    };
+
+    ipcRenderer.on(IpcChannels.ModelMonitorEvent, listener);
+
+    return () => {
+      ipcRenderer.removeListener(IpcChannels.ModelMonitorEvent, listener);
+    };
+  },
 };
 
 const captureBridge = {

@@ -12,6 +12,13 @@ import type {
 	CaptureStartRequest,
 	CaptureStatus,
 } from "../../shared/types/capture.types";
+import type {
+	ModelMonitorEvent,
+	ModelMonitorStartRequest,
+	ModelMonitorStartResponse,
+	ModelMonitorStatusResponse,
+	ModelMonitorStopResponse,
+} from "../../shared/types/model-monitor.types";
 
 type CaptureStartResponse =
 	| { ok: true; status: CaptureStatus }
@@ -41,6 +48,10 @@ type DesktopApi = {
 		| { ok: false; message: string }
 	>;
 	captureExportClip: (request: CaptureExportClipRequest) => Promise<CaptureExportClipResponse>;
+	modelMonitorStart: (request: ModelMonitorStartRequest) => Promise<ModelMonitorStartResponse>;
+	modelMonitorStop: () => Promise<ModelMonitorStopResponse>;
+	modelMonitorStatus: () => Promise<ModelMonitorStatusResponse>;
+	onModelMonitorEvent: (handler: (event: ModelMonitorEvent) => void) => () => void;
 };
 
 type CaptureBridgeApi = {

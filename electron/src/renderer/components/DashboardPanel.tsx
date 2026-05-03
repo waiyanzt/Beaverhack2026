@@ -1,13 +1,104 @@
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import type { CaptureMediaDeviceInfo, CaptureSourceInfo } from "../../shared/types/capture.types";
+import type { ModelMonitorEvent, ModelMonitorStatus } from "../../shared/types/model-monitor.types";
 import { useCapture } from "../hooks/useCapture";
 
-type ServiceStatus = "idle" | "running";
+const emptyMonitorStatus: ModelMonitorStatus = {
+	running: false,
+	startedAt: null,
+	tickIntervalMs: 500,
+	windowMs: 2_000,
+	inFlight: false,
+	tickCount: 0,
+	skippedTickCount: 0,
+	lastTickAt: null,
+	lastResponseAt: null,
+	lastMediaEndedAt: null,
+	lastRequestStartedAt: null,
+	lastEndToResponseLatencyMs: null,
+	lastRequestLatencyMs: null,
+	lastError: null,
+};
+
+type MonitorLogEntry = {
+	id: string;
+	createdAt: string;
+	text: string;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null;
+
+const formatActionPlanForDisplay = (actionPlan: unknown, fallback: string): string => {
+	if (!isRecord(actionPlan)) {
+		return fallback || "Model returned no parsed ActionPlan.";
+	}
+
+	const actions = Array.isArray(actionPlan.actions) ? actionPlan.actions : [];
+	const response = isRecord(actionPlan.response) ? actionPlan.response : null;
+	const responseText = typeof response?.text === "string" && response.text.trim().length > 0
+		? response.text.trim()
+		: "No observation sentence returned.";
+	const audioTranscript = typeof response?.audioTranscript === "string" && response.audioTranscript.trim().length > 0
+		? response.audioTranscript.trim()
+		: "No audio transcript returned.";
+	const actionSummary = actions
+		.map((action, index) => {
+			if (!isRecord(action)) {
+				return `${index + 1}. unknown action`;
+			}
+
+			const type = typeof action.type === "string" ? action.type : "unknown";
+			const reason = typeof action.reason === "string" ? action.reason : "No reason provided.";
+			return `${index + 1}. ${type}: ${reason}`;
+		})
+		.join("\n");
+
+	return [
+		"Tool call: create_action_plan",
+		`Tick: ${typeof actionPlan.tickId === "string" ? actionPlan.tickId : "unknown"}`,
+		`Created: ${typeof actionPlan.createdAt === "string" ? actionPlan.createdAt : "unknown"}`,
+		`Audio Transcript: ${audioTranscript}`,
+		`Observation: ${responseText}`,
+		"Actions:",
+		actionSummary || "No actions returned.",
+		"",
+		"Parsed ActionPlan:",
+		JSON.stringify(actionPlan, null, 2),
+	].join("\n");
+};
+
+const formatTimingForDisplay = (event: Extract<ModelMonitorEvent, { type: "response" }>): string =>
+	[
+		"Timing:",
+		`Media window: ${event.timing.mediaStartedAt ?? "-"} -> ${event.timing.mediaEndedAt ?? "-"}`,
+		`Window length: ${event.timing.mediaWindowMs ?? "-"}ms`,
+		`Media age at request: ${event.timing.mediaAgeAtRequestMs ?? "-"}ms`,
+		`Request started: ${event.timing.requestStartedAt}`,
+		`Response received: ${event.timing.responseReceivedAt}`,
+		`Convert/mux latency: ${event.timing.conversionLatencyMs}ms`,
+		`Model request latency: ${event.timing.requestLatencyMs}ms`,
+		`Clip end -> response: ${event.timing.endToResponseLatencyMs ?? "-"}ms`,
+		"",
+		"Request Debug:",
+		`Request number: ${event.debug.requestNumber}`,
+		`Prompt text bytes: ${event.debug.promptTextBytes}`,
+		`Media data URL bytes: ${event.debug.mediaDataUrlBytes}`,
+		`Request content bytes: ${event.debug.requestContentBytes}`,
+		`Source clip count: ${event.debug.sourceClipCount}`,
+		`Model media sha256: ${event.debug.modelMediaSha256 ?? "-"}`,
+		`Source window key: ${event.debug.sourceWindowKey}`,
+		`Prompt tokens: ${event.debug.promptTokens ?? "-"}`,
+		`Completion tokens: ${event.debug.completionTokens ?? "-"}`,
+		`Total tokens: ${event.debug.totalTokens ?? "-"}`,
+	].join("\n");
 
 const DashboardPanel = (): React.JSX.Element => {
 	const { status: captureStatus } = useCapture();
-	const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("idle");
+	const [monitorStatus, setMonitorStatus] = useState<ModelMonitorStatus>(emptyMonitorStatus);
+	const [latestModelResponse, setLatestModelResponse] = useState<MonitorLogEntry | null>(null);
+	const [latestModelMediaUrl, setLatestModelMediaUrl] = useState<string | null>(null);
 	const [isServiceBusy, setIsServiceBusy] = useState(false);
 
 	const [sources, setSources] = useState<CaptureSourceInfo[]>([]);
@@ -73,6 +164,31 @@ const DashboardPanel = (): React.JSX.Element => {
 
 	useEffect(() => {
 		void loadSources();
+	}, []);
+
+	useEffect(() => {
+		const removeListener = window.desktop.onModelMonitorEvent((event) => {
+			setMonitorStatus(event.status);
+			const logEntry = formatMonitorEvent(event);
+			if (event.type === "response") {
+				if (event.modelMediaDataUrl) {
+					setLatestModelMediaUrl(event.modelMediaDataUrl);
+				}
+				if (logEntry) {
+					setLatestModelResponse(logEntry);
+				}
+			} else if (event.type === "error" && logEntry) {
+				setLatestModelResponse(logEntry);
+			}
+		});
+
+		void window.desktop.modelMonitorStatus().then((result) => {
+			setMonitorStatus(result.status);
+		});
+
+		return () => {
+			removeListener();
+		};
 	}, []);
 
 	useEffect(() => {
@@ -212,16 +328,89 @@ const DashboardPanel = (): React.JSX.Element => {
 		void loadSources();
 	};
 
-	// placeholder: wire up real service start/stop logic here
+	const formatMonitorEvent = (event: ModelMonitorEvent): MonitorLogEntry | null => {
+		if (event.type === "response") {
+			const body = formatActionPlanForDisplay(event.actionPlan, event.content);
+			return {
+				id: `${event.tickId}-${event.createdAt}`,
+				createdAt: event.createdAt,
+				text: `[${event.createdAt}] ${event.ok ? "OK" : "FAILED"} ${event.providerId} (${event.statusCode ?? "no status"})\n${formatTimingForDisplay(event)}\n\n${body}`,
+			};
+		}
+
+		if (event.type === "error") {
+			return {
+				id: `${event.tickId}-${event.createdAt}`,
+				createdAt: event.createdAt,
+				text: `[${event.createdAt}] ERROR\n${event.message}`,
+			};
+		}
+
+		return null;
+	};
+
 	const handleToggleService = async (): Promise<void> => {
 		setIsServiceBusy(true);
-		if (serviceStatus === "idle") {
-			// TODO: start service
-			setServiceStatus("running");
+
+		if (!monitorStatus.running) {
+			const result = await window.desktop.modelMonitorStart({
+				tickIntervalMs: 500,
+				windowMs: 2_000,
+				capture: {
+					camera: {
+						enabled: true,
+						fps: 15,
+						maxFrames: 8,
+						resolution: "640x360",
+						jpegQuality: 75,
+						detail: "low",
+						clipDurationSeconds: 2,
+						maxClips: 12,
+						deviceId: selectedVideoDeviceId || null,
+					},
+					screen: {
+						enabled: false,
+						fps: 0,
+						maxFrames: 4,
+						resolution: "640x360",
+						jpegQuality: 70,
+						detail: "low",
+						clipDurationSeconds: 2,
+						maxClips: 1,
+						sourceId: null,
+					},
+					audio: {
+						enabled: true,
+						sampleRate: 16000,
+						channels: 1,
+						bufferDurationSeconds: 2,
+						transcriptionEnabled: false,
+						sendRawAudio: false,
+						deviceId: selectedAudioDeviceId || null,
+					},
+				},
+			});
+
+			setMonitorStatus(result.status);
+			if (!result.ok) {
+				setLatestModelResponse({
+					id: `start-error-${Date.now()}`,
+					createdAt: new Date().toISOString(),
+					text: result.message,
+				});
+			}
 		} else {
-			// TODO: stop service
-			setServiceStatus("idle");
+			const result = await window.desktop.modelMonitorStop();
+			setMonitorStatus(result.status);
+			if (!result.ok) {
+				setLatestModelResponse({
+					id: `stop-error-${Date.now()}`,
+					createdAt: new Date().toISOString(),
+					text: result.message,
+				});
+			}
 		}
+
 		setIsServiceBusy(false);
 	};
 
@@ -245,8 +434,8 @@ const DashboardPanel = (): React.JSX.Element => {
 					<p className="panel__subtitle">Choose audio, video, and screen capture sources.</p>
 				</div>
 				<div className="panel__status">
-					<span className={`status-pill status-pill--${serviceStatus === "running" ? "live" : "idle"}`}>
-						{serviceStatus === "running" ? "Running" : "Idle"}
+					<span className={`status-pill status-pill--${monitorStatus.running ? "live" : "idle"}`}>
+						{monitorStatus.running ? "Running" : "Idle"}
 					</span>
 				</div>
 			</header>
@@ -360,15 +549,15 @@ const DashboardPanel = (): React.JSX.Element => {
 
 			<div className="panel__actions">
 				<button
-					className={serviceStatus === "running" ? "secondary-button" : "primary-button"}
+					className={monitorStatus.running ? "secondary-button" : "primary-button"}
 					onClick={() => void handleToggleService()}
 					disabled={isServiceBusy}
 				>
 					{isServiceBusy
-						? serviceStatus === "idle"
+						? !monitorStatus.running
 							? "Starting..."
 							: "Stopping..."
-						: serviceStatus === "running"
+						: monitorStatus.running
 							? "Stop Service"
 							: "Start Service"}
 				</button>
@@ -381,6 +570,47 @@ const DashboardPanel = (): React.JSX.Element => {
 					{isLoadingSources ? "Refreshing..." : "Refresh Sources"}
 				</button>
 			</div>
+
+			<div className="panel__status-grid">
+				<div>
+					<h4>Model Loop</h4>
+					<p>In Flight: {monitorStatus.inFlight ? "Yes" : "No"}</p>
+					<p>Ticks Sent: {monitorStatus.tickCount}</p>
+					<p>Ticks Skipped: {monitorStatus.skippedTickCount}</p>
+				</div>
+				<div>
+					<h4>Timing</h4>
+					<p>Interval: {monitorStatus.tickIntervalMs}ms</p>
+					<p>Window: {monitorStatus.windowMs}ms</p>
+					<p>Last Tick: {monitorStatus.lastTickAt ?? "-"}</p>
+					<p>Media End: {monitorStatus.lastMediaEndedAt ?? "-"}</p>
+				</div>
+				<div>
+					<h4>Latest Response</h4>
+					<p>Last Response: {monitorStatus.lastResponseAt ?? "-"}</p>
+					<p>Model Latency: {monitorStatus.lastRequestLatencyMs ?? "-"}ms</p>
+					<p>End To Response: {monitorStatus.lastEndToResponseLatencyMs ?? "-"}ms</p>
+					<p>Error: {monitorStatus.lastError ?? "-"}</p>
+				</div>
+			</div>
+
+			<div className="panel__card panel__card--wide">
+				<h3>Latest Model Request Pair</h3>
+				<div className="preview preview--media">
+					{latestModelMediaUrl ? (
+						<video key={latestModelMediaUrl} src={latestModelMediaUrl} controls muted playsInline />
+					) : (
+						<div className="preview__empty">Waiting for the first MP4 sent to the model</div>
+					)}
+				</div>
+				<p className="meter__label">This video and text are from the same latest response event.</p>
+				<textarea
+					className="response-log"
+					readOnly
+					value={latestModelResponse?.text || "Waiting for the first paired model response."}
+				/>
+			</div>
+
 		</section>
 	);
 };

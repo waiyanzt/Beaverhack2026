@@ -55,10 +55,20 @@ export interface OpenAICompatibleMessagePartVideoUrl {
   video_url: OpenAICompatibleVideoUrl;
 }
 
+export interface OpenAICompatibleAudioUrl {
+  url: string;
+}
+
+export interface OpenAICompatibleMessagePartAudioUrl {
+  type: "audio_url";
+  audio_url: OpenAICompatibleAudioUrl;
+}
+
 export type OpenAICompatibleMessagePart =
   | OpenAICompatibleMessagePartText
   | OpenAICompatibleMessagePartImageUrl
-  | OpenAICompatibleMessagePartVideoUrl;
+  | OpenAICompatibleMessagePartVideoUrl
+  | OpenAICompatibleMessagePartAudioUrl;
 
 export interface OpenAICompatibleMessage {
   role: "system" | "user" | "assistant";

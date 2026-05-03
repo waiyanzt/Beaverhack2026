@@ -14,7 +14,7 @@ const cameraConfigSchema = z
     resolution: resolutionSchema,
     jpegQuality: z.number().min(1).max(100),
     detail: captureDetailSchema.optional(),
-    clipDurationSeconds: z.number().min(1),
+    clipDurationSeconds: z.number().min(0.25),
     maxClips: z.number().int().min(1),
     deviceId: z.string().min(1).nullable().optional(),
   })
@@ -28,7 +28,7 @@ const screenConfigSchema = z
     resolution: resolutionSchema,
     jpegQuality: z.number().min(1).max(100),
     detail: captureDetailSchema.optional(),
-    clipDurationSeconds: z.number().min(1),
+    clipDurationSeconds: z.number().min(0.25),
     maxClips: z.number().int().min(1),
     sourceId: z.string().min(1).nullable().optional(),
   })
@@ -39,7 +39,7 @@ const audioConfigSchema = z
     enabled: z.boolean(),
     sampleRate: z.number().int().min(8000),
     channels: z.number().int().min(1).max(2),
-    bufferDurationSeconds: z.number().min(1),
+    bufferDurationSeconds: z.number().min(0.25),
     transcriptionEnabled: z.boolean(),
     sendRawAudio: z.boolean(),
     deviceId: z.string().min(1).nullable().optional(),

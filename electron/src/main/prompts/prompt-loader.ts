@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 export type PromptName = "system" | "action-planner";
 
@@ -8,13 +8,31 @@ export interface LoadedPrompt {
   content: string;
 }
 
-const PROMPT_PATHS: Record<PromptName, string> = {
-  system: join(__dirname, "../../../../models/prompts/system-prompt.md"),
-  "action-planner": join(__dirname, "../../../../models/prompts/action-planner-prompt.md"),
+const PROMPT_FILES: Record<PromptName, string> = {
+  system: "system-prompt.md",
+  "action-planner": "action-planner-prompt.md",
 };
 
+function resolvePromptPath(name: PromptName): string {
+  const fileName = PROMPT_FILES[name];
+  const candidates = [
+    resolve(process.cwd(), "../models/prompts", fileName),
+    resolve(process.cwd(), "models/prompts", fileName),
+    resolve(__dirname, "../../../../models/prompts", fileName),
+    resolve(__dirname, "../../../models/prompts", fileName),
+  ];
+
+  const promptPath = candidates.find((candidate) => existsSync(candidate));
+
+  if (!promptPath) {
+    throw new Error(`Prompt file not found for ${name}. Checked: ${candidates.join(", ")}`);
+  }
+
+  return promptPath;
+}
+
 export function loadPrompt(name: PromptName): LoadedPrompt {
-  const content = readFileSync(PROMPT_PATHS[name], "utf8").trim();
+  const content = readFileSync(resolvePromptPath(name), "utf8").trim();
 
   if (!content) {
     throw new Error(`Prompt content is empty: ${name}`);

@@ -74,6 +74,7 @@ export const actionPlanSchema = z.object({
   response: z
     .object({
       text: z.string().optional(),
+      audioTranscript: z.string(),
       confidence: z.number().min(0).max(1).optional(),
       visibleToUser: z.boolean(),
     })

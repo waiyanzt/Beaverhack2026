@@ -22,8 +22,13 @@ Flow summary:
 ## Operator Visibility
 
 - The capture panel renders live camera/screen preview streams directly in renderer `<video>` elements (instead of polling frame thumbnails).
-- The dashboard shows live camera and screen previews from the current capture status plus a compact audio waveform so operators can monitor signal health at a glance.
-- Audio activity is surfaced via a level meter driven by the hidden capture window.
+- The dashboard renders the selected camera and screen source directly in renderer `<video>` elements and shows the selected microphone through a local level meter/waveform.
+- The dashboard `Start Service` button starts a low-latency hidden camera/microphone capture path with 2-second media segments and runs a 500ms model-monitor scheduler.
+- The model monitor currently sends the latest freshly completed 2-second webcam `video/mp4` data URL, muxes audio into the MP4, and enables `use_audio_in_video`, matching the working standalone audio/video test as closely as possible while screen media is held out for isolation. It displays only the latest paired model video/response in the dashboard without executing actions yet.
+- The monitor only submits a newly completed camera clip once and skips clips whose end time is older than 1.5 seconds at request time; skipped scheduler ticks mean either the previous request is still running, the next media segment has not closed yet, or the latest segment is too stale for live mode.
+- Each dashboard model response includes the capture window start/end time, conversion latency, model request latency, and clip-end-to-response latency so demo operators can tell how current each response is.
+- The local vLLM demo provider uses a small output budget with thinking disabled for this real-time loop. The latest response view includes request size and provider token usage to help distinguish media payload overhead from model generation latency.
+- Camera and screen capture clips are video-only in the buffer; audio is buffered separately and only muxed with video for manual MP4 export.
 - Buffer counts/bytes are displayed so operators can confirm chunks are arriving.
 - Screen capture requires a selected desktop source from the capture panel.
 - Camera and microphone inputs can be selected from the capture panel.

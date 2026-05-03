@@ -332,6 +332,26 @@ code {
   margin: 0 0 8px;
 }
 
+.app-shell .panel__card--wide,
+.capture-dev-shell .panel__card--wide {
+  margin-top: 20px;
+}
+
+.app-shell .response-log,
+.capture-dev-shell .response-log {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.68);
+  color: var(--ink);
+  padding: 14px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 .app-shell .field,
 .capture-dev-shell .field {
   display: grid;

@@ -229,7 +229,7 @@ const startSegmentedRecorder = (options: {
       if (!stopped && recorder.state !== "inactive") {
         recorder.stop();
       }
-    }, Math.max(options.segmentMs, 1000));
+    }, Math.max(options.segmentMs, 250));
   };
 
   startCycle();

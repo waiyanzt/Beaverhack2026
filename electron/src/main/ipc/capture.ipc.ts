@@ -18,13 +18,12 @@ import type {
 	CaptureExportClipRequest,
 	CaptureStartRequest,
 } from "../../shared/types/capture.types";
-import { CaptureOrchestratorService } from "../services/capture/capture-orchestrator.service";
-import { createHiddenCaptureWindow } from "../windows/hidden-capture-window";
+import {
+	captureOrchestrator,
+	getSelectedScreenSourceId,
+	setSelectedScreenSourceId,
+} from "../services/capture/capture-orchestrator.instance";
 
-const captureOrchestrator = new CaptureOrchestratorService({
-	createHiddenWindow: createHiddenCaptureWindow,
-});
-let selectedScreenSourceId: string | null = null;
 
 const getClipExtension = (mimeType: string): string => {
 	const baseMimeType = mimeType.split(";")[0]?.trim().toLowerCase();
@@ -145,7 +144,7 @@ export function registerCaptureIpcHandlers(): void {
 		try {
 			const sources = await desktopCapturer.getSources({ types: ["screen"] });
 			const selectedSource =
-				sources.find((source) => source.id === selectedScreenSourceId) ??
+				sources.find((source) => source.id === getSelectedScreenSourceId()) ??
 				sources[0];
 
 			if (!selectedSource) {
@@ -196,8 +195,8 @@ export function registerCaptureIpcHandlers(): void {
 		}
 
 		try {
+			setSelectedScreenSourceId(parsed.data.screen.sourceId ?? null);
 			const status = await captureOrchestrator.start(parsed.data as CaptureStartRequest);
-			selectedScreenSourceId = parsed.data.screen.sourceId ?? null;
 			return { ok: true as const, status };
 		} catch (error: unknown) {
 			console.error("Failed to start capture:", error);
