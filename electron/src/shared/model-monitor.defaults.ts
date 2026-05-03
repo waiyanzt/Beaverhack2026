@@ -55,6 +55,7 @@ const DEFAULT_CAPTURE_CONFIG: CaptureStartRequest = {
 
 export const createModelMonitorCaptureConfig = (options: {
   audioDeviceId?: string | null;
+  screenSourceId?: string | null;
   videoDeviceId?: string | null;
 }): CaptureStartRequest => ({
   camera: {
@@ -63,6 +64,9 @@ export const createModelMonitorCaptureConfig = (options: {
   },
   screen: {
     ...DEFAULT_CAPTURE_CONFIG.screen,
+    enabled: Boolean(options.screenSourceId),
+    fps: options.screenSourceId ? 1 : 0,
+    sourceId: options.screenSourceId ?? null,
   },
   audio: {
     ...DEFAULT_CAPTURE_CONFIG.audio,

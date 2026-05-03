@@ -10,6 +10,18 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
       pluginName: "AuTuber",
       pluginDeveloper: "AuTuber",
     },
+    dashboard: {
+      selectedAudioDeviceId: null,
+      selectedVideoDeviceId: null,
+      selectedScreenSourceId: null,
+    },
+    model: {
+      selectedProviderId: "vllm",
+    },
+    monitor: {
+      resumeOnLaunch: false,
+      lastStartRequest: null,
+    },
   },
   settingsService: {
     getSettings: () => ({
@@ -19,8 +31,23 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
         pluginName: "AuTuber",
         pluginDeveloper: "AuTuber",
       },
+      dashboard: {
+        selectedAudioDeviceId: null,
+        selectedVideoDeviceId: null,
+        selectedScreenSourceId: null,
+      },
+      model: {
+        selectedProviderId: "vllm",
+      },
+      monitor: {
+        resumeOnLaunch: false,
+        lastStartRequest: null,
+      },
     }),
-    updateVtsConfig: (nextConfig: AppConfig["vts"]) => ({ vts: nextConfig }),
+    updateVtsConfig: (nextConfig: AppConfig["vts"]) => ({
+      ...config,
+      vts: nextConfig,
+    }),
   },
 }));
 
@@ -59,6 +86,18 @@ const config: AppConfig = {
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber",
+  },
+  dashboard: {
+    selectedAudioDeviceId: null,
+    selectedVideoDeviceId: null,
+    selectedScreenSourceId: null,
+  },
+  model: {
+    selectedProviderId: "vllm",
+  },
+  monitor: {
+    resumeOnLaunch: false,
+    lastStartRequest: null,
   },
 };
 
@@ -140,7 +179,10 @@ describe("VtsService", () => {
         }) as never,
       settingsService: {
         getSettings: () => config,
-        updateVtsConfig: (nextConfig) => ({ vts: nextConfig }),
+        updateVtsConfig: (nextConfig) => ({
+          ...config,
+          vts: nextConfig,
+        }),
       },
     });
 
@@ -163,7 +205,10 @@ describe("VtsService", () => {
       createSocket: () => new MockSocket(() => ({})) as never,
       settingsService: {
         getSettings: () => config,
-        updateVtsConfig: (nextConfig) => ({ vts: nextConfig }),
+        updateVtsConfig: (nextConfig) => ({
+          ...config,
+          vts: nextConfig,
+        }),
       },
     });
 

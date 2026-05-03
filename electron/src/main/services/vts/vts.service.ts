@@ -62,7 +62,7 @@ export class VtsService {
     this.createSocket = dependencies.createSocket ?? ((url) => new WebSocket(url));
     this.requestTimeoutMs = dependencies.requestTimeoutMs ?? 5000;
     this.settingsService = dependencies.settingsService ?? settingsService;
-    this.config = DEFAULT_CONFIG.vts;
+    this.config = this.settingsService.getSettings().vts ?? DEFAULT_CONFIG.vts;
   }
 
   getStatus(): VtsStatus {
