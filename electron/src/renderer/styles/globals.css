@@ -4,7 +4,6 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f8fafc;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -13,6 +12,81 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
+/* App shell wraps the entire application */
+.app-shell {
+  color-scheme: light;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #1e293b, #0f172a 45%, #020617 100%);
+  color: #e2e8f0;
+  --ink: #e2e8f0;
+  --muted: rgba(226, 232, 240, 0.65);
+  --panel: rgba(15, 23, 42, 0.88);
+  --panel-border: rgba(148, 163, 184, 0.2);
+  --accent: #0ea5e9;
+  --accent-strong: #0284c7;
+  --accent-soft: rgba(14, 165, 233, 0.15);
+  --warning: #f97316;
+  --shadow: 0 24px 80px rgba(15, 23, 42, 0.45);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+.app-shell * {
+  box-sizing: border-box;
+}
+
+/* Navigation bar at the top */
+.app-nav {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+  gap: 16px;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.app-nav__brand {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.app-nav__tab {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 150ms, color 150ms;
+}
+
+.app-nav__tab:hover {
+  color: var(--ink);
+}
+
+.app-nav__tab--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Content area below nav */
+.app-nav__content {
+  flex: 1;
+  overflow: auto;
+  padding: 32px clamp(20px, 6vw, 72px);
+}
+
+/* Legacy capture dev shell - kept for backward compatibility */
 .capture-dev-shell {
   color-scheme: light;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
@@ -70,6 +144,8 @@ code {
   letter-spacing: 0.05em;
 }
 
+/* Panel styles work in both app-shell and capture-dev-shell */
+.app-shell .panel,
 .capture-dev-shell .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -79,6 +155,7 @@ code {
   backdrop-filter: blur(6px);
 }
 
+.app-shell .panel__header,
 .capture-dev-shell .panel__header {
   display: flex;
   justify-content: space-between;
@@ -87,6 +164,7 @@ code {
   flex-wrap: wrap;
 }
 
+.app-shell .panel__eyebrow,
 .capture-dev-shell .panel__eyebrow {
   margin: 0 0 8px;
   font-size: 0.7rem;
@@ -95,23 +173,27 @@ code {
   color: var(--muted);
 }
 
+.app-shell .panel__title,
 .capture-dev-shell .panel__title {
   margin: 0;
   font-size: 1.8rem;
 }
 
+.app-shell .panel__subtitle,
 .capture-dev-shell .panel__subtitle {
   margin: 8px 0 0;
   max-width: 420px;
   color: var(--muted);
 }
 
+.app-shell .panel__status,
 .capture-dev-shell .panel__status {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
+.app-shell .status-pill,
 .capture-dev-shell .status-pill {
   padding: 8px 16px;
   border-radius: 999px;
@@ -120,16 +202,19 @@ code {
   letter-spacing: 0.04em;
 }
 
+.app-shell .status-pill--live,
 .capture-dev-shell .status-pill--live {
   background: rgba(16, 185, 129, 0.2);
   color: #34d399;
 }
 
+.app-shell .status-pill--idle,
 .capture-dev-shell .status-pill--idle {
   background: rgba(148, 163, 184, 0.2);
   color: #cbd5f5;
 }
 
+.app-shell .panel__grid,
 .capture-dev-shell .panel__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -137,6 +222,7 @@ code {
   margin-top: 24px;
 }
 
+.app-shell .panel__card,
 .capture-dev-shell .panel__card {
   display: grid;
   gap: 12px;
@@ -146,6 +232,7 @@ code {
   background: rgba(15, 23, 42, 0.6);
 }
 
+.app-shell .preview,
 .capture-dev-shell .preview {
   display: grid;
   min-height: 140px;
@@ -156,21 +243,25 @@ code {
   background: rgba(15, 23, 42, 0.7);
 }
 
+.app-shell .preview img,
 .capture-dev-shell .preview img {
   display: block;
   width: 100%;
 }
 
+.app-shell .preview video,
 .capture-dev-shell .preview video {
   display: block;
   width: 100%;
 }
 
+.app-shell .preview__empty,
 .capture-dev-shell .preview__empty {
   font-size: 0.85rem;
   color: var(--muted);
 }
 
+.app-shell .meter,
 .capture-dev-shell .meter {
   height: 10px;
   overflow: hidden;
@@ -178,18 +269,21 @@ code {
   background: rgba(148, 163, 184, 0.2);
 }
 
+.app-shell .meter__bar,
 .capture-dev-shell .meter__bar {
   height: 100%;
   background: linear-gradient(90deg, #34d399, #0ea5e9);
   transition: width 150ms ease;
 }
 
+.app-shell .meter__label,
 .capture-dev-shell .meter__label {
   margin: 0;
   font-size: 0.85rem;
   color: var(--muted);
 }
 
+.app-shell .waveform,
 .capture-dev-shell .waveform {
   display: flex;
   height: 60px;
@@ -202,21 +296,25 @@ code {
   padding: 6px 4px;
 }
 
+.app-shell .waveform__bar,
 .capture-dev-shell .waveform__bar {
   width: 3px;
   border-radius: 4px 4px 0 0;
   background: linear-gradient(180deg, #38bdf8, #22d3ee);
 }
 
+.app-shell .panel__card h3,
 .capture-dev-shell .panel__card h3 {
   margin: 0;
   font-size: 1.2rem;
 }
 
+.app-shell .panel__card h4,
 .capture-dev-shell .panel__card h4 {
   margin: 0 0 8px;
 }
 
+.app-shell .field,
 .capture-dev-shell .field {
   display: grid;
   gap: 6px;
@@ -224,6 +322,7 @@ code {
   color: var(--muted);
 }
 
+.app-shell .field__meta,
 .capture-dev-shell .field__meta {
   display: flex;
   align-items: center;
@@ -232,12 +331,15 @@ code {
   font-size: 0.78rem;
 }
 
+.app-shell .field__message,
 .capture-dev-shell .field__message {
   margin: 0;
   font-size: 0.78rem;
   color: var(--muted);
 }
 
+.app-shell .field input,
+.app-shell .field select,
 .capture-dev-shell .field input,
 .capture-dev-shell .field select {
   border: 1px solid rgba(148, 163, 184, 0.3);
@@ -248,6 +350,7 @@ code {
   font-family: "IBM Plex Mono", monospace;
 }
 
+.app-shell .toggle,
 .capture-dev-shell .toggle {
   display: flex;
   align-items: center;
@@ -255,6 +358,7 @@ code {
   font-size: 0.9rem;
 }
 
+.app-shell .panel__actions,
 .capture-dev-shell .panel__actions {
   display: flex;
   flex-wrap: wrap;
@@ -262,6 +366,7 @@ code {
   margin-top: 24px;
 }
 
+.app-shell .panel__hint,
 .capture-dev-shell .panel__hint {
   margin: 0;
   align-self: center;
@@ -269,6 +374,7 @@ code {
   color: var(--muted);
 }
 
+.app-shell .panel__status-message,
 .capture-dev-shell .panel__status-message {
   margin: 12px 0 0;
   font-size: 0.85rem;
@@ -276,6 +382,9 @@ code {
   color: var(--accent);
 }
 
+.app-shell .primary-button,
+.app-shell .secondary-button,
+.app-shell .ghost-button,
 .capture-dev-shell .primary-button,
 .capture-dev-shell .secondary-button,
 .capture-dev-shell .ghost-button {
@@ -287,28 +396,35 @@ code {
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
 
+.app-shell .primary-button,
 .capture-dev-shell .primary-button {
   background: linear-gradient(120deg, var(--accent), var(--accent-strong));
   color: white;
 }
 
+.app-shell .secondary-button,
 .capture-dev-shell .secondary-button {
   border-color: rgba(148, 163, 184, 0.4);
   background: rgba(15, 23, 42, 0.6);
   color: var(--ink);
 }
 
+.app-shell .ghost-button,
 .capture-dev-shell .ghost-button {
   border-color: rgba(148, 163, 184, 0.4);
   background: transparent;
   color: var(--muted);
 }
 
+.app-shell .ghost-button--compact,
 .capture-dev-shell .ghost-button--compact {
   padding: 6px 10px;
   font-size: 0.75rem;
 }
 
+.app-shell .primary-button:hover,
+.app-shell .secondary-button:hover,
+.app-shell .ghost-button:hover,
 .capture-dev-shell .primary-button:hover,
 .capture-dev-shell .secondary-button:hover,
 .capture-dev-shell .ghost-button:hover {
@@ -316,6 +432,7 @@ code {
   box-shadow: 0 10px 24px rgba(14, 165, 233, 0.2);
 }
 
+.app-shell .panel__status-grid,
 .capture-dev-shell .panel__status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -324,10 +441,30 @@ code {
   color: var(--muted);
 }
 
+.app-shell .panel__error,
 .capture-dev-shell .panel__error {
   margin-top: 16px;
   color: var(--warning);
   font-weight: 600;
+}
+
+/* Status pill modifiers for trigger types */
+.app-shell .status-pill--manual,
+.capture-dev-shell .status-pill--manual {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5f5;
+}
+
+.app-shell .status-pill--obs,
+.capture-dev-shell .status-pill--obs {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.app-shell .status-pill--capture,
+.capture-dev-shell .status-pill--capture {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
 }
 
 @keyframes fadeIn {
@@ -361,5 +498,9 @@ code {
 
   .capture-dev-shell .panel {
     padding: 24px;
+  }
+
+  .app-nav__content {
+    padding: 24px 20px;
   }
 }

@@ -1,38 +1,38 @@
 import React, { useState } from "react";
 import { CapturePanel } from "./components/CapturePanel";
 import { HotkeyMapper } from "./components/HotkeyMapper";
+import { StatusPanel } from "./components/StatusPanel";
+import { LogViewer } from "./components/LogViewer";
+import { ManualControlPanel } from "./components/ManualControlPanel";
+import { ModelProviderPanel } from "./components/ModelProviderPanel";
+import { SettingsPanel } from "./components/SettingsPanel";
 
 const tabs = ["Status", "Capture", "OBS", "VTube Studio", "Model", "Hotkey Mapper", "Settings", "Logs"] as const;
 
 type AppTab = (typeof tabs)[number];
 
 function App(): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<AppTab>("Hotkey Mapper");
+  const [activeTab, setActiveTab] = useState<AppTab>("Capture");
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <div className="flex h-10 shrink-0 items-center gap-6 border-b border-slate-200 bg-white px-4">
-        <div className="whitespace-nowrap text-sm font-bold text-slate-800">AuTuber</div>
-        <div className="flex items-center gap-1 overflow-x-auto">
+    <div className="app-shell">
+      <nav className="app-nav">
+        <div className="app-nav__brand">AuTuber</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto' }}>
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`rounded-md px-3 py-1 text-sm transition-colors ${
-                activeTab === tab
-                  ? "bg-blue-50 font-medium text-blue-700"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              }`}
+              className={`app-nav__tab ${activeTab === tab ? "app-nav__tab--active" : ""}`}
             >
               {tab}
             </button>
           ))}
         </div>
-      </div>
-      <div className="flex-1 overflow-auto">
-        {activeTab === "Hotkey Mapper" ? (
-          <HotkeyMapper />
-        ) : activeTab === "Capture" ? (
+      </nav>
+      <div className="app-nav__content">
+        {activeTab === "Status" && <StatusPanel />}
+        {activeTab === "Capture" && (
           <div className="capture-dev-shell">
             <header className="capture-dev-header">
               <div>
@@ -43,11 +43,13 @@ function App(): React.JSX.Element {
             </header>
             <CapturePanel />
           </div>
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-slate-400">{activeTab} coming soon</p>
-          </div>
         )}
+        {activeTab === "OBS" && <ManualControlPanel />}
+        {activeTab === "VTube Studio" && <HotkeyMapper />}
+        {activeTab === "Model" && <ModelProviderPanel />}
+        {activeTab === "Hotkey Mapper" && <p className="panel__hint">See VTube Studio tab.</p>}
+        {activeTab === "Settings" && <SettingsPanel />}
+        {activeTab === "Logs" && <LogViewer />}
       </div>
     </div>
   );
