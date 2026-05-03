@@ -1,6 +1,7 @@
 import type { ModelProviderConfig, ModelProviderId, OpenRouterOptions, VllmOptions } from "../../../shared/model.types";
-import { PROVIDER_OPENROUTER, PROVIDER_VLLM } from "../../../shared/model.types";
-import { settingsService } from "../settings/settings.service";
+import { PROVIDER_VLLM } from "../../../shared/model.types";
+
+const SELECTED_PROVIDER: ModelProviderId = PROVIDER_VLLM;
 
 const vllmOptions: VllmOptions = {
   enableThinking: false,
@@ -30,7 +31,7 @@ function buildProviders(): ModelProviderConfig[] {
       vllm: vllmOptions,
     },
     {
-      id: PROVIDER_OPENROUTER,
+      id: "openrouter" as const,
       label: "OpenRouter (Gemini 3.1 Flash Lite)",
       baseUrl: "https://openrouter.ai/api",
       model: "google/gemini-2.5-flash-lite",
@@ -53,26 +54,9 @@ export function getModelProviders(): ModelProviderConfig[] {
 }
 
 export function getSelectedModelProviderId(): ModelProviderId {
-  const stored = settingsService.getSettings().model.selectedProviderId;
-  const providers = buildProviders();
-  const selected = providers.find((p) => p.id === stored);
-
-  if (selected && selected.enabled) {
-    return stored;
-  }
-
-  const fallback = providers.find((p) => p.enabled);
-  if (fallback) {
-    console.warn(`Selected provider "${stored}" is not available, falling back to "${fallback.id}".`);
-    setSelectedModelProviderId(fallback.id);
-    return fallback.id;
-  }
-
-  return stored;
+  return SELECTED_PROVIDER;
 }
 
-export function setSelectedModelProviderId(providerId: ModelProviderId): void {
-  settingsService.updateModelConfig({
-    selectedProviderId: providerId,
-  });
+export function setSelectedModelProviderId(_providerId: ModelProviderId): void {
+  // Provider selection is now a code constant; this is a no-op for IPC compatibility.
 }

@@ -8,7 +8,7 @@ import type {
   SettingsUpdateRequest,
   VtsConnectionConfig,
 } from "../../../shared/types/config.types";
-import { PROVIDER_OPENROUTER } from "../../../shared/model.types";
+import { PROVIDER_VLLM } from "../../../shared/model.types";
 
 type ElectronStoreConstructor = new <T extends Record<string, unknown>>(options: {
   name: string;
@@ -38,7 +38,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     selectedScreenSourceId: null,
   },
   model: {
-    selectedProviderId: PROVIDER_OPENROUTER,
+    selectedProviderId: PROVIDER_VLLM,
   },
   monitor: {
     resumeOnLaunch: false,
