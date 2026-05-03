@@ -155,8 +155,14 @@ export function StatusPanel(): React.JSX.Element {
           <h4>VTube Studio Connection</h4>
           <p>Connected: {loading ? "-" : status?.connected ? "Yes" : "No"}</p>
           <p>Authenticated: {loading ? "-" : status?.authenticated ? "Yes" : "No"}</p>
-          <p>Hotkeys: {loading ? "-" : status?.hotkeyCount ?? 0}</p>
+          <p>Readiness: {loading ? "-" : status?.readinessState ?? "not_running"}</p>
           <p>Model: {loading ? "-" : status?.modelName ?? "Unknown"}</p>
+          <p>Hotkeys: {loading ? "-" : status?.hotkeyCount ?? 0}</p>
+          <p>Catalog Version: {loading ? "-" : status?.catalog.version ?? "-"}</p>
+          <p>Safe Auto Emotes: {loading ? "-" : status?.catalog.safeAutoCount ?? 0}</p>
+          <p>Suggest-only Emotes: {loading ? "-" : status?.catalog.suggestOnlyCount ?? 0}</p>
+          <p>Manual-only Emotes: {loading ? "-" : status?.catalog.manualOnlyCount ?? 0}</p>
+          <p>Automation Ready: {loading ? "-" : status?.readyForAutomation ? "Yes" : "No"}</p>
           <p>Activation Ready: {serviceStatus.vts.ready ? "Yes" : "No"}</p>
           {error || serviceStatus.vts.lastError ? (
             <p className="panel__error">{error ?? serviceStatus.vts.lastError}</p>

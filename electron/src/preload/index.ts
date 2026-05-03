@@ -45,6 +45,8 @@ import type {
 const fallbackVtsStatus: VtsStatus = {
   connectionState: "disconnected",
   authenticationState: "unauthenticated",
+  readinessState: "not_running",
+  readyForAutomation: false,
   connected: false,
   authenticated: false,
   config: {
@@ -57,6 +59,15 @@ const fallbackVtsStatus: VtsStatus = {
   modelName: null,
   modelId: null,
   hotkeyCount: 0,
+  catalog: {
+    version: null,
+    hotkeyHash: null,
+    totalEntries: 0,
+    safeAutoCount: 0,
+    suggestOnlyCount: 0,
+    manualOnlyCount: 0,
+    entries: [],
+  },
   lastError: null,
 };
 

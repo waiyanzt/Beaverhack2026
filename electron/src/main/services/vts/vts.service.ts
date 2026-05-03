@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import WebSocket from "ws";
 import { createId } from "../../utils/ids";
 import {
@@ -8,14 +9,27 @@ import {
 import { vtsHotkeySchema } from "../../../shared/schemas/vts.schema";
 import type { VtsConnectionConfig } from "../../../shared/types/config.types";
 import type {
+  VtsAutomationMode,
   VtsAuthenticationState,
+  VtsCatalogEntry,
+  VtsCatalogSummary,
   VtsConnectionState,
   VtsHotkey,
+  VtsReadinessState,
   VtsStatus,
 } from "../../../shared/types/vts.types";
 
 const VTS_API_NAME = "VTubeStudioPublicAPI";
 const VTS_API_VERSION = "1.0";
+const EMPTY_CATALOG: VtsCatalogSummary = {
+  version: null,
+  hotkeyHash: null,
+  totalEntries: 0,
+  safeAutoCount: 0,
+  suggestOnlyCount: 0,
+  manualOnlyCount: 0,
+  entries: [],
+};
 
 type VtsSocket = Pick<WebSocket, "close" | "on" | "send"> & {
   readyState: number;
@@ -57,6 +71,7 @@ export class VtsService {
   private modelName: string | null = null;
   private modelId: string | null = null;
   private disconnecting = false;
+  private catalog: VtsCatalogSummary = EMPTY_CATALOG;
 
   constructor(dependencies: VtsServiceDependencies = {}) {
     this.createSocket = dependencies.createSocket ?? ((url) => new WebSocket(url));
@@ -66,9 +81,12 @@ export class VtsService {
   }
 
   getStatus(): VtsStatus {
+    const readinessState = this.getReadinessState();
     return {
       connectionState: this.connectionState,
       authenticationState: this.authenticationState,
+      readinessState,
+      readyForAutomation: readinessState === "ready",
       connected: this.connectionState === "connected",
       authenticated: this.authenticationState === "authenticated",
       config: this.config,
@@ -76,12 +94,24 @@ export class VtsService {
       modelName: this.modelName,
       modelId: this.modelId,
       hotkeyCount: this.hotkeys.length,
+      catalog: this.getCatalog(),
       lastError: this.lastError,
     };
   }
 
   getCachedHotkeys(): VtsHotkey[] {
     return [...this.hotkeys];
+  }
+
+  getCatalog(): VtsCatalogSummary {
+    return {
+      ...this.catalog,
+      entries: [...this.catalog.entries],
+    };
+  }
+
+  resolveCatalogEntry(catalogId: string): VtsCatalogEntry | null {
+    return this.catalog.entries.find((entry) => entry.catalogId === catalogId) ?? null;
   }
 
   async connect(config: VtsConnectionConfig): Promise<VtsStatus> {
@@ -94,6 +124,7 @@ export class VtsService {
     this.authenticationState = "unauthenticated";
     this.lastError = null;
     this.hotkeys = [];
+    this.catalog = EMPTY_CATALOG;
     this.modelLoaded = false;
     this.modelName = null;
     this.modelId = null;
@@ -138,6 +169,7 @@ export class VtsService {
     this.connectionState = "disconnected";
     this.authenticationState = "unauthenticated";
     this.hotkeys = [];
+    this.catalog = EMPTY_CATALOG;
     this.modelLoaded = false;
     this.modelName = null;
     this.modelId = null;
@@ -198,6 +230,7 @@ export class VtsService {
           file: parsed.file ?? null,
         };
       });
+      this.catalog = this.buildCatalog(this.hotkeys);
 
       return [...this.hotkeys];
     } catch (error: unknown) {
@@ -250,6 +283,156 @@ export class VtsService {
     return `Unnamed Hotkey (${hotkeyId})`;
   }
 
+  private getReadinessState(): VtsReadinessState {
+    if (this.connectionState === "connecting") {
+      return "connecting";
+    }
+
+    if (this.connectionState !== "connected") {
+      return "not_running";
+    }
+
+    if (this.authenticationState === "authenticating") {
+      return "authenticating";
+    }
+
+    if (this.authenticationState !== "authenticated") {
+      return "unauthenticated";
+    }
+
+    if (!this.modelLoaded) {
+      return "no_model_loaded";
+    }
+
+    if (this.hotkeys.length === 0) {
+      return "no_hotkeys";
+    }
+
+    if (!this.catalog.version) {
+      return "catalog_building";
+    }
+
+    return "ready";
+  }
+
+  private buildCatalog(hotkeys: VtsHotkey[]): VtsCatalogSummary {
+    if (hotkeys.length === 0) {
+      return EMPTY_CATALOG;
+    }
+
+    const hotkeyHash = createHash("sha256")
+      .update(
+        hotkeys
+          .map((hotkey) => `${hotkey.hotkeyID}:${this.normalizeCatalogToken(hotkey.name)}`)
+          .sort()
+          .join("|"),
+      )
+      .digest("hex");
+    const version = `vts_catalog_${hotkeyHash.slice(0, 12)}`;
+    const seenCatalogIds = new Map<string, number>();
+    const entries = hotkeys.map((hotkey) => {
+      const normalizedName = this.normalizeCatalogToken(hotkey.name);
+      const intent = this.classifyIntent(normalizedName);
+      const autoMode = this.classifyAutomationMode(normalizedName, intent);
+      const catalogBase = intent.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || normalizedName || "hotkey";
+      const seenCount = (seenCatalogIds.get(catalogBase) ?? 0) + 1;
+      seenCatalogIds.set(catalogBase, seenCount);
+      const catalogId = seenCount === 1 ? catalogBase : `${catalogBase}_${seenCount}`;
+
+      return {
+        catalogId,
+        hotkeyId: hotkey.hotkeyID,
+        hotkeyName: hotkey.name,
+        normalizedName,
+        intent,
+        autoMode,
+      } satisfies VtsCatalogEntry;
+    });
+
+    return {
+      version,
+      hotkeyHash,
+      totalEntries: entries.length,
+      safeAutoCount: entries.filter((entry) => entry.autoMode === "safe_auto").length,
+      suggestOnlyCount: entries.filter((entry) => entry.autoMode === "suggest_only").length,
+      manualOnlyCount: entries.filter((entry) => entry.autoMode === "manual_only").length,
+      entries,
+    };
+  }
+
+  private normalizeCatalogToken(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  private classifyIntent(normalizedName: string): string {
+    if (this.matchesAny(normalizedName, ["wave", "hi", "hello", "greet"])) {
+      return "greeting";
+    }
+
+    if (this.matchesAny(normalizedName, ["laugh", "giggle", "smile", "happy"])) {
+      return "laugh";
+    }
+
+    if (this.matchesAny(normalizedName, ["surprise", "shock", "startle", "gasp"])) {
+      return "surprise";
+    }
+
+    if (this.matchesAny(normalizedName, ["angry", "mad"])) {
+      return "angry";
+    }
+
+    if (this.matchesAny(normalizedName, ["excited", "hype", "cheer"])) {
+      return "excited";
+    }
+
+    if (this.matchesAny(normalizedName, ["heart", "love", "blush"])) {
+      return "heart";
+    }
+
+    if (this.matchesAny(normalizedName, ["sleep", "yawn", "tired"])) {
+      return "sleep";
+    }
+
+    if (this.matchesAny(normalizedName, ["fly", "wings", "tail", "imp", "horn"])) {
+      return "prop_or_pose";
+    }
+
+    if (this.matchesAny(normalizedName, ["hide", "remove", "color", "hair", "cloth", "clothes", "outfit"])) {
+      return "appearance_change";
+    }
+
+    return normalizedName.replace(/\s+/g, "_") || "misc";
+  }
+
+  private classifyAutomationMode(normalizedName: string, intent: string): VtsAutomationMode {
+    if (intent === "appearance_change") {
+      return "manual_only";
+    }
+
+    if (this.matchesAny(normalizedName, ["untitled", "test"])) {
+      return "manual_only";
+    }
+
+    if (intent === "prop_or_pose") {
+      return "suggest_only";
+    }
+
+    if (["greeting", "laugh", "surprise", "angry", "excited", "heart", "sleep"].includes(intent)) {
+      return "safe_auto";
+    }
+
+    return "manual_only";
+  }
+
+  private matchesAny(value: string, needles: string[]): boolean {
+    return needles.some((needle) => value.includes(needle));
+  }
+
   private attachSocket(socket: VtsSocket): void {
     socket.on("message", (payload) => {
       this.handleMessage(payload);
@@ -260,6 +443,11 @@ export class VtsService {
       this.socket = null;
       this.connectionState = "disconnected";
       this.authenticationState = "unauthenticated";
+      this.hotkeys = [];
+      this.catalog = EMPTY_CATALOG;
+      this.modelLoaded = false;
+      this.modelName = null;
+      this.modelId = null;
 
       if (!this.disconnecting) {
         this.lastError = "VTube Studio closed the connection.";

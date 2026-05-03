@@ -54,11 +54,38 @@ export interface ModelControlVtsHotkey {
   name: string;
 }
 
+export interface ModelControlVtsCatalogItem {
+  catalogId: string;
+  label: string;
+  intent: string;
+  autoMode: "safe_auto" | "suggest_only" | "manual_only";
+}
+
+export interface ModelControlVtsCatalogState {
+  version: string | null;
+  readinessState:
+    | "not_running"
+    | "connecting"
+    | "unauthenticated"
+    | "authenticating"
+    | "authenticated"
+    | "no_model_loaded"
+    | "no_hotkeys"
+    | "catalog_building"
+    | "ready";
+  readyForAutomation: boolean;
+  safeAutoCount: number;
+  suggestOnlyCount: number;
+  manualOnlyCount: number;
+  candidates: ModelControlVtsCatalogItem[];
+}
+
 export interface ModelControlVtsState {
   connected: boolean;
   authenticated: boolean;
   currentModelName: string | null;
   availableHotkeys: ModelControlVtsHotkey[];
+  automationCatalog: ModelControlVtsCatalogState;
 }
 
 export interface ModelControlObsSourceState {

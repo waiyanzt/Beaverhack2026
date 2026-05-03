@@ -47,22 +47,46 @@ export class ActionValidatorService {
     }
 
     if (action.type === "vts.trigger_hotkey") {
-      if (!modelContext.services.vts.connected || !modelContext.services.vts.authenticated) {
+      const catalogState = modelContext.services.vts.automationCatalog;
+
+      if (!catalogState.readyForAutomation) {
         return {
           action,
           status: "blocked",
-          reason: "VTube Studio is not connected and authenticated.",
+          reason: `VTube Studio is not ready for automation (${catalogState.readinessState}).`,
         };
       }
 
-      const knownHotkey = modelContext.services.vts.availableHotkeys.find(
-        (hotkey) => hotkey.id === action.hotkeyId,
-      );
-      if (!knownHotkey) {
+      if (!action.catalogId) {
         return {
           action,
           status: "blocked",
-          reason: `Hotkey "${action.hotkeyId}" is not available in the current VTube Studio model.`,
+          reason: "VTS automation actions must use a catalogId from the current automation catalog.",
+        };
+      }
+
+      if (catalogState.version && action.catalogVersion && action.catalogVersion !== catalogState.version) {
+        return {
+          action,
+          status: "blocked",
+          reason: `VTS catalog version "${action.catalogVersion}" is stale. Current version is "${catalogState.version}".`,
+        };
+      }
+
+      const catalogItem = catalogState.candidates.find((candidate) => candidate.catalogId === action.catalogId);
+      if (!catalogItem) {
+        return {
+          action,
+          status: "blocked",
+          reason: `Catalog item "${action.catalogId}" is not available in the current safe automation candidates.`,
+        };
+      }
+
+      if (catalogItem.autoMode !== "safe_auto") {
+        return {
+          action,
+          status: "blocked",
+          reason: `Catalog item "${action.catalogId}" is not approved for automatic execution.`,
         };
       }
 
@@ -70,7 +94,7 @@ export class ActionValidatorService {
         return {
           action,
           status: "blocked",
-          reason: `Hotkey "${action.hotkeyId}" was already triggered recently and is being suppressed.`,
+          reason: `Catalog item "${action.catalogId}" was already triggered recently and is being suppressed.`,
         };
       }
     }

@@ -18,12 +18,44 @@ export const modelControlVtsHotkeySchema = z
   })
   .strict();
 
+export const modelControlVtsCatalogItemSchema = z
+  .object({
+    catalogId: z.string().trim().min(1),
+    label: z.string().trim().min(1),
+    intent: z.string().trim().min(1),
+    autoMode: z.enum(["safe_auto", "suggest_only", "manual_only"]),
+  })
+  .strict();
+
+export const modelControlVtsCatalogStateSchema = z
+  .object({
+    version: z.string().nullable(),
+    readinessState: z.enum([
+      "not_running",
+      "connecting",
+      "unauthenticated",
+      "authenticating",
+      "authenticated",
+      "no_model_loaded",
+      "no_hotkeys",
+      "catalog_building",
+      "ready",
+    ]),
+    readyForAutomation: z.boolean(),
+    safeAutoCount: z.number().int().nonnegative(),
+    suggestOnlyCount: z.number().int().nonnegative(),
+    manualOnlyCount: z.number().int().nonnegative(),
+    candidates: z.array(modelControlVtsCatalogItemSchema),
+  })
+  .strict();
+
 export const modelControlVtsStateSchema = z
   .object({
     connected: z.boolean(),
     authenticated: z.boolean(),
     currentModelName: z.string().nullable(),
     availableHotkeys: z.array(modelControlVtsHotkeySchema),
+    automationCatalog: modelControlVtsCatalogStateSchema,
   })
   .strict();
 

@@ -3,10 +3,14 @@ import { z } from "zod";
 export const triggerVtsHotkeyActionSchema = z.object({
   type: z.literal("vts.trigger_hotkey"),
   actionId: z.string(),
-  hotkeyId: z.string(),
+  catalogId: z.string().optional(),
+  catalogVersion: z.string().optional(),
+  hotkeyId: z.string().optional(),
   intensity: z.number().optional(),
   reason: z.string(),
   cooldownMs: z.number().optional(),
+}).refine((value) => typeof value.catalogId === "string" || typeof value.hotkeyId === "string", {
+  message: "VTS hotkey actions must include a catalogId or hotkeyId.",
 });
 
 export const setVtsParameterActionSchema = z.object({

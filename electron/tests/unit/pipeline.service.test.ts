@@ -41,6 +41,8 @@ describe("PipelineService", () => {
       getStatus: vi.fn().mockReturnValue({
         connectionState: "connected" as const,
         authenticationState: "authenticated" as const,
+        readinessState: "ready" as const,
+        readyForAutomation: true,
         connected: true,
         authenticated: true,
         config: {
@@ -53,11 +55,33 @@ describe("PipelineService", () => {
         modelName: "Example Model",
         modelId: "model-1",
         hotkeyCount: 1,
+        catalog: {
+          version: "vts_catalog_demo",
+          hotkeyHash: "demo",
+          totalEntries: 1,
+          safeAutoCount: 1,
+          suggestOnlyCount: 0,
+          manualOnlyCount: 0,
+          entries: [
+            {
+              catalogId: "laugh",
+              hotkeyId: "laugh",
+              hotkeyName: "Laugh",
+              normalizedName: "laugh",
+              intent: "laugh",
+              autoMode: "safe_auto" as const,
+            },
+          ],
+        },
         lastError: null,
       }),
       getCachedHotkeys: vi.fn().mockReturnValue([
         { hotkeyID: "laugh", name: "Laugh", type: "TriggerAnimation", description: null, file: null },
       ]),
+      resolveCatalogEntry: vi.fn().mockReturnValue({
+        catalogId: "laugh",
+        hotkeyId: "laugh",
+      }),
       triggerHotkey,
     };
     const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -72,7 +96,8 @@ describe("PipelineService", () => {
             {
               type: "vts.trigger_hotkey",
               actionId: "act_001",
-              hotkeyId: "laugh",
+              catalogId: "laugh",
+              catalogVersion: "vts_catalog_demo",
               reason: "Streamer made a funny joke and laugh reaction fits.",
               cooldownMs: 5000,
             },
@@ -111,13 +136,16 @@ describe("PipelineService", () => {
     }
 
     expect(result.modelContext.services.vts.availableHotkeys).toEqual([{ id: "laugh", name: "Laugh" }]);
+    expect(result.modelContext.services.vts.automationCatalog.candidates).toEqual([
+      { catalogId: "laugh", label: "Laugh", intent: "laugh", autoMode: "safe_auto" },
+    ]);
     expect(result.modelContext.services.policy.allowedActions).toContain("vts.trigger_hotkey");
     expect(result.reviewedActions[0]?.status).toBe("approved");
     expect(result.actionResults[0]?.status).toBe("executed");
     expect(result.modelContext.context.recentActions[0]).toMatchObject({
       type: "vts.trigger_hotkey",
-      target: "vts.hotkey:laugh",
-      label: "VTS hotkey: laugh",
+      target: "vts.catalog:laugh",
+      label: "VTS catalog: laugh",
     });
     expect(triggerHotkey).toHaveBeenCalledWith("laugh");
   });
@@ -147,6 +175,8 @@ describe("PipelineService", () => {
       getStatus: vi.fn().mockReturnValue({
         connectionState: "disconnected" as const,
         authenticationState: "unauthenticated" as const,
+        readinessState: "not_running" as const,
+        readyForAutomation: false,
         connected: false,
         authenticated: false,
         config: {
@@ -159,9 +189,19 @@ describe("PipelineService", () => {
         modelName: null,
         modelId: null,
         hotkeyCount: 0,
+        catalog: {
+          version: null,
+          hotkeyHash: null,
+          totalEntries: 0,
+          safeAutoCount: 0,
+          suggestOnlyCount: 0,
+          manualOnlyCount: 0,
+          entries: [],
+        },
         lastError: null,
       }),
       getCachedHotkeys: vi.fn().mockReturnValue([]),
+      resolveCatalogEntry: vi.fn().mockReturnValue(null),
       triggerHotkey: vi.fn(),
     };
     const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -233,6 +273,8 @@ describe("PipelineService", () => {
       getStatus: vi.fn().mockReturnValue({
         connectionState: "disconnected" as const,
         authenticationState: "unauthenticated" as const,
+        readinessState: "not_running" as const,
+        readyForAutomation: false,
         connected: false,
         authenticated: false,
         config: {
@@ -245,9 +287,19 @@ describe("PipelineService", () => {
         modelName: null,
         modelId: null,
         hotkeyCount: 0,
+        catalog: {
+          version: null,
+          hotkeyHash: null,
+          totalEntries: 0,
+          safeAutoCount: 0,
+          suggestOnlyCount: 0,
+          manualOnlyCount: 0,
+          entries: [],
+        },
         lastError: null,
       }),
       getCachedHotkeys: vi.fn().mockReturnValue([]),
+      resolveCatalogEntry: vi.fn().mockReturnValue(null),
       triggerHotkey: vi.fn(),
     };
     const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -345,6 +397,8 @@ describe("PipelineService", () => {
       getStatus: vi.fn().mockReturnValue({
         connectionState: "connected" as const,
         authenticationState: "authenticated" as const,
+        readinessState: "ready" as const,
+        readyForAutomation: true,
         connected: true,
         authenticated: true,
         config: {
@@ -357,11 +411,33 @@ describe("PipelineService", () => {
         modelName: "Example Model",
         modelId: "model-1",
         hotkeyCount: 1,
+        catalog: {
+          version: "vts_catalog_demo",
+          hotkeyHash: "demo",
+          totalEntries: 1,
+          safeAutoCount: 1,
+          suggestOnlyCount: 0,
+          manualOnlyCount: 0,
+          entries: [
+            {
+              catalogId: "greeting",
+              hotkeyId: "wave",
+              hotkeyName: "Wave",
+              normalizedName: "wave",
+              intent: "greeting",
+              autoMode: "safe_auto" as const,
+            },
+          ],
+        },
         lastError: null,
       }),
       getCachedHotkeys: vi.fn().mockReturnValue([
         { hotkeyID: "wave", name: "Wave", type: "TriggerAnimation", description: null, file: null },
       ]),
+      resolveCatalogEntry: vi.fn().mockReturnValue({
+        catalogId: "greeting",
+        hotkeyId: "wave",
+      }),
       triggerHotkey,
     };
     const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
@@ -376,7 +452,8 @@ describe("PipelineService", () => {
             {
               type: "vts.trigger_hotkey",
               actionId: "act_002",
-              hotkeyId: "wave",
+              catalogId: "greeting",
+              catalogVersion: "vts_catalog_demo",
               reason: "Streamer waved at the camera.",
             },
           ],

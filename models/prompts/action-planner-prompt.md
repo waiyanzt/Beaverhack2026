@@ -19,7 +19,8 @@ Planning priorities:
 
 Action-specific rules:
 
-- When triggering VTS hotkeys, use the exact `availableHotkeys[].id` value from the payload.
+- When triggering VTS hotkeys, use `services.vts.automationCatalog.candidates[].catalogId` plus the current `services.vts.automationCatalog.version`.
+- Do not choose raw VTS hotkey IDs directly when an automation catalog is present.
 - Use `recentModelActions` as short-term memory for continuity, including prior action reasons, safety reasoning, and execution results.
 - Do not trigger the same hotkey repeatedly without a clear reason.
 - Continue a reaction such as laughing only when the current observation still supports it.

@@ -50,7 +50,8 @@ export class LiveCaptureInputService {
         "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible or audible in this clip.",
         "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
         "Do not use audio to infer visual appearance such as hair, beard, room, posture, or whether a person is visible.",
-        "For demo behavior: use vts.trigger_hotkey with hotkeyId 'wave' when the streamer clearly waves or raises an open hand toward the camera, 'laugh' when the streamer clearly laughs or smiles broadly, and 'surprise' when the streamer is visibly startled.",
+        "When choosing a VTS reaction, use only services.vts.automationCatalog.candidates from the current model context.",
+        "Return vts.trigger_hotkey only with catalogId and catalogVersion from that automation catalog. Do not invent or reuse raw VTS hotkey IDs.",
         "Use exactly one noop action for idle, unclear, covered-camera, or ordinary speaking/sitting clips.",
       ],
       capture: {

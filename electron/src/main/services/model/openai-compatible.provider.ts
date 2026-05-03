@@ -147,9 +147,17 @@ function buildActionProperties(): Record<string, unknown> {
       description: "Short explanation of why this action was chosen.",
     },
     // VTS hotkey fields
+    catalogId: {
+      type: "string",
+      description: "For vts.trigger_hotkey: the catalogId from services.vts.automationCatalog.candidates for the reaction you want.",
+    },
+    catalogVersion: {
+      type: "string",
+      description: "For vts.trigger_hotkey: the current services.vts.automationCatalog.version value.",
+    },
     hotkeyId: {
       type: "string",
-      description: "For vts.trigger_hotkey: the semantic name/ID of the hotkey to trigger (e.g., 'wave', 'laugh', 'surprise').",
+      description: "Deprecated fallback for vts.trigger_hotkey. Prefer catalogId and catalogVersion instead of choosing raw VTS hotkey IDs directly.",
     },
     intensity: {
       type: "number",

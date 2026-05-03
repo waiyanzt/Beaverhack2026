@@ -193,6 +193,14 @@ describe("VtsService", () => {
     expect(statusAfterAuth.authenticated).toBe(true);
     expect(statusAfterAuth.modelName).toBe("Demo Model");
     expect(statusAfterAuth.hotkeyCount).toBe(1);
+    expect(statusAfterAuth.readinessState).toBe("ready");
+    expect(statusAfterAuth.readyForAutomation).toBe(true);
+    expect(statusAfterAuth.catalog.safeAutoCount).toBe(1);
+    expect(service.resolveCatalogEntry("greeting")).toMatchObject({
+      catalogId: "greeting",
+      hotkeyId: "wave",
+      autoMode: "safe_auto",
+    });
 
     const triggeredHotkeyId = await service.triggerHotkey("wave");
     expect(triggeredHotkeyId).toBe("wave");
@@ -372,5 +380,83 @@ describe("VtsService", () => {
         file: null,
       },
     ]);
+  });
+
+  it("classifies unsafe appearance-changing hotkeys as manual only", async () => {
+    const { VtsService } = await import("../../src/main/services/vts/vts.service");
+
+    const service = new VtsService({
+      createSocket: () =>
+        new MockSocket((request) => {
+          const requestID = String(request.requestID);
+          const messageType = String(request.messageType);
+
+          if (messageType === "AuthenticationTokenRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationTokenResponse",
+              data: {
+                authenticationToken: "token-123",
+              },
+            };
+          }
+
+          if (messageType === "AuthenticationRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationResponse",
+              data: {
+                authenticated: true,
+                reason: "ok",
+              },
+            };
+          }
+
+          if (messageType === "HotkeysInCurrentModelRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "HotkeysInCurrentModelResponse",
+              data: {
+                modelLoaded: true,
+                modelName: "Demo Model",
+                modelID: "model-1",
+                availableHotkeys: [
+                  {
+                    hotkeyID: "hair",
+                    name: "Hair Change",
+                    type: "TriggerAnimation",
+                    description: null,
+                    file: null,
+                  },
+                ],
+              },
+            };
+          }
+
+          throw new Error(`Unhandled message type: ${messageType}`);
+        }) as never,
+      settingsService: {
+        getSettings: () => config,
+        updateVtsConfig: (nextConfig) => ({
+          ...config,
+          vts: nextConfig,
+        }),
+      },
+    });
+
+    await service.connect(config.vts);
+    await service.authenticate();
+
+    expect(service.resolveCatalogEntry("appearance_change")).toMatchObject({
+      autoMode: "manual_only",
+      hotkeyId: "hair",
+    });
+    expect(service.getStatus().catalog.manualOnlyCount).toBe(1);
   });
 });

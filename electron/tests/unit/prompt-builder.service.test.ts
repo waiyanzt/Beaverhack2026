@@ -13,6 +13,15 @@ const modelContext: ModelControlContext = {
       authenticated: true,
       currentModelName: "Example Model",
       availableHotkeys: [{ id: "wave", name: "Wave" }],
+      automationCatalog: {
+        version: "vts_catalog_demo",
+        readinessState: "ready",
+        readyForAutomation: true,
+        safeAutoCount: 1,
+        suggestOnlyCount: 0,
+        manualOnlyCount: 0,
+        candidates: [{ catalogId: "greeting", label: "Wave", intent: "greeting", autoMode: "safe_auto" }],
+      },
     },
     obs: {
       connected: true,

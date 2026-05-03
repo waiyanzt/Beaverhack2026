@@ -13,6 +13,22 @@ const createBaseContext = (): ModelControlContext => ({
       authenticated: true,
       currentModelName: "zane1",
       availableHotkeys: [{ id: "hotkey_hi", name: "Hi!" }],
+      automationCatalog: {
+        version: "vts_catalog_demo",
+        readinessState: "ready",
+        readyForAutomation: true,
+        safeAutoCount: 1,
+        suggestOnlyCount: 0,
+        manualOnlyCount: 0,
+        candidates: [
+          {
+            catalogId: "greeting",
+            label: "Hi!",
+            intent: "greeting",
+            autoMode: "safe_auto",
+          },
+        ],
+      },
     },
     obs: {
       connected: true,
@@ -34,6 +50,27 @@ const createBaseContext = (): ModelControlContext => ({
 });
 
 describe("ActionValidatorService", () => {
+  it("blocks raw VTS hotkey actions that do not use the automation catalog", () => {
+    const validator = new ActionValidatorService(new CooldownService(() => Date.parse("2026-05-03T08:11:35.220Z")));
+    const context = createBaseContext();
+
+    const [reviewed] = validator.reviewActions(
+      [
+        {
+          type: "vts.trigger_hotkey",
+          actionId: "action_legacy",
+          hotkeyId: "hotkey_hi",
+          reason: "legacy format",
+        },
+      ],
+      context,
+      false,
+    );
+
+    expect(reviewed?.status).toBe("blocked");
+    expect(reviewed?.reason).toContain("must use a catalogId");
+  });
+
   it("blocks a repeated VTS hotkey inside the default repeat window", () => {
     const validator = new ActionValidatorService(new CooldownService(() => Date.parse("2026-05-03T08:11:35.220Z")));
     const context = createBaseContext();
@@ -41,8 +78,8 @@ describe("ActionValidatorService", () => {
       {
         actionId: "action_11",
         type: "vts.trigger_hotkey",
-        target: "vts.hotkey:hotkey_hi",
-        label: "VTS hotkey: hotkey_hi",
+        target: "vts.catalog:greeting",
+        label: "VTS catalog: greeting",
         timestamp: "2026-05-03T08:11:31.075Z",
       },
     ];
@@ -51,8 +88,9 @@ describe("ActionValidatorService", () => {
       [
         {
           type: "vts.trigger_hotkey",
-          actionId: "action_12",
-          hotkeyId: "hotkey_hi",
+        actionId: "action_12",
+          catalogId: "greeting",
+          catalogVersion: "vts_catalog_demo",
           reason: "repeat test",
         },
       ],
@@ -72,8 +110,8 @@ describe("ActionValidatorService", () => {
       {
         actionId: "action_11",
         type: "vts.trigger_hotkey",
-        target: "vts.hotkey:hotkey_hi",
-        label: "VTS hotkey: hotkey_hi",
+        target: "vts.catalog:greeting",
+        label: "VTS catalog: greeting",
         timestamp: "2026-05-03T08:11:31.075Z",
       },
     ];
@@ -82,8 +120,9 @@ describe("ActionValidatorService", () => {
       [
         {
           type: "vts.trigger_hotkey",
-          actionId: "action_12",
-          hotkeyId: "hotkey_hi",
+        actionId: "action_12",
+          catalogId: "greeting",
+          catalogVersion: "vts_catalog_demo",
           reason: "repeat test",
         },
       ],

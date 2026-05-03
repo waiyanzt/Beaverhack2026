@@ -58,7 +58,7 @@ export class CooldownService {
   public getActionTargetKey(action: LocalAction): string {
     switch (action.type) {
       case "vts.trigger_hotkey":
-        return `vts.hotkey:${action.hotkeyId}`;
+        return action.catalogId ? `vts.catalog:${action.catalogId}` : `vts.hotkey:${action.hotkeyId ?? "unknown"}`;
       case "vts.set_parameter":
         return `vts.parameter:${action.parameterId}`;
       case "obs.set_scene":
@@ -86,7 +86,9 @@ export class CooldownService {
   private getActionLabel(action: LocalAction): string {
     switch (action.type) {
       case "vts.trigger_hotkey":
-        return `VTS hotkey: ${action.hotkeyId}`;
+        return action.catalogId
+          ? `VTS catalog: ${action.catalogId}`
+          : `VTS hotkey: ${action.hotkeyId ?? "unknown"}`;
       case "vts.set_parameter":
         return `VTS parameter: ${action.parameterId} -> ${action.value}`;
       case "obs.set_scene":

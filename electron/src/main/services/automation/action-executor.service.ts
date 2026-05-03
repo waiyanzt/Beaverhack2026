@@ -6,8 +6,14 @@ interface ActionExecutorObsService {
   setSourceVisibility(sceneName: string, sourceName: string, visible: boolean): Promise<void>;
 }
 
+interface ActionExecutorVtsCatalogEntry {
+  catalogId: string;
+  hotkeyId: string;
+}
+
 interface ActionExecutorVtsService {
   triggerHotkey(hotkeyId: string): Promise<string>;
+  resolveCatalogEntry(catalogId: string): ActionExecutorVtsCatalogEntry | null;
 }
 
 export class ActionExecutorService {
@@ -89,9 +95,11 @@ export class ActionExecutorService {
     const { action } = reviewedAction;
 
     switch (action.type) {
-      case "vts.trigger_hotkey":
-        await this.vtsService.triggerHotkey(action.hotkeyId);
+      case "vts.trigger_hotkey": {
+        const hotkeyId = this.resolveVtsHotkeyId(action);
+        await this.vtsService.triggerHotkey(hotkeyId);
         return;
+      }
       case "obs.set_scene":
         await this.obsService.setCurrentScene(action.sceneName);
         return;
@@ -105,5 +113,23 @@ export class ActionExecutorService {
       case "vts.set_parameter":
         throw new Error("VTube Studio parameter actions are not implemented yet.");
     }
+  }
+
+  private resolveVtsHotkeyId(action: Extract<ReviewedAction["action"], { type: "vts.trigger_hotkey" }>): string {
+    if (action.catalogId) {
+      const catalogEntry = this.vtsService.resolveCatalogEntry(action.catalogId);
+
+      if (!catalogEntry) {
+        throw new Error(`VTS catalog item "${action.catalogId}" is no longer available.`);
+      }
+
+      return catalogEntry.hotkeyId;
+    }
+
+    if (action.hotkeyId) {
+      return action.hotkeyId;
+    }
+
+    throw new Error("VTS hotkey action is missing both catalogId and hotkeyId.");
   }
 }
