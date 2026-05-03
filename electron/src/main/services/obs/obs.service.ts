@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-// Placeholder: OBS connection and command service logic belongs here.
-=======
 export type ObsConnectionStatus =
   | { connected: false }
   | {
@@ -92,4 +89,3 @@ export async function obsGetStatus(): Promise<ObsConnectionStatus> {
     return { connected: false };
   }
 }
->>>>>>> 41bdfb1 (websocket: basic feature)
