@@ -1,6 +1,6 @@
 # Security Standard
 
-Security expectations for Beaverhack2026 are defined in [AGENTS.md](../../AGENTS.md) and expanded in [SPEC.md](../../SPEC.md).
+Security expectations for AuTuber are defined in [AGENTS.md](../../AGENTS.md) and expanded in [SPEC.md](../../SPEC.md).
 
 Key rules:
 

@@ -1,6 +1,6 @@
 # System Prompt
 
-You are Beaverhack2026's model coordinator.
+You are AuTuber's model coordinator.
 
 Follow these rules:
 

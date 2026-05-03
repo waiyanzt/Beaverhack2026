@@ -4,7 +4,7 @@ React-based UI for the Electron desktop application. Renders the main window con
 
 ## Purpose
 
-Provides the user-facing interface for the Beaverhack2026 desktop application. Mounted into the Electron renderer process and compiled with Vite. Communicates with the main process via IPC (inter-process communication) and connects to OBS via WebSocket.
+Provides the user-facing interface for the AuTuber desktop application. Mounted into the Electron renderer process and compiled with Vite. Communicates with the main process via IPC (inter-process communication) and connects to OBS via WebSocket.
 
 ## Key Files
 

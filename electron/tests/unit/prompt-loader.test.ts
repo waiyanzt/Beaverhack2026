@@ -10,7 +10,7 @@ describe("prompt-loader", () => {
     const prompt = loadPrompt("system");
 
     expect(prompt.name).toBe("system");
-    expect(prompt.content).toContain("Beaverhack2026's model coordinator");
+    expect(prompt.content).toContain("AuTuber's model coordinator");
   });
 
   it("loads all prompts", () => {
