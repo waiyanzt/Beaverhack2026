@@ -26,18 +26,21 @@ export class PipelineService {
 
   public async analyzeNow(request: AutomationAnalyzeNowRequest = {}): Promise<AutomationAnalyzeNowResult> {
     try {
-      const baseModelContext = await this.observationBuilder.buildModelContext({
-        tickId: createId("tick"),
-        transcript: request.transcript,
-        allowObsActions: request.allowObsActions ?? true,
-        recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
-      });
-      const modelContext = request.useLatestCapture
+      const useLatestCapture = request.useLatestCapture ?? false;
+      const [baseModelContext, liveCaptureInput] = await Promise.all([
+        this.observationBuilder.buildModelContext({
+          tickId: createId("tick"),
+          transcript: request.transcript,
+          allowObsActions: request.allowObsActions ?? true,
+          recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
+        }),
+        useLatestCapture
+          ? this.liveCaptureInputService.buildPromptInput(request.captureWindowMs ?? 2_000)
+          : Promise.resolve(undefined),
+      ]);
+      const modelContext = useLatestCapture
         ? this.buildLivePromptContext(baseModelContext)
         : baseModelContext;
-      const liveCaptureInput = request.useLatestCapture
-        ? await this.liveCaptureInputService.buildPromptInput(request.captureWindowMs ?? 2_000)
-        : undefined;
       const prompt = this.promptBuilder.buildMessages(modelContext, liveCaptureInput);
       const modelResult = await this.modelRouter.requestActionPlan(prompt.messages);
 

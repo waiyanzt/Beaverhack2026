@@ -52,6 +52,7 @@ export const logEventActionSchema = z.object({
   actionId: z.string(),
   level: z.enum(["debug", "info", "warn", "error"]),
   message: z.string(),
+  reason: z.string(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

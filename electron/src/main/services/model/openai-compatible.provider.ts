@@ -89,7 +89,6 @@ function stripMarkdownCodeBlocks(text: string): string {
 function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
   const parts: string[] = [];
   let imageCount = 0;
-  let videoCount = 0;
   let audioCount = 0;
 
   for (const message of messages) {
@@ -104,8 +103,6 @@ function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
           textParts.push(part.text);
         } else if (part.type === "image_url") {
           imageCount++;
-        } else if (part.type === "video_url") {
-          videoCount++;
         } else if (part.type === "audio_url") {
           audioCount++;
         }
@@ -118,7 +115,6 @@ function summarizeMessagesForLog(messages: OpenAICompatibleMessage[]): string {
 
   const mediaParts: string[] = [];
   if (imageCount > 0) mediaParts.push(imageCount === 1 ? "1 image" : `${imageCount} images`);
-  if (videoCount > 0) mediaParts.push(videoCount === 1 ? "1 video" : `${videoCount} videos`);
   if (audioCount > 0) mediaParts.push(audioCount === 1 ? "1 audio" : `${audioCount} audio clips`);
 
   return `${parts.join(" ")}${mediaParts.length > 0 ? ` [${mediaParts.join(", ")}]` : ""}`;
@@ -496,10 +492,6 @@ export class OpenAICompatibleProvider {
         };
       }
 
-      if (vllm.useAudioInVideo !== undefined) {
-        extra.mm_processor_kwargs = { use_audio_in_video: vllm.useAudioInVideo };
-      }
-
       if (Object.keys(extra).length > 0) {
         request = { ...request, ...extra };
       }
@@ -715,10 +707,6 @@ export class OpenAICompatibleProvider {
         };
       }
 
-      if (vllm.useAudioInVideo !== undefined) {
-        extra.mm_processor_kwargs = { use_audio_in_video: vllm.useAudioInVideo };
-      }
-
       if (Object.keys(extra).length > 0) {
         request = { ...request, ...extra };
       }
@@ -758,6 +746,8 @@ export class OpenAICompatibleProvider {
         content: "Invalid JSON from model provider.",
       };
     }
+
+    const usage = extractUsage(rawBody);
 
     const parsed = toolCallResponseSchema.safeParse(rawBody);
 

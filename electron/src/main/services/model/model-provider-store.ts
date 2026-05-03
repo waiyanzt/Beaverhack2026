@@ -4,7 +4,6 @@ import { settingsService } from "../settings/settings.service";
 
 const vllmOptions: VllmOptions = {
   enableThinking: false,
-  useAudioInVideo: true,
 };
 
 const openrouterOptions: OpenRouterOptions = {

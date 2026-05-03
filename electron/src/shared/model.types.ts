@@ -31,7 +31,6 @@ export interface VllmOptions {
   thinkingTokenBudget?: number;
   thinkingGracePeriod?: number;
   enableThinking?: boolean;
-  useAudioInVideo?: boolean;
 }
 
 export interface ModelProviderTestResult {
@@ -56,15 +55,6 @@ export interface OpenAICompatibleMessagePartImageUrl {
   image_url: OpenAICompatibleImageUrl;
 }
 
-export interface OpenAICompatibleVideoUrl {
-  url: string;
-}
-
-export interface OpenAICompatibleMessagePartVideoUrl {
-  type: "video_url";
-  video_url: OpenAICompatibleVideoUrl;
-}
-
 export interface OpenAICompatibleAudioUrl {
   url: string;
 }
@@ -77,7 +67,6 @@ export interface OpenAICompatibleMessagePartAudioUrl {
 export type OpenAICompatibleMessagePart =
   | OpenAICompatibleMessagePartText
   | OpenAICompatibleMessagePartImageUrl
-  | OpenAICompatibleMessagePartVideoUrl
   | OpenAICompatibleMessagePartAudioUrl;
 
 export interface OpenAICompatibleMessage {
@@ -120,7 +109,6 @@ export interface OpenAICompatibleChatRequest {
   max_tokens: number;
   stream: false;
   top_p?: number;
-  extra_body?: Record<string, unknown>;
 }
 
 export interface OpenAICompatibleToolCall {

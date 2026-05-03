@@ -6,6 +6,8 @@ import { OpenAICompatibleProvider } from "../../src/main/services/model/openai-c
 import { PROVIDER_OPENROUTER, PROVIDER_VLLM } from "../../src/shared/model.types";
 import type { ModelProviderConfig, OpenAICompatibleMessage } from "../../src/shared/model.types";
 import { loadPrompt } from "../../src/main/prompts/prompt-loader";
+import { extractFramesFromVideo } from "../../src/main/utils/media-conversion";
+import { encodeDataUrl } from "../../src/main/utils/base64";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFilePath);
@@ -31,7 +33,6 @@ async function main(): Promise<void> {
       thinkingTokenBudget: 16384,
       thinkingGracePeriod: 1024,
       enableThinking: true,
-      useAudioInVideo: false,
     },
   };
 
@@ -254,16 +255,18 @@ async function main(): Promise<void> {
 
   if (videoFileExists) {
     const videoBuffer = readFileSync(localVideoPath);
-    const videoBase64 = videoBuffer.toString("base64");
-    const videoMimeType = localVideoPath.endsWith(".webm") ? "video/webm" : "video/mp4";
-    const videoDataUrl = `data:${videoMimeType};base64,${videoBase64}`;
 
-    console.log("Scenario 4: Video observation");
+    console.log("Scenario 4: Image frames observation (vLLM)");
     console.log("Video size:", (videoBuffer.length / 1024 / 1024).toFixed(2), "MB");
-    console.log("Data URI length:", (videoDataUrl.length / 1024 / 1024).toFixed(2), "MB");
     console.log("---");
 
-    const videoObservation = {
+    const frames = await extractFramesFromVideo({ data: videoBuffer, mimeType: "video/mp4" }, 5, 500, 320, 15);
+    console.log("Extracted", frames.length, "frames");
+
+    const imageDataUrls = frames.map((f) => encodeDataUrl("image/jpeg", f.data));
+    console.log("Total image payload:", (imageDataUrls.reduce((s, d) => s + d.length, 0) / 1024).toFixed(1), "KB");
+
+    const observation4 = {
       observation: {
         obs: {
           connected: true,
@@ -296,12 +299,15 @@ async function main(): Promise<void> {
     };
 
     const userContent: OpenAICompatibleMessage["content"] = [
-      { type: "video_url", video_url: { url: videoDataUrl } },
+      ...imageDataUrls.map((url) => ({
+        type: "image_url" as const,
+        image_url: { url, detail: "low" as const },
+      })),
       {
-        type: "text",
+        type: "text" as const,
         text:
-          "The above is a short webcam video from a VTuber stream. Focus on the person's expression, gaze, posture, and whether they seem neutral, happy, tired, surprised, or otherwise emotionally engaged. If the clip does not clearly justify a reaction, return noop. Avoid verbose explanations. Observation data:\n" +
-          JSON.stringify(videoObservation),
+          "The above are sequential webcam frames captured 500ms apart over ~2 seconds from a VTuber stream. Focus on the person's expression, gaze, posture, and whether they seem neutral, happy, tired, surprised, or otherwise emotionally engaged. If the frames do not clearly justify a reaction, return noop. Avoid verbose explanations. Observation data:\n" +
+          JSON.stringify(observation4),
       },
     ];
 
@@ -321,7 +327,7 @@ async function main(): Promise<void> {
       console.log(result4.content);
     }
 
-    results.push({ label: "Scenario 4 (video)", ok: result4.ok });
+    results.push({ label: "Scenario 4 (frames)", ok: result4.ok });
   } else {
     console.log("Scenario 4: Video file not found locally, skipping.");
     console.log("Expected:", localVideoPath);
@@ -331,16 +337,15 @@ async function main(): Promise<void> {
 
   if (videoFileExists) {
     const videoBuffer = readFileSync(localVideoPath);
-    const videoBase64 = videoBuffer.toString("base64");
-    const videoMimeType = localVideoPath.endsWith(".webm") ? "video/webm" : "video/mp4";
-    const videoDataUrl = `data:${videoMimeType};base64,${videoBase64}`;
 
-    console.log("Scenario 5: OpenRouter video observation");
+    console.log("Scenario 5: Image frames observation (OpenRouter)");
     console.log("Base URL:", openrouterConfig.baseUrl);
     console.log("Model:", openrouterConfig.model);
-    console.log("Video size:", (videoBuffer.length / 1024 / 1024).toFixed(2), "MB");
-    console.log("Data URI length:", (videoDataUrl.length / 1024 / 1024).toFixed(2), "MB");
     console.log("---");
+
+    const frames = await extractFramesFromVideo({ data: videoBuffer, mimeType: "video/mp4" }, 5, 500, 320, 15);
+    const imageDataUrls = frames.map((f) => encodeDataUrl("image/jpeg", f.data));
+    console.log("Extracted", frames.length, "frames, total payload:", (imageDataUrls.reduce((s, d) => s + d.length, 0) / 1024).toFixed(1), "KB");
 
     const openrouterObservation = {
       observation: {
@@ -375,11 +380,14 @@ async function main(): Promise<void> {
     };
 
     const openrouterUserContent: OpenAICompatibleMessage["content"] = [
-      { type: "video_url", video_url: { url: videoDataUrl } },
+      ...imageDataUrls.map((url) => ({
+        type: "image_url" as const,
+        image_url: { url, detail: "low" as const },
+      })),
       {
-        type: "text",
+        type: "text" as const,
         text:
-          "The above is a short webcam video from a VTuber stream. Focus on the person's expression, gaze, posture, and whether they seem neutral, happy, tired, surprised, or otherwise emotionally engaged. If the clip does not clearly justify a reaction, return noop. Avoid verbose explanations. Observation data:\n" +
+          "The above are sequential webcam frames captured 500ms apart over ~2 seconds from a VTuber stream. Focus on the person's expression, gaze, posture, and whether they seem neutral, happy, tired, surprised, or otherwise emotionally engaged. If the frames do not clearly justify a reaction, return noop. Avoid verbose explanations. Observation data:\n" +
           JSON.stringify(openrouterObservation),
       },
     ];
@@ -400,7 +408,7 @@ async function main(): Promise<void> {
       console.log(result5.content);
     }
 
-    results.push({ label: "Scenario 5 (OpenRouter video)", ok: result5.ok });
+    results.push({ label: "Scenario 5 (OpenRouter frames)", ok: result5.ok });
   } else {
     console.log("Scenario 5: Video file not found locally, skipping OpenRouter test.");
     console.log("Expected:", localVideoPath);

@@ -241,3 +241,56 @@ export const convertAudioClipToWav = async (clip: MediaClipInput): Promise<Buffe
     await rm(tempDir, { recursive: true, force: true });
   }
 };
+
+export interface ExtractedFrame {
+  index: number;
+  timestampMs: number;
+  data: Buffer;
+}
+
+export const extractFramesFromVideo = async (
+  clip: MediaClipInput,
+  frameCount: number = 5,
+  intervalMs: number = 500,
+  maxWidth: number = 320,
+  jpegQuality: number = 15,
+): Promise<ExtractedFrame[]> => {
+  const tempDir = await mkdtemp(join(tmpdir(), "autuber-frames-"));
+
+  try {
+    const inputPath = join(tempDir, `input.${getMediaExtension(clip.mimeType)}`);
+    await writeFile(inputPath, clip.data);
+
+    const ffmpegArgs = [
+      "-y",
+      "-i", inputPath,
+      "-vf", `scale=${maxWidth}:-2`,
+      "-q:v", String(jpegQuality),
+    ];
+
+    for (let i = 0; i < frameCount; i++) {
+      const timestampSec = (i * intervalMs) / 1000;
+      const outputPath = join(tempDir, `frame_${String(i).padStart(3, "0")}.jpg`);
+      ffmpegArgs.push(
+        "-ss", String(timestampSec),
+        "-frames:v", "1",
+        outputPath,
+      );
+    }
+
+    await runFfmpeg(ffmpegArgs);
+
+    const readPromises = Array.from({ length: frameCount }, (_, i) => {
+      const framePath = join(tempDir, `frame_${String(i).padStart(3, "0")}.jpg`);
+      return readFile(framePath)
+        .then((data) => ({ index: i, timestampMs: i * intervalMs, data }))
+        .catch(() => null);
+    });
+
+    const results = await Promise.all(readPromises);
+
+    return results.filter((r): r is ExtractedFrame => r !== null);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+};

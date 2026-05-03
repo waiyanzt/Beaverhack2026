@@ -51,14 +51,22 @@ const modelContext: ModelControlContext = {
 };
 
 describe("PromptBuilderService", () => {
-  it("keeps live video attached and collapses live instructions into a single text part", () => {
+  it("keeps live images attached and collapses live instructions into a single text part", () => {
     const service = new PromptBuilderService();
     const liveCaptureInput: LiveCapturePromptInput = {
       parts: [
         {
-          type: "video_url",
-          video_url: {
-            url: "data:video/mp4;base64,Zm9v",
+          type: "image_url",
+          image_url: {
+            url: "data:image/jpeg;base64,Zm9v",
+            detail: "low",
+          },
+        },
+        {
+          type: "image_url",
+          image_url: {
+            url: "data:image/jpeg;base64,YmFy",
+            detail: "low",
           },
         },
         {
@@ -67,11 +75,11 @@ describe("PromptBuilderService", () => {
         },
       ],
       promptTextBytes: 16,
-      mediaDataUrlBytes: 24,
+      mediaDataUrlBytes: 48,
       sourceWindowKey: "camera:1",
       sourceClipCount: 1,
       modelMediaSha256: "abc123",
-      modelMediaDataUrl: "data:video/mp4;base64,Zm9v",
+      modelMediaDataUrl: "data:image/jpeg;base64,Zm9v",
       mediaStartMs: Date.parse("2026-05-03T08:00:00.000Z"),
       mediaEndMs: Date.parse("2026-05-03T08:00:02.000Z"),
     };
@@ -85,21 +93,23 @@ describe("PromptBuilderService", () => {
       return;
     }
 
-    expect(userMessage.content).toHaveLength(2);
+    expect(userMessage.content).toHaveLength(3);
     expect(userMessage.content[0]).toEqual({
-      type: "video_url",
-      video_url: {
-        url: "data:video/mp4;base64,Zm9v",
+      type: "image_url",
+      image_url: {
+        url: "data:image/jpeg;base64,Zm9v",
+        detail: "low",
       },
     });
-    expect(userMessage.content[1]?.type).toBe("text");
-    if (userMessage.content[1]?.type !== "text") {
+    expect(userMessage.content[1]?.type).toBe("image_url");
+    expect(userMessage.content[2]?.type).toBe("text");
+    if (userMessage.content[2]?.type !== "text") {
       return;
     }
 
-    expect(userMessage.content[1].text).toContain("Treat the attached video as the primary evidence");
-    expect(userMessage.content[1].text).toContain("{\"capture\":true}");
-    expect(userMessage.content[1].text).toContain("\"liveObservation\": true");
-    expect(result.requestDebug.mediaDataUrlBytes).toBe(24);
+    expect(userMessage.content[2].text).toContain("Treat the attached images as the primary evidence");
+    expect(userMessage.content[2].text).toContain("{\"capture\":true}");
+    expect(userMessage.content[2].text).toContain("\"liveObservation\":true");
+    expect(result.requestDebug.mediaDataUrlBytes).toBe(48);
   });
 });

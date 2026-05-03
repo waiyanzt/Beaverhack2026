@@ -500,9 +500,10 @@ describe("PipelineService", () => {
       buildPromptInput: vi.fn().mockResolvedValue({
         parts: [
           {
-            type: "video_url",
-            video_url: {
-              url: "data:video/mp4;base64,Zm9v",
+            type: "image_url",
+            image_url: {
+              url: "data:image/jpeg;base64,Zm9v",
+              detail: "low",
             },
           },
           {
@@ -512,10 +513,10 @@ describe("PipelineService", () => {
         ],
         promptTextBytes: 16,
         mediaDataUrlBytes: 24,
-        sourceWindowKey: "camera:1:2000:video/webm:audio:none",
+        sourceWindowKey: "camera:1:2000:video/webm",
         sourceClipCount: 1,
         modelMediaSha256: "abc123",
-        modelMediaDataUrl: "data:video/mp4;base64,Zm9v",
+        modelMediaDataUrl: "data:image/jpeg;base64,Zm9v",
         mediaStartMs: Date.parse("2026-05-02T10:00:00.000Z"),
         mediaEndMs: Date.parse("2026-05-02T10:00:02.000Z"),
       }),
@@ -567,7 +568,7 @@ describe("PipelineService", () => {
     expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000);
     expect(result.modelContext.services.policy.allowedActions).not.toContain("obs.set_scene");
     expect(result.modelContext.services.policy.allowedActions).toContain("vts.trigger_hotkey");
-    expect(result.requestDebug.modelMediaDataUrl).toBe("data:video/mp4;base64,Zm9v");
+    expect(result.requestDebug.modelMediaDataUrl).toBe("data:image/jpeg;base64,Zm9v");
     expect(promptPayload.modelContext.context.recentActions).toEqual([]);
     expect(promptPayload.modelContext.context.recentModelActions).toEqual([]);
     expect(triggerHotkey).toHaveBeenCalledWith("wave");

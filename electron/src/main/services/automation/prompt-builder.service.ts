@@ -33,7 +33,7 @@ export class PromptBuilderService {
     };
 
     if (!liveCaptureInput) {
-      const userContent = JSON.stringify(basePrompt, null, 2);
+      const userContent = JSON.stringify(basePrompt);
 
       return {
         messages: [
@@ -64,8 +64,6 @@ export class PromptBuilderService {
         ...basePrompt,
         liveObservation: true,
       },
-      null,
-      2,
     );
     const mediaParts = liveCaptureInput.parts.filter((part) => part.type !== "text");
     const livePromptTexts = liveCaptureInput.parts
@@ -73,8 +71,8 @@ export class PromptBuilderService {
       .map((part) => part.text.trim())
       .filter((text) => text.length > 0);
     const userText = [
-      "Treat the attached video as the primary evidence for this decision.",
-      "If the video contradicts recentModelActions or prior context, trust the video.",
+      "Treat the attached images as the primary evidence for this decision. These are sequential frames from a 2-second webcam clip captured ~200ms apart.",
+      "If the images contradict recentModelActions or prior context, trust the images.",
       ...livePromptTexts,
       modelContextText,
     ].join("\n\n");

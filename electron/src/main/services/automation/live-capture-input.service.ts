@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { OpenAICompatibleMessagePart } from "../../../shared/model.types";
 import { encodeDataUrl } from "../../utils/base64";
-import { convertVideoAndAudioClipsToMp4, convertVideoClipToMp4 } from "../../utils/media-conversion";
+import { extractFramesFromVideo } from "../../utils/media-conversion";
 
 type RawClipData = {
   timestampMs: number;
@@ -27,12 +27,17 @@ export interface LiveCapturePromptInput {
   mediaEndMs: number | null;
 }
 
+const FRAME_COUNT = 5;
+const FRAME_INTERVAL_MS = 500;
+const FRAME_WIDTH = 320;
+const FRAME_JPEG_QUALITY = 15;
+
 const toIso = (timestampMs: number): string => new Date(timestampMs).toISOString();
 
 export class LiveCaptureInputService {
-  private readonly convertedClipCache = new Map<string, { dataUrl: string; timestampMs: number; durationMs: number }>();
+  private readonly frameCache = new Map<string, { frames: Array<{ index: number; timestampMs: number; dataUrl: string }>; timestampMs: number; durationMs: number }>();
 
-  public constructor(private readonly captureProvider: LiveCaptureProvider) {}
+  public constructor(private readonly captureProvider: LiveCaptureProvider) { }
 
   public async buildPromptInput(windowMs: number): Promise<LiveCapturePromptInput> {
     const cameraClip = this.getFreshRawClip("camera", windowMs);
@@ -41,53 +46,59 @@ export class LiveCaptureInputService {
       throw new Error("No fresh camera capture clip is available for automation.");
     }
 
-    const audioClip = this.getBestMatchingAudioClip(cameraClip, windowMs);
-    const modelClip = await this.getModelVideoClip(cameraClip, audioClip);
+    const frames = await this.getModelFrames(cameraClip);
+    const frameParts: OpenAICompatibleMessagePart[] = frames.map((f) => ({
+      type: "image_url" as const,
+      image_url: {
+        url: f.dataUrl,
+        detail: "low" as const,
+      },
+    }));
+
     const promptPayload = {
       task: [
-        "Analyze only this current webcam/audio clip as a stateless live observation.",
-        "First, transcribe the full audible speech from this clip into response.audioTranscript before deciding actions. Use '[no speech]' if no speech is audible and '[inaudible]' if speech is present but unclear.",
-        "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible or audible in this clip.",
+        "Analyze these sequential webcam frames (captured 500ms apart over ~2 seconds) as a stateless live observation.",
+        "Use the sequence of frames to infer motion, expression changes, and context over time.",
+        "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible in the frames.",
         "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
-        "Do not use audio to infer visual appearance such as hair, beard, room, posture, or whether a person is visible.",
+        "Do not infer visual appearance from audio or other non-visual cues.",
         "When choosing a VTS reaction, use only services.vts.automationCatalog.candidates from the current model context.",
         "Use each candidate's user-provided label and description to decide the reaction.",
         "Return vts.trigger_hotkey only with catalogId and catalogVersion from that automation catalog. Do not invent or reuse raw VTS hotkey IDs.",
-        "Use exactly one noop action for idle, unclear, covered-camera, or ordinary speaking/sitting clips.",
+        "Use exactly one noop action for idle, unclear, covered-camera, or ordinary sitting clips.",
       ],
       capture: {
         windowMs,
-        layout: "single_fresh_webcam_mp4",
+        layout: "sequential_webcam_frames",
+        frameCount: frames.length,
+        frameIntervalMs: FRAME_INTERVAL_MS,
         camera: this.toRawClipSummary(cameraClip),
-        audio: {
-          ...this.toRawClipSummary(audioClip),
-          packaging: audioClip ? "muxed_into_webcam_mp4" : "not_available",
+        modelMedia: {
+          type: "image_frames" as const,
+          frameCount: frames.length,
         },
-        modelMedia: this.toModelClipSummary(modelClip),
       },
     };
 
-    const promptText = JSON.stringify(promptPayload, null, 2);
+    const promptText = JSON.stringify(promptPayload);
+    const totalMediaBytes = frames.reduce((sum, f) => sum + Buffer.byteLength(f.dataUrl, "utf8"), 0);
 
     return {
       parts: [
-        {
-          type: "video_url",
-          video_url: {
-            url: modelClip.dataUrl,
-          },
-        },
+        ...frameParts,
         {
           type: "text",
           text: promptText,
         },
       ],
       promptTextBytes: Buffer.byteLength(promptText, "utf8"),
-      mediaDataUrlBytes: Buffer.byteLength(modelClip.dataUrl, "utf8"),
-      sourceWindowKey: `${this.getClipCacheKey("camera", cameraClip)}:${this.getClipCacheKey("audio", audioClip)}`,
-      sourceClipCount: audioClip ? 2 : 1,
-      modelMediaSha256: createHash("sha256").update(modelClip.dataUrl).digest("hex"),
-      modelMediaDataUrl: modelClip.dataUrl,
+      mediaDataUrlBytes: totalMediaBytes,
+      sourceWindowKey: this.getClipCacheKey("camera", cameraClip),
+      sourceClipCount: 1,
+      modelMediaSha256: createHash("sha256")
+        .update(cameraClip.data)
+        .digest("hex"),
+      modelMediaDataUrl: frames.length > 0 ? frames[0].dataUrl : null,
       mediaStartMs: cameraClip.timestampMs - cameraClip.durationMs,
       mediaEndMs: cameraClip.timestampMs,
     };
@@ -103,71 +114,43 @@ export class LiveCaptureInputService {
     return clip;
   }
 
-  private getBestMatchingAudioClip(cameraClip: RawClipData, windowMs: number): RawClipData | null {
-    const recentAudioClips = this.captureProvider.getRecentRawClips?.("audio", windowMs) ?? [];
-
-    if (recentAudioClips.length === 0) {
-      return this.getFreshRawClip("audio", windowMs);
-    }
-
-    const cameraStartMs = cameraClip.timestampMs - cameraClip.durationMs;
-    const cameraEndMs = cameraClip.timestampMs;
-    let bestClip: RawClipData | null = null;
-    let bestOverlapMs = -1;
-
-    for (const clip of recentAudioClips) {
-      if (Date.now() - clip.timestampMs > windowMs + 2_000) {
-        continue;
-      }
-
-      const clipStartMs = clip.timestampMs - clip.durationMs;
-      const clipEndMs = clip.timestampMs;
-      const overlapMs = Math.min(cameraEndMs, clipEndMs) - Math.max(cameraStartMs, clipStartMs);
-
-      if (overlapMs <= 0) {
-        continue;
-      }
-
-      if (overlapMs > bestOverlapMs || (overlapMs === bestOverlapMs && clip.timestampMs > (bestClip?.timestampMs ?? 0))) {
-        bestClip = clip;
-        bestOverlapMs = overlapMs;
-      }
-    }
-
-    return bestClip ?? this.getFreshRawClip("audio", windowMs);
-  }
-
-  private async getModelVideoClip(
-    cameraClip: RawClipData,
-    audioClip: RawClipData | null,
-  ): Promise<{ dataUrl: string; timestampMs: number; durationMs: number }> {
-    const cacheKey = audioClip
-      ? `camera:${cameraClip.timestampMs}:${cameraClip.durationMs}:${cameraClip.mimeType}:audio:${audioClip.timestampMs}:${audioClip.durationMs}:${audioClip.mimeType}`
-      : `camera:${cameraClip.timestampMs}:${cameraClip.durationMs}:${cameraClip.mimeType}`;
-    const cached = this.convertedClipCache.get(cacheKey);
+  private async getModelFrames(cameraClip: RawClipData): Promise<Array<{ index: number; timestampMs: number; dataUrl: string }>> {
+    const cacheKey = `${cameraClip.timestampMs}:${cameraClip.durationMs}:${cameraClip.mimeType}`;
+    const cached = this.frameCache.get(cacheKey);
 
     if (cached) {
-      return cached;
+      return cached.frames;
     }
 
-    const data = audioClip
-      ? await convertVideoAndAudioClipsToMp4(cameraClip, audioClip)
-      : await convertVideoClipToMp4(cameraClip);
-    const modelClip = {
+    const rawFrames = await extractFramesFromVideo(
+      { data: cameraClip.data, mimeType: cameraClip.mimeType },
+      FRAME_COUNT,
+      FRAME_INTERVAL_MS,
+      FRAME_WIDTH,
+      FRAME_JPEG_QUALITY,
+    );
+
+    const frames = rawFrames.map((f) => ({
+      index: f.index,
+      timestampMs: f.timestampMs,
+      dataUrl: encodeDataUrl("image/jpeg", f.data),
+    }));
+
+    const result = {
+      frames,
       timestampMs: cameraClip.timestampMs,
       durationMs: cameraClip.durationMs,
-      dataUrl: encodeDataUrl("video/mp4", data),
     };
 
-    this.convertedClipCache.set(cacheKey, modelClip);
-    if (this.convertedClipCache.size > 12) {
-      const oldestKey = this.convertedClipCache.keys().next().value;
+    this.frameCache.set(cacheKey, result);
+    if (this.frameCache.size > 12) {
+      const oldestKey = this.frameCache.keys().next().value;
       if (oldestKey) {
-        this.convertedClipCache.delete(oldestKey);
+        this.frameCache.delete(oldestKey);
       }
     }
 
-    return modelClip;
+    return frames;
   }
 
   private getClipCacheKey(kind: "camera" | "audio", clip: RawClipData | null): string {
@@ -187,17 +170,6 @@ export class LiveCaptureInputService {
       capturedAt: clip ? toIso(clip.timestampMs) : null,
       durationMs: clip?.durationMs ?? null,
       mimeType: clip?.mimeType ?? null,
-    };
-  }
-
-  private toModelClipSummary(clip: { dataUrl: string; timestampMs: number; durationMs: number }): Record<string, unknown> {
-    return {
-      available: true,
-      windowStartedAt: toIso(clip.timestampMs - clip.durationMs),
-      windowEndedAt: toIso(clip.timestampMs),
-      capturedAt: toIso(clip.timestampMs),
-      durationMs: clip.durationMs,
-      mimeType: "video/mp4",
     };
   }
 }

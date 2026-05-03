@@ -3,12 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 import { LiveCaptureInputService } from "../../src/main/services/automation/live-capture-input.service";
 
 vi.mock("../../src/main/utils/media-conversion", () => ({
-  convertVideoAndAudioClipsToMp4: vi.fn(async () => Buffer.from("muxed-mp4")),
-  convertVideoClipToMp4: vi.fn(async () => Buffer.from("video-only-mp4")),
+  extractFramesFromVideo: vi.fn(async () =>
+    Array.from({ length: 5 }, (_, i) => ({
+      index: i,
+      timestampMs: i * 500,
+      data: Buffer.from(`frame-${i}`),
+    })),
+  ),
 }));
 
 describe("LiveCaptureInputService", () => {
-  it("selects the audio clip with the best overlap for the current camera clip", async () => {
+  it("extracts sequential frames from a camera clip and returns image_url parts", async () => {
     const nowMs = Date.now();
     const provider = {
       getLatestClip: (kind: "camera" | "audio") => {
@@ -21,39 +26,28 @@ describe("LiveCaptureInputService", () => {
           };
         }
 
-        return {
-          timestampMs: nowMs + 600,
-          durationMs: 2_000,
-          mimeType: "audio/webm;codecs=opus",
-          data: Buffer.from("latest-audio"),
-        };
+        return null;
       },
-      getRecentRawClips: (kind: "camera" | "audio") => {
-        if (kind === "camera") {
-          return [];
-        }
-
-        return [
-          {
-            timestampMs: nowMs - 1_300,
-            durationMs: 2_000,
-            mimeType: "audio/webm;codecs=opus",
-            data: Buffer.from("poor-overlap"),
-          },
-          {
-            timestampMs: nowMs + 50,
-            durationMs: 2_000,
-            mimeType: "audio/webm;codecs=opus",
-            data: Buffer.from("best-overlap"),
-          },
-        ];
-      },
+      getRecentRawClips: () => [],
     };
 
     const service = new LiveCaptureInputService(provider);
     const result = await service.buildPromptInput(2_000);
 
-    expect(result.sourceWindowKey).toContain(`camera:${nowMs}:2000`);
-    expect(result.sourceWindowKey).toContain(`audio:${nowMs + 50}:2000`);
+    expect(result.parts.length).toBe(6);
+
+    const imageParts = result.parts.filter((p) => p.type === "image_url");
+    expect(imageParts.length).toBe(5);
+    expect(imageParts[0]).toEqual({
+      type: "image_url",
+      image_url: {
+        url: expect.stringContaining("data:image/jpeg;base64,"),
+        detail: "low",
+      },
+    });
+
+    const textParts = result.parts.filter((p) => p.type === "text");
+    expect(textParts.length).toBe(1);
+    expect((textParts[0] as { text: string }).text).toContain("sequential_webcam_frames");
   });
 });
