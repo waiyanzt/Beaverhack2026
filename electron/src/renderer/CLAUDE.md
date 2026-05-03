@@ -9,16 +9,18 @@ Provides the user-facing interface for the Beaverhack2026 desktop application. M
 ## Key Files
 
 - `main.tsx` — React entry point. Mounts the App component into the `#app` DOM element defined in `index.html` (at electron root).
-- `App.tsx` — Root React component. Currently a placeholder React starter template with a logo and link.
-- `App.css` — Scoped styles for the App component. Contains flexbox layout and animation keyframes.
+- `App.tsx` — Root component with tab-bar shell. Defaults to Hotkey Mapper tab. Displays placeholder "coming soon" for other tabs (Status, Capture, OBS, VTube Studio, Model, Settings, Logs).
+- `components/HotkeyMapper.tsx` — VTS hotkey-to-trigger mapping UI. Includes mapping list with add/remove, inline form with trigger type, hotkey selection, and cooldown config. Uses `useVTS` hook to load VTS hotkeys.
+- `hooks/useVTS.ts` — Custom hook for fetching and validating VTS hotkeys via IPC. Zod-validated schema, loading/error states, refetch capability.
+- `types/electron-api.d.ts` — TypeScript declaration for `window.desktop` preload API.
 - `styles/globals.css` — Global CSS applied to the document body and code elements. Sets system font stacks and font smoothing.
-- `logo.svg` — React logo placeholder asset referenced in App.tsx.
 
 ## Architecture & Patterns
 
 **React Setup**
 - TypeScript with JSX enabled (`jsx: "react-jsx"`)
 - React 19.2.5 and React-DOM 19.2.5
+- Tab-based shell in App.tsx (8 tabs: Status, Capture, OBS, VTube Studio, Model, Hotkey Mapper, Settings, Logs)
 - No framework beyond React (no Next.js, no router yet)
 - Strict mode enabled during development
 
@@ -27,6 +29,18 @@ Provides the user-facing interface for the Beaverhack2026 desktop application. M
 - Electron-vite wrapper for integration with Electron main/preload processes
 - TypeScript compilation targets ES2022, module resolution is "Bundler"
 - Build output goes to `dist/renderer`
+
+**Component Structure**
+- App.tsx: root tab shell, manages active tab state, renders HotkeyMapper when selected
+- HotkeyMapper: full-featured mapping UI with form state, list rendering, delete/refetch actions
+- useVTS hook: encapsulates IPC call, Zod validation, loading/error lifecycle
+
+**Styling Approach**
+- Tailwind CSS utility classes throughout (no CSS files for new components)
+- Responsive design with flex layout for tab bar and content areas
+- Loading skeleton with pulse animation for async data
+- Error states with retry buttons (icon + text)
+- Form inputs with focus rings and consistent styling
 
 **HTML Entry Point**
 - HTML file resides at `/electron/index.html` (not in renderer directory)
@@ -48,11 +62,16 @@ Provides the user-facing interface for the Beaverhack2026 desktop application. M
 - Can receive IPC messages from main process via preload script
 - Will eventually connect to OBS Studio via WebSocket (architecture in main process)
 
+**New Integrations**
+- `zod` for runtime validation of IPC responses
+- `lucide-react` for icons (Trash2, RefreshCw, Plus)
+- IPC bridge via `window.desktop.getHotkeys()` for VTS hotkey fetching
+
 **No Integrations Yet**
 - No state management library (Redux, Zustand, etc.)
 - No UI component library (Material-UI, Shadcn, etc.)
 - No routing (React Router, TanStack Router)
-- No form handling library
+- No form handling library beyond basic React state
 
 ## Conventions
 
@@ -67,20 +86,29 @@ Provides the user-facing interface for the Beaverhack2026 desktop application. M
 - PascalCase for component filenames
 
 **Styling**
-- CSS Modules not used; global and component-scoped CSS files
-- Flexbox for layout
+- Tailwind CSS utility classes (primary approach for new components)
+- Older components may use co-located CSS files (App.css, globals.css)
+- No CSS Modules
+- Flex layout for responsive UI
 
 ## Gotchas & Notes
 
-**Current State**
-- This is a placeholder React app scaffolded from a create-react-app template
-- All content in App.tsx is boilerplate; the actual app UI has not been built yet
-- No components beyond App exist currently
+**Current Implementation Status**
+- App.tsx is now a functional tab shell with Hotkey Mapper as the first complete feature
+- HotkeyMapper component is fully functional: displays VTS hotkeys, allows adding/removing mappings, validates Zod schema
+- Hotkey mappings are stored in local component state only (not persisted to backend yet)
+- Other 7 tabs show "coming soon" placeholder
 
-**Integration Pending**
-- Preload script exists (`src/main/preload/index.js`) but not yet utilized in renderer
-- IPC handlers registered in main process (`src/main/ipc`) but no consumers in renderer
-- OBS connection logic lives in main process; renderer will need to trigger or subscribe to OBS events via IPC
+**IPC Integration**
+- Preload bridge (`window.desktop.getHotkeys()`) is wired and working
+- Main process returns mock hotkeys from VTS IPC handler (`vts.ipc.ts`)
+- All IPC calls validated with Zod at runtime (VtsHotkeySchema)
+- useVTS hook handles loading, error, and success states
+
+**Known Limitations**
+- Hotkey mappings live in local component state; no persistence to settings backend yet
+- Mock data returned from VTS IPC handler; actual VTubeStudio client integration pending
+- Other 7 tabs (Status, Capture, OBS, etc.) not yet implemented
 
 **Architecture Notes**
 - The renderer is designed to be a sandboxed process (contextIsolation: true, nodeIntegration: false)
@@ -90,6 +118,9 @@ Provides the user-facing interface for the Beaverhack2026 desktop application. M
 ## Subdirectories
 
 - `styles/` — Global CSS stylesheets applied to the entire renderer
+- `components/` — React components (HotkeyMapper, and future tabs/panels)
+- `hooks/` — Custom React hooks (useVTS for IPC data fetching, Zod validation)
+- `types/` — TypeScript type declarations and interfaces (electron-api.d.ts)
 
 ---
 
