@@ -7,18 +7,6 @@ const vllmOptions: VllmOptions = {
 
 const providers: ModelProviderConfig[] = [
   {
-    id: "openrouter",
-    label: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api",
-    model: "openai/gpt-4o-mini",
-    apiKey: process.env.OPENROUTER_API_KEY ?? null,
-    enabled: true,
-    supportsToolCalling: true,
-    supportsJsonMode: true,
-    supportsForcedToolChoice: true,
-    supportsStrictJsonSchema: true,
-  },
-  {
     id: "vllm",
     label: "vLLM (Nemotron)",
     baseUrl: "http://100.93.134.64:8000",
@@ -33,16 +21,6 @@ const providers: ModelProviderConfig[] = [
     temperature: 0.2,
     topP: 0.9,
     vllm: vllmOptions,
-  },
-  {
-    id: "mock",
-    label: "Mock",
-    baseUrl: "http://100.93.134.64",
-    model: "mock",
-    apiKey: null,
-    enabled: true,
-    supportsToolCalling: false,
-    supportsJsonMode: false,
   },
 ];
 

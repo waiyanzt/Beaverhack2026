@@ -100,8 +100,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IpcChannels.ModelSetProvider, (_event, providerId: unknown) => {
     try {
-      if (providerId === "openrouter" || providerId === "vllm" || providerId === "mock") {
-        setSelectedModelProviderId(providerId);
+      const provider = getModelProviders().find((candidate) => candidate.id === providerId);
+
+      if (provider) {
+        setSelectedModelProviderId(provider.id);
         return { ok: true as const };
       }
 

@@ -23,6 +23,11 @@ import type {
 	ModelMonitorStatusResponse,
 	ModelMonitorStopResponse,
 } from "../../shared/types/model-monitor.types";
+import type {
+	ModelProviderConfig,
+	ModelProviderId,
+	ModelProviderTestResult,
+} from "../../shared/model.types";
 import type { VtsConnectionConfig } from "../../shared/types/config.types";
 import type {
 	VtsHotkeysResult,
@@ -69,6 +74,11 @@ type DesktopApi = {
 	modelMonitorStop: () => Promise<ModelMonitorStopResponse>;
 	modelMonitorStatus: () => Promise<ModelMonitorStatusResponse>;
 	onModelMonitorEvent: (handler: (event: ModelMonitorEvent) => void) => () => void;
+	modelListProviders: () => Promise<ModelProviderConfig[]>;
+	modelSetProvider: (
+		providerId: ModelProviderId,
+	) => Promise<{ ok: boolean; message?: string }>;
+	modelTestConnection: () => Promise<ModelProviderTestResult>;
 };
 
 type CaptureBridgeApi = {
