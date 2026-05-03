@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { OpenAICompatibleProvider } from "../../src/main/services/model/openai-compatible.provider";
 import type { ModelProviderConfig, OpenAICompatibleMessage } from "../../src/shared/model.types";
+import { loadPrompt } from "../../src/main/prompts/prompt-loader";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFilePath);
@@ -50,40 +51,15 @@ async function main(): Promise<void> {
     },
   });
 
+  const systemPrompt =
+    loadPrompt("system").content + "\n\n" + loadPrompt("action-planner").content;
+
   console.log("Sending structured observation to", config.baseUrl);
   console.log("Model:", config.model);
   console.log("---");
 
-  const responseMode = config.supportsToolCalling ? "tool" : "json";
-
-  const systemPrompt = `You are AuTuber, a VTuber stream-direction agent running inside a local desktop app.
-
-You receive structured observations from local capture, OBS, and VTube Studio. You do not directly control the stream. You produce a structured ActionPlan. The desktop app validates and executes only allowed actions.
-
-Goals:
-1. Understand streamer context from transcript, frames, OBS state, and VTube Studio state.
-2. Select useful avatar reactions, overlay messages, or stream-control suggestions.
-3. Avoid over-triggering actions.
-4. Respect cooldowns, allowlists, blocked actions, and autonomy level.
-5. Prefer subtle useful reactions over noisy behavior.
-6. If no action is needed, return a noop action.
-
-Rules:
-${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respond.` : `- You MUST respond with a single JSON object matching the ActionPlan schema. Do not wrap it in markdown code blocks. Do not include any text outside the JSON object.`}
-- When triggering VTS hotkeys, use the semantic name (e.g., "wave", "laugh", "surprise"). The app maps these to actual hotkey IDs.
-- Return only valid structured actions.
-- Do not request actions outside the allowed action list.
-- Do not trigger the same hotkey repeatedly without a clear reason.
-- Do not switch OBS scenes unless policy allows it.
-- Keep visible messages short.
-- Include a short reason for every action.
-- Always set schemaVersion to "2026-05-02".
-- Generate a unique tickId and createdAt timestamp.
-- It is VERY COMMON and EXPECTED to return noop when no action is appropriate. Do not force actions.`;
-
   const results: Array<{ label: string; ok: boolean }> = [];
 
-  // Scenario 1: Streamer just started, greeting audience
   const observation1 = {
     observation: {
       obs: {
@@ -140,7 +116,6 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
   results.push({ label: "Scenario 1", ok: result1.ok });
   console.log("\n========================================\n");
 
-  // Scenario 2: Streamer is talking normally, no special event
   const observation2 = {
     observation: {
       obs: {
@@ -199,7 +174,6 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
   results.push({ label: "Scenario 2", ok: result2.ok });
   console.log("\n========================================\n");
 
-  // Scenario 3: Streamer hits something surprising
   const observation3 = {
     observation: {
       obs: {
@@ -255,9 +229,6 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
   results.push({ label: "Scenario 3", ok: result3.ok });
   console.log("\n========================================\n");
 
-  // Scenario 4: Video observation
-  // vLLM is remote (SSH tunnel). We send the video as a base64 data URI
-  // since the vLLM server process can't read local file paths.
   const videoFileExists = existsSync(localVideoPath);
 
   if (videoFileExists) {

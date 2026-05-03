@@ -1,1 +1,22 @@
-# Placeholder: Electron Builder configuration belongs here.
+appId: com.autuber.electron
+productName: Autuber
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - node_modules/*
+
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: AudioVideo

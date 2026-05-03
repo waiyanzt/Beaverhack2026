@@ -2,3 +2,4 @@ electron/node_modules
 electron/dist
 electron/.env
 node_modules
+release
