@@ -299,7 +299,12 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
 
     const userContent: OpenAICompatibleMessage["content"] = [
       { type: "video_url", video_url: { url: videoDataUrl } },
-      { type: "text", text: "The above is a short video clip from a VTuber stream. Based on what you see in the video, produce an action plan. Observation data:\n" + JSON.stringify(videoObservation) },
+      {
+        type: "text",
+        text:
+          "The above is a short webcam video from a VTuber stream. Focus on the person's expression, gaze, posture, and whether they seem neutral, happy, tired, surprised, or otherwise emotionally engaged. If the clip does not clearly justify a reaction, return noop. Avoid verbose explanations. Observation data:\n" +
+          JSON.stringify(videoObservation),
+      },
     ];
 
     const result4 = await provider.createActionPlan(config, [
