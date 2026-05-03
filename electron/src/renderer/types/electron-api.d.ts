@@ -28,7 +28,12 @@ import type {
 	ModelProviderId,
 	ModelProviderTestResult,
 } from "../../shared/model.types";
-import type { VtsConnectionConfig } from "../../shared/types/config.types";
+import type {
+	SettingsGetResult,
+	SettingsUpdateRequest,
+	SettingsUpdateResult,
+	VtsConnectionConfig,
+} from "../../shared/types/config.types";
 import type {
 	VtsHotkeysResult,
 	VtsStatusResult,
@@ -51,6 +56,8 @@ type CaptureStopResponse =
 type DesktopApi = {
 	getAppVersion: () => Promise<string>;
 	automationAnalyzeNow: (request: AutomationAnalyzeNowRequest) => Promise<AutomationAnalyzeNowResult>;
+	settingsGet: () => Promise<SettingsGetResult>;
+	settingsUpdate: (request: SettingsUpdateRequest) => Promise<SettingsUpdateResult>;
 	vtsGetStatus: () => Promise<VtsStatusResult>;
 	vtsConnect: (config: VtsConnectionConfig) => Promise<VtsStatusResult>;
 	vtsDisconnect: () => Promise<VtsStatusResult>;
