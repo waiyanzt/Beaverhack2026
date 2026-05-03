@@ -61,6 +61,29 @@ export const useCapture = () => {
 		}
 	}, []);
 
+	const refreshStatusLite = useCallback(async () => {
+		const result: CaptureControlResult = await window.desktop.captureStatusLite();
+
+		if (result.ok) {
+			setStatus((previousStatus) => ({
+				...result.status,
+				camera: {
+					...result.status.camera,
+					lastPreviewDataUrl:
+						result.status.camera.lastPreviewDataUrl ?? previousStatus.camera.lastPreviewDataUrl,
+				},
+				screen: {
+					...result.status.screen,
+					lastPreviewDataUrl:
+						result.status.screen.lastPreviewDataUrl ?? previousStatus.screen.lastPreviewDataUrl,
+				},
+			}));
+			setLastError(null);
+		} else {
+			setLastError(result.message);
+		}
+	}, []);
+
 	const startCapture = useCallback(async (config: CaptureStartRequest) => {
 		setIsBusy(true);
 		const result: CaptureControlResult = await window.desktop.captureStart(config);
@@ -93,14 +116,18 @@ export const useCapture = () => {
 
 	useEffect(() => {
 		void refreshStatus();
+	}, [refreshStatus]);
+
+	useEffect(() => {
+		const intervalMs = status.running ? 1000 : 2000;
 		const timer = window.setInterval(() => {
-			void refreshStatus();
-		}, 250);
+			void refreshStatusLite();
+		}, intervalMs);
 
 		return () => {
 			window.clearInterval(timer);
 		};
-	}, [refreshStatus]);
+	}, [refreshStatusLite, status.running]);
 
 	return {
 		status,

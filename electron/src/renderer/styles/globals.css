@@ -76,7 +76,7 @@ code {
   border-radius: 28px;
   padding: 32px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(6px);
 }
 
 .capture-dev-shell .panel__header {
@@ -144,7 +144,6 @@ code {
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 20px;
   background: rgba(15, 23, 42, 0.6);
-  animation: rise 700ms ease;
 }
 
 .capture-dev-shell .preview {
@@ -158,6 +157,11 @@ code {
 }
 
 .capture-dev-shell .preview img {
+  display: block;
+  width: 100%;
+}
+
+.capture-dev-shell .preview video {
   display: block;
   width: 100%;
 }

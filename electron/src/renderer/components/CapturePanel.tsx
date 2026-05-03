@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
 	CaptureMediaDeviceInfo,
 	CaptureSourceInfo,
@@ -52,7 +52,42 @@ export const CapturePanel = (): React.JSX.Element => {
 	const [isExportingClip, setIsExportingClip] = useState(false);
 	const [activeAction, setActiveAction] = useState<string | null>(null);
 	const [exportMessage, setExportMessage] = useState<string | null>(null);
+	const [previewError, setPreviewError] = useState<string | null>(null);
+	const cameraPreviewRef = useRef<HTMLVideoElement | null>(null);
+	const screenPreviewRef = useRef<HTMLVideoElement | null>(null);
 	const audioLevelPercent = Math.round((status.audio.lastLevel ?? 0) * 100);
+
+	const buildDesktopVideoConstraints = (
+		sourceId: string,
+		width: number,
+		height: number,
+		fps: number,
+	): MediaTrackConstraints => {
+		const normalizedFps = Math.max(Math.round(fps), 1);
+		return {
+			mandatory: {
+				chromeMediaSource: "desktop",
+				chromeMediaSourceId: sourceId,
+				minWidth: width,
+				maxWidth: width,
+				minHeight: height,
+				maxHeight: height,
+				minFrameRate: normalizedFps,
+				maxFrameRate: normalizedFps,
+			},
+		} as unknown as MediaTrackConstraints;
+	};
+
+	const parseResolution = (resolution: string): { width: number; height: number } => {
+		const [widthText, heightText] = resolution.split("x");
+		const width = Number(widthText);
+		const height = Number(heightText);
+		if (!Number.isFinite(width) || !Number.isFinite(height)) {
+			return { width: 640, height: 360 };
+		}
+
+		return { width, height };
+	};
 
 	useEffect(() => {
 		let isMounted = true;
@@ -121,6 +156,101 @@ export const CapturePanel = (): React.JSX.Element => {
 			isMounted = false;
 		};
 	}, []);
+
+	useEffect(() => {
+		let mounted = true;
+		let stream: MediaStream | null = null;
+
+		const startPreview = async (): Promise<void> => {
+			if (!config.camera.enabled || !cameraPreviewRef.current) {
+				return;
+			}
+
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({
+					video: config.camera.deviceId ? { deviceId: { exact: config.camera.deviceId } } : true,
+					audio: false,
+				});
+
+				if (!mounted || !cameraPreviewRef.current) {
+					stream.getTracks().forEach((track) => track.stop());
+					return;
+				}
+
+				cameraPreviewRef.current.srcObject = stream;
+				await cameraPreviewRef.current.play();
+				setPreviewError(null);
+			} catch (error: unknown) {
+				setPreviewError(error instanceof Error ? error.message : "Camera preview unavailable.");
+			}
+		};
+
+		void startPreview();
+
+		return () => {
+			mounted = false;
+			if (cameraPreviewRef.current) {
+				cameraPreviewRef.current.srcObject = null;
+			}
+
+			stream?.getTracks().forEach((track) => track.stop());
+		};
+	}, [config.camera.deviceId, config.camera.enabled]);
+
+	useEffect(() => {
+		let mounted = true;
+		let stream: MediaStream | null = null;
+
+		const startPreview = async (): Promise<void> => {
+			if (!config.screen.enabled || !config.screen.sourceId || !screenPreviewRef.current) {
+				return;
+			}
+
+			const { width, height } = parseResolution(config.screen.resolution);
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({
+					audio: false,
+					video: buildDesktopVideoConstraints(
+						config.screen.sourceId,
+						width,
+						height,
+						config.screen.fps,
+					),
+				});
+			} catch {
+				stream = await navigator.mediaDevices.getDisplayMedia({
+					audio: false,
+					video: {
+						width: { ideal: width },
+						height: { ideal: height },
+						frameRate: { ideal: config.screen.fps },
+					},
+				});
+			}
+
+			if (!mounted || !screenPreviewRef.current) {
+				stream.getTracks().forEach((track) => track.stop());
+				return;
+			}
+
+			screenPreviewRef.current.srcObject = stream;
+			await screenPreviewRef.current.play();
+			setPreviewError(null);
+		};
+
+		void startPreview().catch((error: unknown) => {
+			setPreviewError(error instanceof Error ? error.message : "Screen preview unavailable.");
+		});
+
+		return () => {
+			mounted = false;
+			if (screenPreviewRef.current) {
+				screenPreviewRef.current.srcObject = null;
+			}
+
+			stream?.getTracks().forEach((track) => track.stop());
+		};
+	}, [config.screen.enabled, config.screen.fps, config.screen.resolution, config.screen.sourceId]);
 
 	const statusLabel = useMemo(() => {
 		if (!status.running) {
@@ -245,8 +375,8 @@ export const CapturePanel = (): React.JSX.Element => {
 				<div className="panel__card">
 					<h3>Camera</h3>
 					<div className="preview">
-						{status.camera.lastPreviewDataUrl ? (
-							<img src={status.camera.lastPreviewDataUrl} alt="Camera preview" />
+						{config.camera.enabled ? (
+							<video ref={cameraPreviewRef} autoPlay muted playsInline />
 						) : (
 							<div className="preview__empty">No frame yet</div>
 						)}
@@ -379,8 +509,8 @@ export const CapturePanel = (): React.JSX.Element => {
 				<div className="panel__card">
 					<h3>Screen</h3>
 					<div className="preview">
-						{status.screen.lastPreviewDataUrl ? (
-							<img src={status.screen.lastPreviewDataUrl} alt="Screen preview" />
+						{config.screen.enabled ? (
+							<video ref={screenPreviewRef} autoPlay muted playsInline />
 						) : (
 							<div className="preview__empty">No frame yet</div>
 						)}
@@ -759,6 +889,7 @@ export const CapturePanel = (): React.JSX.Element => {
 			</div>
 
 			{exportMessage ? <p className="panel__hint">{exportMessage}</p> : null}
+			{previewError ? <p className="panel__error">{previewError}</p> : null}
 			{lastError ? <p className="panel__error">{lastError}</p> : null}
 		</section>
 	);

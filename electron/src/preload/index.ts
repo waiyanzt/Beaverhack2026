@@ -46,6 +46,11 @@ const desktopApi = {
       console.error("Failed to get capture status:", error);
       return { ok: false as const, message: "Unable to get status." };
     }),
+  captureStatusLite: async () =>
+    ipcRenderer.invoke(IpcChannels.CaptureStatusLite).catch((error: unknown) => {
+      console.error("Failed to get lite capture status:", error);
+      return { ok: false as const, message: "Unable to get status." };
+    }),
   listCaptureSources: async (): Promise<{ ok: true; sources: CaptureSourceInfo[] } | { ok: false; message: string }> =>
     ipcRenderer.invoke(IpcChannels.CaptureListSources).catch((error: unknown) => {
       console.error("Failed to list capture sources:", error);

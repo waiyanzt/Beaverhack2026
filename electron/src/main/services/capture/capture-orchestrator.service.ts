@@ -190,6 +190,21 @@ export class CaptureOrchestratorService {
 		};
 	}
 
+	getStatusLite(): CaptureStatus {
+		const status = this.getStatus();
+		return {
+			...status,
+			camera: {
+				...status.camera,
+				lastPreviewDataUrl: null,
+			},
+			screen: {
+				...status.screen,
+				lastPreviewDataUrl: null,
+			},
+		};
+	}
+
 	handleFrame(payload: CaptureFramePayload): void {
 		if (!this.status.running) {
 			return;

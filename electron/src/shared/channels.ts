@@ -7,6 +7,7 @@ export const IpcChannels = {
   CaptureStart: "capture:start",
   CaptureStop: "capture:stop",
   CaptureStatus: "capture:status",
+  CaptureStatusLite: "capture:status-lite",
   CaptureListSources: "capture:list-sources",
   CaptureExportClip: "capture:export-clip",
   CaptureControl: "capture:control",

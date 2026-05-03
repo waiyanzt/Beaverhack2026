@@ -31,6 +31,7 @@ type DesktopApi = {
 	captureStart: (config: CaptureStartRequest) => Promise<CaptureStartResponse>;
 	captureStop: () => Promise<CaptureStopResponse>;
 	captureStatus: () => Promise<CaptureStatusResponse>;
+	captureStatusLite: () => Promise<CaptureStatusResponse>;
 	listCaptureSources: () => Promise<
 		| { ok: true; sources: CaptureSourceInfo[] }
 		| { ok: false; message: string }

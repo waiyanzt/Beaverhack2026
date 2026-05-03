@@ -224,6 +224,15 @@ export function registerCaptureIpcHandlers(): void {
 		}
 	});
 
+	ipcMain.handle(IpcChannels.CaptureStatusLite, () => {
+		try {
+			return { ok: true as const, status: captureOrchestrator.getStatusLite() };
+		} catch (error: unknown) {
+			console.error("Failed to get lite capture status:", error);
+			return { ok: false as const, message: "Unable to get status." };
+		}
+	});
+
 	ipcMain.handle(IpcChannels.CaptureExportClip, async (event, input: unknown) => {
 		const parsed = captureExportClipRequestSchema.safeParse(input);
 
