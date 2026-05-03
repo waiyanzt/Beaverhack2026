@@ -3,6 +3,7 @@ import type { ObsStatus } from "../../../shared/types/obs.types";
 import type {
   AutomationAutonomyLevel,
   ModelControlContext,
+  ModelControlRecentModelAction,
   SupportedActionType,
 } from "../../../shared/types/observation.types";
 import type { VtsHotkey, VtsStatus } from "../../../shared/types/vts.types";
@@ -21,6 +22,7 @@ export interface BuildModelContextRequest {
   tickId: string;
   transcript?: string;
   autonomyLevel?: AutomationAutonomyLevel;
+  recentModelActions?: ModelControlRecentModelAction[];
 }
 
 export class ObservationBuilderService {
@@ -67,6 +69,7 @@ export class ObservationBuilderService {
       context: {
         autonomyLevel: request.autonomyLevel ?? "auto_safe",
         recentActions: this.cooldownService.getRecentActions(),
+        recentModelActions: request.recentModelActions ?? [],
         cooldowns: this.cooldownService.getRemainingCooldowns(),
       },
     });

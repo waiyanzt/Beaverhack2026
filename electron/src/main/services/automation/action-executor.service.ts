@@ -42,6 +42,7 @@ export class ActionExecutorService {
       }
 
       if (reviewedAction.action.type === "noop") {
+        this.cooldownService.markAction(reviewedAction.action);
         results.push({
           actionId: reviewedAction.action.actionId,
           type: reviewedAction.action.type,

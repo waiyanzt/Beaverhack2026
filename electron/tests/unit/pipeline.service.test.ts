@@ -3,6 +3,7 @@ import { ActionExecutorService } from "../../src/main/services/automation/action
 import { ActionPlanParserService } from "../../src/main/services/automation/action-plan-parser.service";
 import { ActionValidatorService } from "../../src/main/services/automation/action-validator.service";
 import { CooldownService } from "../../src/main/services/automation/cooldown.service";
+import { ModelActionMemoryService } from "../../src/main/services/automation/model-action-memory.service";
 import { ObservationBuilderService } from "../../src/main/services/automation/observation-builder.service";
 import { PipelineService } from "../../src/main/services/automation/pipeline.service";
 import { PromptBuilderService } from "../../src/main/services/automation/prompt-builder.service";
@@ -84,6 +85,7 @@ describe("PipelineService", () => {
       new ActionValidatorService(cooldownService),
       new ActionExecutorService(obsService, vtsService, cooldownService),
       cooldownService,
+      new ModelActionMemoryService(),
     );
 
     const result = await service.analyzeNow({
@@ -175,6 +177,7 @@ describe("PipelineService", () => {
       new ActionValidatorService(cooldownService),
       new ActionExecutorService(obsService, vtsService, cooldownService),
       cooldownService,
+      new ModelActionMemoryService(),
     );
 
     const result = await service.analyzeNow();
@@ -187,5 +190,109 @@ describe("PipelineService", () => {
     expect(result.reviewedActions[0]?.status).toBe("confirmation_required");
     expect(result.actionResults[0]?.status).toBe("confirmation_required");
     expect(obsService.setCurrentScene).not.toHaveBeenCalled();
+  });
+
+  it("includes recent model action plans in the next model prompt", async () => {
+    const obsService = {
+      getStatus: vi.fn().mockResolvedValue({
+        connected: false as const,
+        currentScene: null,
+        streamStatus: "inactive" as const,
+        recordingStatus: "inactive" as const,
+        scenes: [],
+      }),
+      setCurrentScene: vi.fn(),
+      setSourceVisibility: vi.fn(),
+    };
+    const vtsService = {
+      getStatus: vi.fn().mockReturnValue({
+        connectionState: "disconnected" as const,
+        authenticationState: "unauthenticated" as const,
+        connected: false,
+        authenticated: false,
+        config: {
+          host: "127.0.0.1",
+          port: 8001,
+          pluginName: "AuTuber",
+          pluginDeveloper: "AuTuber",
+        },
+        modelLoaded: false,
+        modelName: null,
+        modelId: null,
+        hotkeyCount: 0,
+        lastError: null,
+      }),
+      getCachedHotkeys: vi.fn().mockReturnValue([]),
+      triggerHotkey: vi.fn(),
+    };
+    const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
+    const modelRouter = {
+      createActionPlan: vi.fn().mockResolvedValue({
+        actions: [
+          {
+            type: "noop",
+            actionId: "act_memory_001",
+            reason: "No contextual action is needed.",
+          },
+        ],
+        safety: {
+          riskLevel: "low",
+          requiresConfirmation: false,
+          reason: "No stream-changing action was requested.",
+        },
+        nextTick: {
+          suggestedDelayMs: 5000,
+          priority: "normal",
+        },
+      }),
+    } satisfies Pick<ModelRouterService, "createActionPlan">;
+
+    const service = new PipelineService(
+      new ObservationBuilderService(obsService, vtsService, cooldownService),
+      new PromptBuilderService(),
+      modelRouter as ModelRouterService,
+      new ActionPlanParserService(),
+      new ActionValidatorService(cooldownService),
+      new ActionExecutorService(obsService, vtsService, cooldownService),
+      cooldownService,
+      new ModelActionMemoryService(),
+    );
+
+    await service.analyzeNow();
+    const secondResult = await service.analyzeNow();
+
+    const secondCallMessages = modelRouter.createActionPlan.mock.calls[1]?.[0];
+    const userMessage = secondCallMessages?.find((message) => message.role === "user");
+    expect(typeof userMessage?.content).toBe("string");
+    const payload = JSON.parse(userMessage?.content as string) as {
+      modelContext: {
+        context: {
+          recentModelActions: Array<{
+            actionPlan: {
+              actions: Array<{ actionId: string; reason: string }>;
+              safety: { reason?: string };
+            };
+          }>;
+        };
+      };
+    };
+
+    expect(payload.modelContext.context.recentModelActions).toHaveLength(1);
+    expect(payload.modelContext.context.recentModelActions[0]?.actionPlan.actions[0]).toMatchObject({
+      actionId: "act_memory_001",
+      reason: "No contextual action is needed.",
+    });
+    expect(payload.modelContext.context.recentModelActions[0]?.actionPlan.safety.reason).toBe(
+      "No stream-changing action was requested.",
+    );
+    expect(secondResult.ok).toBe(true);
+    if (!secondResult.ok) {
+      return;
+    }
+    expect(secondResult.modelContext.context.recentActions[0]).toMatchObject({
+      actionId: "act_memory_001",
+      type: "noop",
+      target: "noop",
+    });
   });
 });

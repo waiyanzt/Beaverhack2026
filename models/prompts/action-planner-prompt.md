@@ -20,7 +20,9 @@ Planning priorities:
 Action-specific rules:
 
 - When triggering VTS hotkeys, use the exact `availableHotkeys[].id` value from the payload.
+- Use `recentModelActions` as short-term memory for continuity, including prior action reasons, safety reasoning, and execution results.
 - Do not trigger the same hotkey repeatedly without a clear reason.
+- Continue a reaction such as laughing only when the current observation still supports it.
 - Do not switch OBS scenes unless policy allows it.
 - Keep visible messages short.
 - Include a short reason for every action.

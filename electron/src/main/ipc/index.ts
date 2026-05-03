@@ -8,6 +8,7 @@ import { ActionExecutorService } from "../services/automation/action-executor.se
 import { ActionPlanParserService } from "../services/automation/action-plan-parser.service";
 import { ActionValidatorService } from "../services/automation/action-validator.service";
 import { CooldownService } from "../services/automation/cooldown.service";
+import { ModelActionMemoryService } from "../services/automation/model-action-memory.service";
 import { ObservationBuilderService } from "../services/automation/observation-builder.service";
 import { PipelineService } from "../services/automation/pipeline.service";
 import { PromptBuilderService } from "../services/automation/prompt-builder.service";
@@ -49,6 +50,7 @@ const modelRouter = new ModelRouterService(
 );
 
 const cooldownService = new CooldownService();
+const modelActionMemoryService = new ModelActionMemoryService();
 const pipelineService = new PipelineService(
   new ObservationBuilderService(obsService, vtsService, cooldownService),
   new PromptBuilderService(),
@@ -57,8 +59,9 @@ const pipelineService = new PipelineService(
   new ActionValidatorService(cooldownService),
   new ActionExecutorService(obsService, vtsService, cooldownService),
   cooldownService,
+  modelActionMemoryService,
 );
-const modelMonitor = new ModelMonitorService(captureOrchestrator, modelRouter);
+const modelMonitor = new ModelMonitorService(captureOrchestrator, modelRouter, modelActionMemoryService);
 
 export async function resumePersistedModelMonitor(owner: WebContents): Promise<void> {
   const { monitor } = settingsService.getSettings();

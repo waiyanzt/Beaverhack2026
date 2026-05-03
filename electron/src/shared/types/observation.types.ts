@@ -1,3 +1,5 @@
+import type { ActionPlan, LocalAction } from "../schemas/action-plan.schema";
+
 export type CapturedFrame = {
 	id: string;
 	kind: "camera" | "screen" | "window";
@@ -88,6 +90,21 @@ export interface ModelControlRecentAction {
   timestamp: string;
 }
 
+export interface ModelControlRecentModelActionResult {
+  actionId: string;
+  type: LocalAction["type"];
+  status: "executed" | "blocked" | "failed" | "confirmation_required" | "noop" | "not_executed";
+  reason: string;
+  errorMessage?: string;
+}
+
+export interface ModelControlRecentModelAction {
+  sequence: number;
+  storedAt: string;
+  actionPlan: ActionPlan;
+  actionResults: ModelControlRecentModelActionResult[];
+}
+
 export interface ModelControlContext {
   tickId: string;
   timestamp: string;
@@ -100,6 +117,7 @@ export interface ModelControlContext {
   context: {
     autonomyLevel: AutomationAutonomyLevel;
     recentActions: ModelControlRecentAction[];
+    recentModelActions: ModelControlRecentModelAction[];
     cooldowns: Record<string, number>;
   };
 }

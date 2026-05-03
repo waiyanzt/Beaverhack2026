@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { actionPlanSchema } from "./action-plan.schema";
 
 const supportedActionTypeSchema = z.enum([
   "vts.trigger_hotkey",
@@ -65,6 +66,25 @@ export const modelControlRecentActionSchema = z
   })
   .strict();
 
+export const modelControlRecentModelActionResultSchema = z
+  .object({
+    actionId: z.string().trim().min(1),
+    type: supportedActionTypeSchema,
+    status: z.enum(["executed", "blocked", "failed", "confirmation_required", "noop", "not_executed"]),
+    reason: z.string().trim().min(1),
+    errorMessage: z.string().optional(),
+  })
+  .strict();
+
+export const modelControlRecentModelActionSchema = z
+  .object({
+    sequence: z.number().int().nonnegative(),
+    storedAt: z.string().datetime(),
+    actionPlan: actionPlanSchema,
+    actionResults: z.array(modelControlRecentModelActionResultSchema),
+  })
+  .strict();
+
 export const modelControlContextSchema = z
   .object({
     tickId: z.string().trim().min(1),
@@ -81,6 +101,7 @@ export const modelControlContextSchema = z
       .object({
         autonomyLevel: z.enum(["manual", "auto_safe", "auto_full"]),
         recentActions: z.array(modelControlRecentActionSchema),
+        recentModelActions: z.array(modelControlRecentModelActionSchema),
         cooldowns: z.record(z.string(), z.number().int().nonnegative()),
       })
       .strict(),

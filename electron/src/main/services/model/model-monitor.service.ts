@@ -1,11 +1,13 @@
 import type { WebContents } from "electron";
 import { createHash } from "node:crypto";
 import { IpcChannels } from "../../../shared/channels";
+import { actionPlanSchema, type LocalAction } from "../../../shared/schemas/action-plan.schema";
 import {
   createIdleModelMonitorStatus,
   MODEL_MONITOR_DEFAULT_TIMING,
 } from "../../../shared/model-monitor.defaults";
 import type { CaptureStartRequest } from "../../../shared/types/capture.types";
+import type { ModelControlRecentAction, ModelControlRecentModelAction } from "../../../shared/types/observation.types";
 import type {
   ModelMonitorEvent,
   ModelMonitorMediaAvailability,
@@ -24,6 +26,7 @@ import {
 import { loadPrompt } from "../../prompts/prompt-loader";
 import type { CaptureOrchestratorService } from "../capture/capture-orchestrator.service";
 import { setSelectedScreenSourceId } from "../capture/capture-orchestrator.instance";
+import { ModelActionMemoryService } from "../automation/model-action-memory.service";
 import type { ModelRouterService } from "./model-router.service";
 
 type ClipData = {
@@ -70,6 +73,7 @@ export class ModelMonitorService {
   public constructor(
     private readonly captureOrchestrator: CaptureOrchestratorService,
     private readonly modelRouter: ModelRouterService,
+    private readonly modelActionMemoryService: ModelActionMemoryService,
   ) {}
 
   public async start(request: ModelMonitorStartRequest, owner: WebContents): Promise<ModelMonitorStatus> {
@@ -244,6 +248,9 @@ export class ModelMonitorService {
       const prepared = await this.buildMessages(tickId, capture, requestNumber);
       const requestStartedMs = Date.now();
       const result = await this.modelRouter.requestActionPlan(prepared.messages);
+      if (result.actionPlan) {
+        this.recordMonitorActionPlan(result.actionPlan);
+      }
       const responseMs = Date.now();
       const responseAt = toIso(responseMs);
       if (generation !== this.runGeneration) {
@@ -338,14 +345,15 @@ export class ModelMonitorService {
 
     const promptText = JSON.stringify({
       task: [
-        "Analyze only this current webcam/audio clip as a stateless live observation.",
+        "Analyze the current webcam/audio clip with the recent model action memory provided below.",
         "First, transcribe the full audible speech from this clip into response.audioTranscript before deciding actions. Use '[no speech]' if no speech is audible and '[inaudible]' if speech is present but unclear.",
         "Set response.visibleToUser to true and response.text to one concise sentence describing what is clearly visible or audible in this clip.",
         "If the camera image is empty, covered, black, or pointed away, say that no person is visible.",
         "Do not use audio to infer visual appearance such as hair, beard, room, posture, or whether a person is visible.",
         "For demo behavior: use vts.trigger_hotkey with hotkeyId 'wave' when the streamer clearly waves or raises an open hand toward the camera, 'laugh' when the streamer clearly laughs or smiles broadly, and 'surprise' when the streamer is visibly startled.",
         "Use exactly one noop action for idle, unclear, covered-camera, or ordinary speaking/sitting clips.",
-        "For this development build, produce the normal ActionPlan but do not assume actions will be executed.",
+        "Use recentModelActions to continue contextually appropriate reactions, such as continued laughing, without repeating actions mechanically.",
+        "For this development build, produce the normal ActionPlan but do not assume dashboard monitor actions will be executed.",
       ].join(" "),
       tickId,
       requestNumber,
@@ -363,7 +371,8 @@ export class ModelMonitorService {
       },
       context: {
         autonomyLevel: "auto_safe",
-        recentActions: [],
+        recentActions: this.buildRecentActionsFromMemory(),
+        recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
         cooldowns: {},
       },
     });
@@ -394,6 +403,59 @@ export class ModelMonitorService {
       modelMediaSha256: cameraClip ? this.hashDataUrl(cameraClip.dataUrl) : null,
       modelMediaDataUrl: cameraClip?.dataUrl ?? null,
     };
+  }
+
+  private buildRecentActionsFromMemory(): ModelControlRecentAction[] {
+    return this.modelActionMemoryService
+      .getRecentModelActions()
+      .flatMap((entry) => this.buildRecentActionsFromMemoryEntry(entry))
+      .slice(0, 20);
+  }
+
+  private buildRecentActionsFromMemoryEntry(entry: ModelControlRecentModelAction): ModelControlRecentAction[] {
+    return entry.actionPlan.actions.map((action) => ({
+      actionId: action.actionId,
+      type: action.type,
+      target: this.getActionTarget(action),
+      timestamp: entry.storedAt,
+    }));
+  }
+
+  private getActionTarget(action: LocalAction): string {
+    switch (action.type) {
+      case "vts.trigger_hotkey":
+        return `vts.hotkey:${action.hotkeyId}`;
+      case "vts.set_parameter":
+        return `vts.parameter:${action.parameterId}`;
+      case "obs.set_scene":
+        return `obs.scene:${action.sceneName}`;
+      case "obs.set_source_visibility":
+        return `obs.source:${action.sceneName}:${action.sourceName}:${action.visible ? "show" : "hide"}`;
+      case "overlay.message":
+        return `overlay.message:${action.message}`;
+      case "log.event":
+        return `log.event:${action.level}`;
+      case "noop":
+        return "noop";
+    }
+  }
+
+  private recordMonitorActionPlan(input: unknown): void {
+    const parsed = actionPlanSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return;
+    }
+
+    this.modelActionMemoryService.record(
+      parsed.data,
+      parsed.data.actions.map((action) => ({
+        actionId: action.actionId,
+        type: action.type,
+        status: action.type === "noop" ? "noop" : "not_executed",
+        reason: action.type === "noop" ? action.reason : "Dashboard monitor recorded the plan but did not execute it.",
+      })),
+    );
   }
 
   private buildRequestDebug(

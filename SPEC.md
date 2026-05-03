@@ -274,6 +274,7 @@ Responsibilities:
    - OBS state
    - VTube Studio state
    - recent action history
+   - recent model action-plan memory
 3. PromptBuilder creates system and user messages.
 4. ModelRouter sends request to selected model provider.
 5. ActionPlanParser extracts a structured action plan.
@@ -1054,8 +1055,26 @@ export type ObservationSummaryForModel = {
   allowedActions: string[];
   blockedActions: string[];
   recentActions: LocalActionResult[];
+  recentModelActions: RecentModelActionMemoryEntry[];
+};
+
+export type RecentModelActionMemoryEntry = {
+  sequence: number;
+  storedAt: string;
+  actionPlan: ActionPlan;
+  actionResults: RecentModelActionMemoryResult[];
+};
+
+export type RecentModelActionMemoryResult = {
+  actionId: string;
+  type: LocalAction["type"];
+  status: LocalActionResult["status"] | "confirmation_required" | "not_executed";
+  reason: string;
+  errorMessage?: string;
 };
 ~~~
+
+`recentModelActions` is a transient main-process sliding window of the last 10 parsed model action plans. Each entry includes the full validated `ActionPlan`, action reasons, safety assessment, and execution results so the next prompt can preserve contextual continuity without persisting provider output to disk.
 
 ---
 
