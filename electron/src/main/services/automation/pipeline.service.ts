@@ -250,7 +250,7 @@ export class PipelineService {
   }
 
   private getMappedSafeAutoCueLabels(modelContext: ModelControlContext): VtsCueLabel[] {
-    return [
+    const cueLabels = [
       ...new Set(
         modelContext.services.vts.automationCatalog.candidates
           .filter((candidate) => candidate.autoMode === "safe_auto")
@@ -258,6 +258,10 @@ export class PipelineService {
           .filter((cueLabel) => !["idle", "manual_request", "unknown"].includes(cueLabel)),
       ),
     ];
+
+    cueLabels.push("vacant");
+
+    return cueLabels;
   }
 
   private filterLiveRecentActions(actions: ModelControlRecentAction[]): ModelControlRecentAction[] {

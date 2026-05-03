@@ -609,7 +609,7 @@ describe("PipelineService", () => {
       };
     };
 
-    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000, "clip", ["greeting", "wave"]);
+    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000, "clip", ["greeting", "wave", "vacant"]);
     expect(result.modelContext.services.policy.allowedActions).not.toContain("obs.set_scene");
     expect(result.modelContext.services.policy.allowedActions).toContain("vts.trigger_hotkey");
     expect(result.requestDebug.modelMediaDataUrl).toBe("data:video/mp4;base64,Zm9v");
@@ -1095,6 +1095,47 @@ describe("PipelineService", () => {
       fakeNow = startMs + 10_000;
       await service.analyzeNow({ dryRun: true });
       expect(obsService.setSourceVisibility).not.toHaveBeenCalled();
+    });
+
+    it("includes 'vacant' in allowedCueLabels when building live capture prompt input", async () => {
+      const obsService = createObsService();
+      const vtsService = createVtsService();
+      const cooldownService = new CooldownService(() => Date.parse("2026-05-02T10:00:00.000Z"));
+      const liveCaptureInputService = createLiveCaptureInputService();
+      const buildPromptInput = vi.mocked(liveCaptureInputService.buildPromptInput);
+
+      const modelRouter = {
+        requestActionPlan: vi.fn().mockResolvedValue({
+          providerId: "mock",
+          ok: true,
+          status: 200,
+          content: "ok",
+          actionPlan: {
+            actions: [{ type: "noop", actionId: "act_noop_001", reason: "Nothing to do." }],
+            safety: { riskLevel: "low", requiresConfirmation: false },
+            nextTick: { suggestedDelayMs: 5000, priority: "normal" },
+          },
+        }),
+      } satisfies Pick<ModelRouterService, "requestActionPlan">;
+
+      const service = new PipelineService(
+        new ObservationBuilderService(obsService, vtsService, cooldownService),
+        new PromptBuilderService(),
+        modelRouter as ModelRouterService,
+        new ActionPlanParserService(),
+        new ActionValidatorService(cooldownService),
+        new ActionExecutorService(obsService, vtsService, cooldownService),
+        cooldownService,
+        liveCaptureInputService,
+        new ModelActionMemoryService(),
+        { sourceName: "BRB Overlay", vacantEnterDelayMs: 5_000 },
+      );
+
+      await service.analyzeNow({ useLatestCapture: true });
+
+      expect(buildPromptInput).toHaveBeenCalledTimes(1);
+      const allowedCueLabels = buildPromptInput.mock.calls[0][2];
+      expect(allowedCueLabels).toContain("vacant");
     });
   });
 });
