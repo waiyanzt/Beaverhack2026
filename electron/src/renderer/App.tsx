@@ -34,18 +34,7 @@ function App(): React.JSX.Element {
       <div className="app-nav__content">
         {activeTab === "Dashboard" && <DashboardPanel />}
         {activeTab === "Status" && <StatusPanel />}
-        {activeTab === "Capture" && (
-          <div className="capture-dev-shell">
-            <header className="capture-dev-header">
-              <div>
-                <p className="capture-dev-kicker">Dev Reference</p>
-                <h1>Capture Console</h1>
-              </div>
-              <div className="capture-dev-badge">Hidden Capture</div>
-            </header>
-            <CapturePanel />
-          </div>
-        )}
+        {activeTab === "Capture" && <CapturePanel />}
         {activeTab === "OBS" && <ManualControlPanel />}
         {activeTab === "VTube Studio" && <HotkeyMapper />}
         {activeTab === "Model" && <ModelProviderPanel />}
