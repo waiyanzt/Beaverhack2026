@@ -1,11 +1,9 @@
 import "dotenv/config";
+import { existsSync, readFileSync } from "fs";
 import { OpenAICompatibleProvider } from "../../src/main/services/model/openai-compatible.provider";
-import type { ModelProviderConfig } from "../../src/shared/model.types";
+import type { ModelProviderConfig, OpenAICompatibleMessage } from "../../src/shared/model.types";
 
 async function main(): Promise<void> {
-  // vLLM requires no API key; OpenRouter tests would need OPENROUTER_API_KEY
-  const apiKey = process.env.OPENROUTER_API_KEY ?? null;
-
   const config: ModelProviderConfig = {
     id: "vllm",
     label: "vLLM (Nemotron)",
@@ -18,6 +16,14 @@ async function main(): Promise<void> {
     supportsForcedToolChoice: true,
     supportsStrictJsonSchema: true,
     maxTokens: 25600,
+    temperature: 0.6,
+    topP: 0.95,
+    vllm: {
+      thinkingTokenBudget: 16384,
+      thinkingGracePeriod: 1024,
+      enableThinking: true,
+      useAudioInVideo: false,
+    },
   };
 
   const provider = new OpenAICompatibleProvider({
@@ -67,6 +73,8 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
 - Always set schemaVersion to "2026-05-02".
 - Generate a unique tickId and createdAt timestamp.
 - It is VERY COMMON and EXPECTED to return noop when no action is appropriate. Do not force actions.`;
+
+  const results: Array<{ label: string; ok: boolean }> = [];
 
   // Scenario 1: Streamer just started, greeting audience
   const observation1 = {
@@ -122,6 +130,7 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
     console.log(result1.content);
   }
 
+  results.push({ label: "Scenario 1", ok: result1.ok });
   console.log("\n========================================\n");
 
   // Scenario 2: Streamer is talking normally, no special event
@@ -180,6 +189,7 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
     console.log(result2.content);
   }
 
+  results.push({ label: "Scenario 2", ok: result2.ok });
   console.log("\n========================================\n");
 
   // Scenario 3: Streamer hits something surprising
@@ -235,10 +245,95 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
     console.log(result3.content);
   }
 
+  results.push({ label: "Scenario 3", ok: result3.ok });
   console.log("\n========================================\n");
 
-  if (!result1.ok || !result2.ok || !result3.ok) {
-    console.error("❌ One or more provider calls failed.");
+  // Scenario 4: Video observation
+  // vLLM is remote (SSH tunnel). We send the video as a base64 data URI
+  // since the vLLM server process can't read local file paths.
+  const localVideoPath = "/home/bergerj/Downloads/camera-capture-1777772334424.mp4";
+  const videoFileExists = existsSync(localVideoPath);
+
+  if (videoFileExists) {
+    const videoBuffer = readFileSync(localVideoPath);
+    const videoBase64 = videoBuffer.toString("base64");
+    const videoMimeType = localVideoPath.endsWith(".webm") ? "video/webm" : "video/mp4";
+    const videoDataUrl = `data:${videoMimeType};base64,${videoBase64}`;
+
+    console.log("Scenario 4: Video observation");
+    console.log("Video size:", (videoBuffer.length / 1024 / 1024).toFixed(2), "MB");
+    console.log("Data URI length:", (videoDataUrl.length / 1024 / 1024).toFixed(2), "MB");
+    console.log("---");
+
+    const videoObservation = {
+      observation: {
+        obs: {
+          connected: true,
+          currentScene: "Gameplay",
+          streaming: true,
+          recording: false,
+          sources: [
+            { name: "Webcam", visible: true },
+            { name: "Gameplay", visible: true },
+          ],
+        },
+        vts: {
+          connected: true,
+          authenticated: true,
+          modelLoaded: true,
+          availableHotkeys: [
+            { id: "wave", name: "Wave" },
+            { id: "laugh", name: "Laugh" },
+            { id: "surprise", name: "Surprise" },
+          ],
+        },
+        transcript: "",
+        timestamp: new Date().toISOString(),
+      },
+      context: {
+        autonomyLevel: "auto_safe",
+        recentActions: [],
+        cooldowns: {},
+      },
+    };
+
+    const userContent: OpenAICompatibleMessage["content"] = [
+      { type: "video_url", video_url: { url: videoDataUrl } },
+      {
+        type: "text",
+        text:
+          "The above is a short webcam video from a VTuber stream. Focus on the person's expression, gaze, posture, and whether they seem neutral, happy, tired, surprised, or otherwise emotionally engaged. If the clip does not clearly justify a reaction, return noop. Avoid verbose explanations. Observation data:\n" +
+          JSON.stringify(videoObservation),
+      },
+    ];
+
+    const result4 = await provider.createActionPlan(config, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ]);
+
+    console.log("Status:", result4.status);
+    console.log("OK:", result4.ok);
+
+    if (result4.actionPlan) {
+      console.log("✅ Structured ActionPlan:");
+      console.log(JSON.stringify(result4.actionPlan, null, 2));
+    } else {
+      console.log("❌ No structured action plan. Raw content:");
+      console.log(result4.content);
+    }
+
+    results.push({ label: "Scenario 4 (video)", ok: result4.ok });
+  } else {
+    console.log("Scenario 4: Video file not found locally, skipping.");
+    console.log("Expected:", localVideoPath);
+  }
+
+  console.log("\n========================================\n");
+
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length > 0) {
+    console.error("❌ Failed scenarios:", failed.map((r) => r.label).join(", "));
     process.exit(1);
   }
 
