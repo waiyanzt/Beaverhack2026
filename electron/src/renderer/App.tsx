@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { CapturePanel } from "./components/CapturePanel";
+import { DashboardPanel } from "./components/DashboardPanel";
 import { HotkeyMapper } from "./components/HotkeyMapper";
 import { StatusPanel } from "./components/StatusPanel";
 import { LogViewer } from "./components/LogViewer";
@@ -7,12 +8,12 @@ import { ManualControlPanel } from "./components/ManualControlPanel";
 import { ModelProviderPanel } from "./components/ModelProviderPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 
-const tabs = ["Status", "Capture", "OBS", "VTube Studio", "Model", "Hotkey Mapper", "Settings", "Logs"] as const;
+const tabs = ["Dashboard", "Status", "Capture", "OBS", "VTube Studio", "Model", "Hotkey Mapper", "Settings", "Logs"] as const;
 
 type AppTab = (typeof tabs)[number];
 
 function App(): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<AppTab>("Capture");
+  const [activeTab, setActiveTab] = useState<AppTab>("Dashboard");
 
   return (
     <div className="app-shell">
@@ -31,6 +32,7 @@ function App(): React.JSX.Element {
         </div>
       </nav>
       <div className="app-nav__content">
+        {activeTab === "Dashboard" && <DashboardPanel />}
         {activeTab === "Status" && <StatusPanel />}
         {activeTab === "Capture" && (
           <div className="capture-dev-shell">
