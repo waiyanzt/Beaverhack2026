@@ -7,3 +7,4 @@ Workspace commands:
 - `pnpm build`
 - `pnpm test`
 - `pnpm lint`
+- `bash electron/tests/standalone/model-provider-audio-curl.sh [path-to-mp4]`

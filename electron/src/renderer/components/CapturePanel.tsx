@@ -365,7 +365,7 @@ export const CapturePanel = (): React.JSX.Element => {
 					<span className={`status-pill status-pill--${status.running ? "live" : "idle"}`}>
 						{statusLabel}
 					</span>
-					<button className="ghost-button" onClick={refreshStatus} disabled={isBusy || isExportingClip}>
+					<button className="primary-button" onClick={refreshStatus} disabled={isBusy || isExportingClip}>
 						Refresh
 					</button>
 				</div>
