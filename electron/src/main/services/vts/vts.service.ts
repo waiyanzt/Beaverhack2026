@@ -7,16 +7,22 @@ import {
   type SettingsService,
 } from "../settings/settings.service";
 import { vtsHotkeySchema } from "../../../shared/schemas/vts.schema";
-import type { VtsConnectionConfig, VtsEmoteMappingConfig } from "../../../shared/types/config.types";
+import type { VtsConnectionConfig } from "../../../shared/types/config.types";
 import type {
   VtsAuthenticationState,
   VtsCatalogEntry,
+  VtsCatalogOverride,
   VtsCatalogSummary,
   VtsConnectionState,
   VtsHotkey,
   VtsReadinessState,
   VtsStatus,
 } from "../../../shared/types/vts.types";
+import {
+  buildHeuristicVtsClassification,
+  type VtsCatalogGeneratorService,
+  type VtsGeneratedClassification,
+} from "./vts-catalog-generator.service";
 
 const VTS_API_NAME = "VTubeStudioPublicAPI";
 const VTS_API_VERSION = "1.0";
@@ -29,6 +35,7 @@ const EMPTY_CATALOG: VtsCatalogSummary = {
   manualOnlyCount: 0,
   entries: [],
 };
+const DEFAULT_MANUAL_DEACTIVATE_AFTER_MS = 5_000;
 
 type VtsSocket = Pick<WebSocket, "close" | "on" | "send"> & {
   readyState: number;
@@ -51,13 +58,15 @@ interface PendingRequest {
 interface VtsServiceDependencies {
   createSocket?: (url: string) => VtsSocket;
   requestTimeoutMs?: number;
-  settingsService?: Pick<SettingsService, "getSettings" | "updateVtsConfig">;
+  settingsService?: Pick<SettingsService, "getSettings" | "updateVtsConfig" | "updateVtsCatalogOverrides">;
+  clock?: () => number;
 }
 
 export class VtsService {
   private readonly createSocket: (url: string) => VtsSocket;
   private readonly requestTimeoutMs: number;
-  private readonly settingsService: Pick<SettingsService, "getSettings" | "updateVtsConfig">;
+  private readonly settingsService: Pick<SettingsService, "getSettings" | "updateVtsConfig" | "updateVtsCatalogOverrides">;
+  private readonly clock: () => number;
   private socket: VtsSocket | null = null;
   private pendingRequests = new Map<string, PendingRequest>();
   private connectionState: VtsConnectionState = "disconnected";
@@ -71,16 +80,24 @@ export class VtsService {
   private modelId: string | null = null;
   private disconnecting = false;
   private catalog: VtsCatalogSummary = EMPTY_CATALOG;
+  private catalogGenerator: Pick<VtsCatalogGeneratorService, "generate"> | null = null;
+  private generatedClassifications = new Map<string, VtsGeneratedClassification>();
+  private lastHotkeySyncAtMs: number | null = null;
 
   constructor(dependencies: VtsServiceDependencies = {}) {
     this.createSocket = dependencies.createSocket ?? ((url) => new WebSocket(url));
     this.requestTimeoutMs = dependencies.requestTimeoutMs ?? 5000;
     this.settingsService = dependencies.settingsService ?? settingsService;
+    this.clock = dependencies.clock ?? (() => Date.now());
     this.config = this.settingsService.getSettings().vts ?? DEFAULT_CONFIG.vts;
   }
 
+  setCatalogGenerator(generator: Pick<VtsCatalogGeneratorService, "generate">): void {
+    this.catalogGenerator = generator;
+  }
+
   getStatus(): VtsStatus {
-    this.refreshCatalog();
+    this.syncConfig();
     const readinessState = this.getReadinessState();
     return {
       connectionState: this.connectionState,
@@ -104,7 +121,7 @@ export class VtsService {
   }
 
   getCatalog(): VtsCatalogSummary {
-    this.refreshCatalog();
+    this.syncConfig();
     return {
       ...this.catalog,
       entries: [...this.catalog.entries],
@@ -112,8 +129,54 @@ export class VtsService {
   }
 
   resolveCatalogEntry(catalogId: string): VtsCatalogEntry | null {
-    this.refreshCatalog();
+    this.syncConfig();
     return this.catalog.entries.find((entry) => entry.catalogId === catalogId) ?? null;
+  }
+
+  async refreshCatalogIfStale(maxAgeMs = 2_000): Promise<void> {
+    if (this.connectionState !== "connected" || this.authenticationState !== "authenticated") {
+      return;
+    }
+
+    if (this.lastHotkeySyncAtMs !== null && this.clock() - this.lastHotkeySyncAtMs < maxAgeMs) {
+      return;
+    }
+
+    try {
+      await this.getHotkeys();
+    } catch {
+      // Keep the last known catalog if a background refresh fails.
+    }
+  }
+
+  async refreshCatalog(options: { forceRegenerate?: boolean } = {}): Promise<VtsCatalogSummary> {
+    if (this.hotkeys.length === 0) {
+      this.generatedClassifications.clear();
+      this.catalog = EMPTY_CATALOG;
+      return this.getCatalog();
+    }
+
+    if (options.forceRegenerate || this.generatedClassifications.size === 0) {
+      await this.regenerateClassifications();
+    }
+
+    this.rebuildCatalog();
+    return this.getCatalog();
+  }
+
+  updateCatalogOverride(hotkeyId: string, override: VtsCatalogOverride | null): VtsCatalogSummary {
+    const settings = this.settingsService.getSettings();
+    const nextOverrides = { ...settings.vtsCatalogOverrides };
+
+    if (override) {
+      nextOverrides[hotkeyId] = override;
+    } else {
+      delete nextOverrides[hotkeyId];
+    }
+
+    this.settingsService.updateVtsCatalogOverrides(nextOverrides);
+    this.rebuildCatalog();
+    return this.getCatalog();
   }
 
   async connect(config: VtsConnectionConfig): Promise<VtsStatus> {
@@ -127,6 +190,8 @@ export class VtsService {
     this.lastError = null;
     this.hotkeys = [];
     this.catalog = EMPTY_CATALOG;
+    this.generatedClassifications.clear();
+    this.lastHotkeySyncAtMs = null;
     this.modelLoaded = false;
     this.modelName = null;
     this.modelId = null;
@@ -172,6 +237,8 @@ export class VtsService {
     this.authenticationState = "unauthenticated";
     this.hotkeys = [];
     this.catalog = EMPTY_CATALOG;
+    this.generatedClassifications.clear();
+    this.lastHotkeySyncAtMs = null;
     this.modelLoaded = false;
     this.modelName = null;
     this.modelId = null;
@@ -232,7 +299,10 @@ export class VtsService {
           file: parsed.file ?? null,
         };
       });
-      this.refreshCatalog();
+      this.lastHotkeySyncAtMs = this.clock();
+      await this.refreshCatalog({
+        forceRegenerate: true,
+      });
 
       return [...this.hotkeys];
     } catch (error: unknown) {
@@ -317,47 +387,72 @@ export class VtsService {
     return "ready";
   }
 
-  private refreshCatalog(): void {
+  private syncConfig(): void {
     this.config = this.settingsService.getSettings().vts;
-    this.catalog = this.buildCatalog(this.hotkeys, this.config.emoteMappings);
+    this.rebuildCatalog();
   }
 
-  private buildCatalog(hotkeys: VtsHotkey[], mappings: VtsEmoteMappingConfig[]): VtsCatalogSummary {
-    const availableHotkeys = new Map(hotkeys.map((hotkey) => [hotkey.hotkeyID, hotkey]));
-    const enabledMappings = mappings.filter((mapping) => mapping.enabled && availableHotkeys.has(mapping.hotkeyId));
+  private rebuildCatalog(): void {
+    const overrides = this.settingsService.getSettings().vtsCatalogOverrides ?? {};
+    this.catalog = this.buildCatalog(this.hotkeys, overrides);
+  }
+
+  private buildCatalog(hotkeys: VtsHotkey[], overrides: Record<string, VtsCatalogOverride>): VtsCatalogSummary {
+    if (hotkeys.length === 0) {
+      return EMPTY_CATALOG;
+    }
 
     const hotkeyHash = createHash("sha256")
       .update(
-        enabledMappings
-          .map((mapping) => `${mapping.hotkeyId}:${this.normalizeCatalogToken(mapping.name)}:${mapping.description.trim()}`)
+        hotkeys
+          .map((hotkey) => `${hotkey.hotkeyID}:${this.normalizeCatalogToken(hotkey.name)}`)
           .sort()
           .join("|"),
       )
       .digest("hex");
     const version = `vts_catalog_${hotkeyHash.slice(0, 12)}`;
     const seenCatalogIds = new Map<string, number>();
-    const entries = enabledMappings.map((mapping) => {
-      const hotkey = availableHotkeys.get(mapping.hotkeyId);
-      if (!hotkey) {
-        throw new Error(`VTS emote mapping "${mapping.name}" points to an unavailable hotkey.`);
-      }
 
-      const normalizedName = this.normalizeCatalogToken(mapping.name);
-      const intent = normalizedName.replace(/\s+/g, "_") || "emote";
-      const catalogBase = intent.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "emote";
+    const entries = hotkeys.map((hotkey) => {
+      const normalizedName = this.normalizeCatalogToken(hotkey.name);
+      const catalogBase = this.buildCatalogBase(hotkey, normalizedName);
       const seenCount = (seenCatalogIds.get(catalogBase) ?? 0) + 1;
       seenCatalogIds.set(catalogBase, seenCount);
       const catalogId = seenCount === 1 ? catalogBase : `${catalogBase}_${seenCount}`;
+      const generated = this.generatedClassifications.get(hotkey.hotkeyID) ?? buildHeuristicVtsClassification(hotkey);
+      const override = overrides[hotkey.hotkeyID] ?? null;
+      const effective = override
+        ? {
+            cueLabels: override.cueLabels,
+            emoteKind: override.emoteKind,
+            autoMode: override.autoMode,
+            confidence: override.confidence,
+            hasAutoDeactivate: override.hasAutoDeactivate,
+            manualDeactivateAfterMs: override.manualDeactivateAfterMs,
+            source: "override" as const,
+          }
+        : {
+            ...generated,
+            hasAutoDeactivate: false,
+            manualDeactivateAfterMs: DEFAULT_MANUAL_DEACTIVATE_AFTER_MS,
+          };
 
       return {
         catalogId,
         hotkeyId: hotkey.hotkeyID,
         hotkeyName: hotkey.name,
-        promptName: mapping.name.trim(),
-        promptDescription: mapping.description.trim(),
+        promptName: hotkey.name,
+        promptDescription: hotkey.description ?? hotkey.type,
         normalizedName,
-        intent,
-        autoMode: "safe_auto",
+        cueLabels: effective.cueLabels,
+        emoteKind: effective.emoteKind,
+        autoMode: effective.autoMode,
+        confidence: effective.confidence,
+        hasAutoDeactivate: effective.hasAutoDeactivate,
+        manualDeactivateAfterMs: effective.manualDeactivateAfterMs,
+        generatedClassification: generated,
+        override,
+        effectiveSource: override ? "override" : generated.source,
       } satisfies VtsCatalogEntry;
     });
 
@@ -370,6 +465,24 @@ export class VtsService {
       manualOnlyCount: entries.filter((entry) => entry.autoMode === "manual_only").length,
       entries,
     };
+  }
+
+  private buildCatalogBase(hotkey: VtsHotkey, normalizedName: string): string {
+    const derived = normalizedName.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    if (derived.length > 0) {
+      return derived;
+    }
+
+    return hotkey.hotkeyID.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase() || "hotkey";
+  }
+
+  private async regenerateClassifications(): Promise<void> {
+    const generated = this.catalogGenerator
+      ? await this.catalogGenerator.generate(this.hotkeys)
+      : Object.fromEntries(this.hotkeys.map((hotkey) => [hotkey.hotkeyID, buildHeuristicVtsClassification(hotkey)]));
+    this.generatedClassifications = new Map(
+      Object.entries(generated).map(([hotkeyId, classification]) => [hotkeyId, classification]),
+    );
   }
 
   private normalizeCatalogToken(value: string): string {
@@ -393,6 +506,8 @@ export class VtsService {
       this.authenticationState = "unauthenticated";
       this.hotkeys = [];
       this.catalog = EMPTY_CATALOG;
+      this.generatedClassifications.clear();
+      this.lastHotkeySyncAtMs = null;
       this.modelLoaded = false;
       this.modelName = null;
       this.modelId = null;

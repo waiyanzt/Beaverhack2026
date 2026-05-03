@@ -22,6 +22,7 @@ import {
 import { obsService } from "../services/obs/obs.service";
 import { ServiceActivationService } from "../services/service-activation.service";
 import { settingsService } from "../services/settings/settings.service";
+import { VtsCatalogGeneratorService } from "../services/vts/vts-catalog-generator.service";
 import { vtsService } from "../services/vts/vts.service";
 import { registerAutomationIpcHandlers } from "./automation.ipc";
 import { registerCaptureIpcHandlers } from "./capture.ipc";
@@ -49,6 +50,7 @@ const modelRouter = new ModelRouterService(
     },
   }),
 );
+vtsService.setCatalogGenerator(new VtsCatalogGeneratorService(modelRouter));
 
 const cooldownService = new CooldownService();
 const modelActionMemoryService = new ModelActionMemoryService();

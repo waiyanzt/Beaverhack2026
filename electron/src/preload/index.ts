@@ -35,6 +35,9 @@ import type {
   ModelProviderTestResult,
 } from "../shared/model.types";
 import type {
+  VtsCatalogOverrideUpdateRequest,
+  VtsCatalogRefreshRequest,
+  VtsCatalogResult,
   VtsHotkeysResult,
   VtsStatus,
   VtsStatusResult,
@@ -54,7 +57,6 @@ const fallbackVtsStatus: VtsStatus = {
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber Development Team",
-    emoteMappings: [],
   },
   modelLoaded: false,
   modelName: null,
@@ -74,6 +76,7 @@ const fallbackVtsStatus: VtsStatus = {
 
 const fallbackSettings = {
   vts: fallbackVtsStatus.config,
+  vtsCatalogOverrides: {},
   dashboard: {
     selectedAudioDeviceId: null,
     selectedVideoDeviceId: null,
@@ -200,6 +203,36 @@ const desktopApi = {
     ipcRenderer.invoke(IpcChannels.VtsGetHotkeys).catch((error: unknown) => {
       console.error("Failed to get VTS hotkeys:", error);
       return { ok: false as const, message: "Unable to fetch VTube Studio hotkeys.", hotkeys: [], status: fallbackVtsStatus };
+    }),
+  vtsGetCatalog: async (): Promise<VtsCatalogResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsGetCatalog).catch((error: unknown) => {
+      console.error("Failed to get VTS catalog:", error);
+      return {
+        ok: false as const,
+        message: "Unable to fetch VTube Studio catalog.",
+        catalog: fallbackVtsStatus.catalog,
+        status: fallbackVtsStatus,
+      };
+    }),
+  vtsRefreshCatalog: async (request: VtsCatalogRefreshRequest = {}): Promise<VtsCatalogResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsRefreshCatalog, request).catch((error: unknown) => {
+      console.error("Failed to refresh VTS catalog:", error);
+      return {
+        ok: false as const,
+        message: "Unable to refresh VTube Studio catalog.",
+        catalog: fallbackVtsStatus.catalog,
+        status: fallbackVtsStatus,
+      };
+    }),
+  vtsUpdateCatalogOverride: async (request: VtsCatalogOverrideUpdateRequest): Promise<VtsCatalogResult> =>
+    ipcRenderer.invoke(IpcChannels.VtsUpdateCatalogOverride, request).catch((error: unknown) => {
+      console.error("Failed to update VTS catalog override:", error);
+      return {
+        ok: false as const,
+        message: "Unable to update VTube Studio catalog override.",
+        catalog: fallbackVtsStatus.catalog,
+        status: fallbackVtsStatus,
+      };
     }),
   vtsTriggerHotkey: async (request: VtsTriggerHotkeyRequest): Promise<VtsTriggerHotkeyResult> =>
     ipcRenderer.invoke(IpcChannels.VtsTriggerHotkey, request).catch((error: unknown) => {

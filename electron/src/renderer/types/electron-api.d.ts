@@ -36,6 +36,9 @@ import type {
 	VtsConnectionConfig,
 } from "../../shared/types/config.types";
 import type {
+	VtsCatalogOverrideUpdateRequest,
+	VtsCatalogRefreshRequest,
+	VtsCatalogResult,
 	VtsHotkeysResult,
 	VtsStatusResult,
 	VtsTriggerHotkeyRequest,
@@ -66,6 +69,9 @@ type DesktopApi = {
 	vtsDisconnect: () => Promise<VtsStatusResult>;
 	vtsAuthenticate: () => Promise<VtsStatusResult>;
 	vtsGetHotkeys: () => Promise<VtsHotkeysResult>;
+	vtsGetCatalog: () => Promise<VtsCatalogResult>;
+	vtsRefreshCatalog: (request?: VtsCatalogRefreshRequest) => Promise<VtsCatalogResult>;
+	vtsUpdateCatalogOverride: (request: VtsCatalogOverrideUpdateRequest) => Promise<VtsCatalogResult>;
 	vtsTriggerHotkey: (request: VtsTriggerHotkeyRequest) => Promise<VtsTriggerHotkeyResult>;
 	captureStart: (config: CaptureStartRequest) => Promise<CaptureStartResponse>;
 	captureStop: () => Promise<CaptureStopResponse>;

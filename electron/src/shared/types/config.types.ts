@@ -1,19 +1,12 @@
 import type { ModelMonitorStartRequest } from "./model-monitor.types";
 import type { ModelProviderId } from "../model.types";
+import type { VtsCatalogOverride } from "./vts.types";
 
 export interface VtsConnectionConfig {
   host: string;
   port: number;
   pluginName: string;
   pluginDeveloper: string;
-  emoteMappings: VtsEmoteMappingConfig[];
-}
-
-export interface VtsEmoteMappingConfig {
-  hotkeyId: string;
-  name: string;
-  description: string;
-  enabled: boolean;
 }
 
 export interface DashboardConfig {
@@ -33,6 +26,7 @@ export interface MonitorConfig {
 
 export interface AppConfig {
   vts: VtsConnectionConfig;
+  vtsCatalogOverrides: Record<string, VtsCatalogOverride>;
   dashboard: DashboardConfig;
   model: ModelConfig;
   monitor: MonitorConfig;

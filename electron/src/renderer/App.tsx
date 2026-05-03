@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { DashboardPanel } from "./components/DashboardPanel";
-import { SettingsPanel } from "./components/SettingsPanel";
+import { HotkeyMapper } from "./components/HotkeyMapper";
 
-const tabs = ["Dashboard", "Settings"] as const;
+const tabs = ["Dashboard", "VTS Catalog"] as const;
 
 type AppTab = (typeof tabs)[number];
 
@@ -27,7 +27,7 @@ function App(): React.JSX.Element {
       </nav>
       <div className="app-nav__content">
         {activeTab === "Dashboard" && <DashboardPanel />}
-        {activeTab === "Settings" && <SettingsPanel />}
+        {activeTab === "VTS Catalog" && <HotkeyMapper />}
       </div>
     </div>
   );

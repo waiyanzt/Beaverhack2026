@@ -3,6 +3,40 @@ import type { VtsConnectionConfig } from "./config.types";
 export type VtsConnectionState = "disconnected" | "connecting" | "connected";
 export type VtsAuthenticationState = "unauthenticated" | "authenticating" | "authenticated";
 export type VtsAutomationMode = "safe_auto" | "suggest_only" | "manual_only";
+export type VtsCueLabel =
+  | "greeting"
+  | "wave"
+  | "happy"
+  | "excited"
+  | "laughing"
+  | "evil_laugh"
+  | "smug"
+  | "angry"
+  | "frustrated"
+  | "shocked"
+  | "surprised"
+  | "sad"
+  | "crying"
+  | "cute_reaction"
+  | "love_reaction"
+  | "confused"
+  | "embarrassed"
+  | "sleepy"
+  | "dramatic_moment"
+  | "magic_moment"
+  | "hype_moment"
+  | "idle"
+  | "manual_request"
+  | "unknown";
+export type VtsEmoteKind =
+  | "expression_reaction"
+  | "symbol_effect"
+  | "body_motion"
+  | "prop_effect"
+  | "appearance_toggle"
+  | "outfit_toggle"
+  | "reset"
+  | "unknown";
 export type VtsReadinessState =
   | "not_running"
   | "connecting"
@@ -29,8 +63,30 @@ export interface VtsCatalogEntry {
   promptName: string;
   promptDescription: string;
   normalizedName: string;
-  intent: string;
+  cueLabels: VtsCueLabel[];
+  emoteKind: VtsEmoteKind;
   autoMode: VtsAutomationMode;
+  confidence: number;
+  hasAutoDeactivate: boolean;
+  manualDeactivateAfterMs: number;
+  generatedClassification: {
+    cueLabels: VtsCueLabel[];
+    emoteKind: VtsEmoteKind;
+    autoMode: VtsAutomationMode;
+    confidence: number;
+    source: "model" | "heuristic";
+  };
+  override: VtsCatalogOverride | null;
+  effectiveSource: "model" | "heuristic" | "override";
+}
+
+export interface VtsCatalogOverride {
+  cueLabels: VtsCueLabel[];
+  emoteKind: VtsEmoteKind;
+  autoMode: VtsAutomationMode;
+  confidence: number;
+  hasAutoDeactivate: boolean;
+  manualDeactivateAfterMs: number;
 }
 
 export interface VtsCatalogSummary {
@@ -63,6 +119,15 @@ export interface VtsTriggerHotkeyRequest {
   hotkeyId: string;
 }
 
+export interface VtsCatalogRefreshRequest {
+  forceRegenerate?: boolean;
+}
+
+export interface VtsCatalogOverrideUpdateRequest {
+  hotkeyId: string;
+  override: VtsCatalogOverride | null;
+}
+
 export type VtsStatusResult =
   | { ok: true; status: VtsStatus }
   | { ok: false; message: string; status: VtsStatus };
@@ -74,3 +139,7 @@ export type VtsHotkeysResult =
 export type VtsTriggerHotkeyResult =
   | { ok: true; status: VtsStatus; triggeredHotkeyId: string }
   | { ok: false; message: string; status: VtsStatus };
+
+export type VtsCatalogResult =
+  | { ok: true; status: VtsStatus; catalog: VtsCatalogSummary }
+  | { ok: false; message: string; status: VtsStatus; catalog: VtsCatalogSummary };

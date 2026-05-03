@@ -27,8 +27,8 @@ That payload includes:
 
 Recent action history now carries both:
 
-- a stable machine target key such as `vts.hotkey:<id>` for cooldown/policy logic
-- a human-readable `label` such as `VTS hotkey: Wave` for logs and review surfaces
+- a stable machine target key such as `vts.catalog:<catalogId>` for cooldown/policy logic
+- a human-readable `label` such as `VTS catalog: laugh` for logs and review surfaces
 
 For manual text-only runs, the payload is serialized by `PromptBuilderService` and sent through `ModelRouterService`, then parsed, validated, and optionally executed by `PipelineService`.
 
@@ -46,6 +46,8 @@ Noop decisions are also represented in the compact `recentActions` history. This
   - the selected candidate is still present
   - the candidate is classified as `safe_auto`
   - the action is not cooling down or repeat-suppressed
+- When an executed VTS catalog entry is marked locally as not auto-deactivating, `ActionExecutorService` schedules a follow-up trigger of the same underlying hotkey after the configured delay to turn that state back off without asking the model to do it.
+- Raw hotkey IDs are still available for manual operator testing, but live automation does not trust the model to choose them directly.
 - `obs.set_scene` and `obs.set_source_visibility` are surfaced to the model and validated, but they currently stay in `confirmation_required` until a confirmation workflow is added.
 - `vts.set_parameter` remains unsupported in execution.
 - `overlay.message`, `log.event`, and `noop` are accepted as low-risk local actions.

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-export type PromptName = "system" | "action-planner";
+export type PromptName = "system" | "action-planner" | "vts-hotkey-classifier";
 
 export interface LoadedPrompt {
   name: PromptName;
@@ -11,6 +11,7 @@ export interface LoadedPrompt {
 const PROMPT_FILES: Record<PromptName, string> = {
   system: "system-prompt.md",
   "action-planner": "action-planner-prompt.md",
+  "vts-hotkey-classifier": "vts-hotkey-classifier-prompt.md",
 };
 
 function resolvePromptPath(name: PromptName): string {

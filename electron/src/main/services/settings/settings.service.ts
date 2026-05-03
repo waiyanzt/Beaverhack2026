@@ -8,6 +8,7 @@ import type {
   SettingsUpdateRequest,
   VtsConnectionConfig,
 } from "../../../shared/types/config.types";
+import type { VtsCatalogOverride } from "../../../shared/types/vts.types";
 
 type ElectronStoreConstructor = new <T extends Record<string, unknown>>(options: {
   name: string;
@@ -29,8 +30,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber Development Team",
-    emoteMappings: [],
   },
+  vtsCatalogOverrides: {},
   dashboard: {
     selectedAudioDeviceId: null,
     selectedVideoDeviceId: null,
@@ -89,6 +90,12 @@ export class SettingsService {
   updateVtsConfig(config: VtsConnectionConfig): AppConfig {
     return this.updateSettings({
       vts: config,
+    });
+  }
+
+  updateVtsCatalogOverrides(overrides: Record<string, VtsCatalogOverride>): AppConfig {
+    return this.updateSettings({
+      vtsCatalogOverrides: overrides,
     });
   }
 

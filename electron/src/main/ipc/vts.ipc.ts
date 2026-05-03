@@ -1,6 +1,8 @@
 import { ipcMain } from "electron";
 import { IpcChannels } from "../../shared/channels";
 import {
+  vtsCatalogOverrideUpdateRequestSchema,
+  vtsCatalogRefreshRequestSchema,
   vtsConnectRequestSchema,
   vtsTriggerHotkeyRequestSchema,
 } from "../../shared/schemas/vts.schema";
@@ -59,6 +61,75 @@ export function registerVtsIpcHandlers(): void {
     } catch (error: unknown) {
       console.error("Failed to get VTS hotkeys:", error);
       return { ok: false as const, message: "Unable to fetch VTube Studio hotkeys.", hotkeys: [], status: vtsService.getStatus() };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsGetCatalog, () => {
+    try {
+      return { ok: true as const, status: vtsService.getStatus(), catalog: vtsService.getCatalog() };
+    } catch (error: unknown) {
+      console.error("Failed to get VTS catalog:", error);
+      return {
+        ok: false as const,
+        message: "Unable to get VTube Studio catalog.",
+        status: vtsService.getStatus(),
+        catalog: vtsService.getCatalog(),
+      };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsRefreshCatalog, async (_event, input: unknown) => {
+    const parsed = vtsCatalogRefreshRequestSchema.safeParse(input ?? {});
+
+    if (!parsed.success) {
+      return {
+        ok: false as const,
+        message: "Invalid VTube Studio catalog refresh request.",
+        status: vtsService.getStatus(),
+        catalog: vtsService.getCatalog(),
+      };
+    }
+
+    try {
+      if (vtsService.getStatus().authenticated) {
+        await vtsService.getHotkeys();
+      }
+      const catalog = await vtsService.refreshCatalog(parsed.data);
+      return { ok: true as const, status: vtsService.getStatus(), catalog };
+    } catch (error: unknown) {
+      console.error("Failed to refresh VTS catalog:", error);
+      return {
+        ok: false as const,
+        message: "Unable to refresh VTube Studio catalog.",
+        status: vtsService.getStatus(),
+        catalog: vtsService.getCatalog(),
+      };
+    }
+  });
+
+  ipcMain.handle(IpcChannels.VtsUpdateCatalogOverride, (_event, input: unknown) => {
+    const parsed = vtsCatalogOverrideUpdateRequestSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return {
+        ok: false as const,
+        message: "Invalid VTube Studio catalog override.",
+        status: vtsService.getStatus(),
+        catalog: vtsService.getCatalog(),
+      };
+    }
+
+    try {
+      const catalog = vtsService.updateCatalogOverride(parsed.data.hotkeyId, parsed.data.override);
+      return { ok: true as const, status: vtsService.getStatus(), catalog };
+    } catch (error: unknown) {
+      console.error("Failed to update VTS catalog override:", error);
+      return {
+        ok: false as const,
+        message: "Unable to update VTube Studio catalog override.",
+        status: vtsService.getStatus(),
+        catalog: vtsService.getCatalog(),
+      };
     }
   });
 

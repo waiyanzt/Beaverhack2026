@@ -20,6 +20,7 @@ Planning priorities:
 Action-specific rules:
 
 - When triggering VTS hotkeys, use `services.vts.automationCatalog.candidates[].catalogId` plus the current `services.vts.automationCatalog.version`.
+- Match the current observation against each candidate's `cueLabels`, `description`, and `emoteKind`.
 - Do not choose raw VTS hotkey IDs directly when an automation catalog is present.
 - Use `recentModelActions` as short-term memory for continuity, including prior action reasons, safety reasoning, and execution results.
 - Do not trigger the same hotkey repeatedly without a clear reason.

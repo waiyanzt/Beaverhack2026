@@ -1,4 +1,5 @@
 import type { ActionPlan, LocalAction } from "../schemas/action-plan.schema";
+import type { VtsAutomationMode, VtsCueLabel, VtsEmoteKind, VtsReadinessState } from "./vts.types";
 
 export type CapturedFrame = {
 	id: string;
@@ -58,22 +59,14 @@ export interface ModelControlVtsCatalogItem {
   catalogId: string;
   label: string;
   description: string;
-  intent: string;
-  autoMode: "safe_auto" | "suggest_only" | "manual_only";
+  cueLabels: VtsCueLabel[];
+  emoteKind: VtsEmoteKind;
+  autoMode: VtsAutomationMode;
 }
 
 export interface ModelControlVtsCatalogState {
   version: string | null;
-  readinessState:
-    | "not_running"
-    | "connecting"
-    | "unauthenticated"
-    | "authenticating"
-    | "authenticated"
-    | "no_model_loaded"
-    | "no_hotkeys"
-    | "catalog_building"
-    | "ready";
+  readinessState: VtsReadinessState;
   readyForAutomation: boolean;
   safeAutoCount: number;
   suggestOnlyCount: number;

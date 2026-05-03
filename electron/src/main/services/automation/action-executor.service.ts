@@ -9,6 +9,8 @@ interface ActionExecutorObsService {
 interface ActionExecutorVtsCatalogEntry {
   catalogId: string;
   hotkeyId: string;
+  hasAutoDeactivate: boolean;
+  manualDeactivateAfterMs: number;
 }
 
 interface ActionExecutorVtsService {
@@ -16,12 +18,25 @@ interface ActionExecutorVtsService {
   resolveCatalogEntry(catalogId: string): ActionExecutorVtsCatalogEntry | null;
 }
 
+interface ActionExecutorDependencies {
+  setTimeout?: typeof global.setTimeout;
+  clearTimeout?: typeof global.clearTimeout;
+}
+
 export class ActionExecutorService {
+  private readonly setTimeoutFn: typeof global.setTimeout;
+  private readonly clearTimeoutFn: typeof global.clearTimeout;
+  private readonly pendingDeactivateTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
   public constructor(
     private readonly obsService: ActionExecutorObsService,
     private readonly vtsService: ActionExecutorVtsService,
     private readonly cooldownService: CooldownService,
-  ) {}
+    dependencies: ActionExecutorDependencies = {},
+  ) {
+    this.setTimeoutFn = dependencies.setTimeout ?? global.setTimeout;
+    this.clearTimeoutFn = dependencies.clearTimeout ?? global.clearTimeout;
+  }
 
   public async execute(reviewedActions: ReviewedAction[], dryRun = false): Promise<ActionExecutionResult[]> {
     const results: ActionExecutionResult[] = [];
@@ -70,7 +85,7 @@ export class ActionExecutorService {
 
       try {
         await this.executeApprovedAction(reviewedAction);
-        this.cooldownService.markAction(reviewedAction.action);
+        this.cooldownService.markAction(this.buildRecordedAction(reviewedAction.action));
         results.push({
           actionId: reviewedAction.action.actionId,
           type: reviewedAction.action.type,
@@ -96,8 +111,10 @@ export class ActionExecutorService {
 
     switch (action.type) {
       case "vts.trigger_hotkey": {
-        const hotkeyId = this.resolveVtsHotkeyId(action);
+        const catalogEntry = action.catalogId ? this.vtsService.resolveCatalogEntry(action.catalogId) : null;
+        const hotkeyId = catalogEntry?.hotkeyId ?? this.resolveVtsHotkeyId(action);
         await this.vtsService.triggerHotkey(hotkeyId);
+        this.scheduleManualDeactivate(catalogEntry);
         return;
       }
       case "obs.set_scene":
@@ -131,5 +148,60 @@ export class ActionExecutorService {
     }
 
     throw new Error("VTS hotkey action is missing both catalogId and hotkeyId.");
+  }
+
+  private buildRecordedAction(action: ReviewedAction["action"]): ReviewedAction["action"] {
+    if (action.type !== "vts.trigger_hotkey" || !action.catalogId) {
+      return action;
+    }
+
+    const catalogEntry = this.vtsService.resolveCatalogEntry(action.catalogId);
+    if (!catalogEntry || catalogEntry.hasAutoDeactivate) {
+      return action;
+    }
+
+    return {
+      ...action,
+      cooldownMs: Math.max(action.cooldownMs ?? 0, catalogEntry.manualDeactivateAfterMs),
+    };
+  }
+
+  private scheduleManualDeactivate(catalogEntry: ActionExecutorVtsCatalogEntry | null): void {
+    if (!catalogEntry) {
+      return;
+    }
+
+    const existingTimer = this.pendingDeactivateTimers.get(catalogEntry.catalogId);
+    if (existingTimer) {
+      this.clearTimeoutFn(existingTimer);
+      this.pendingDeactivateTimers.delete(catalogEntry.catalogId);
+    }
+
+    if (catalogEntry.hasAutoDeactivate) {
+      return;
+    }
+
+    const timer = this.setTimeoutFn(() => {
+      void this.runScheduledDeactivate(catalogEntry.catalogId, catalogEntry.hotkeyId);
+    }, catalogEntry.manualDeactivateAfterMs);
+
+    this.pendingDeactivateTimers.set(catalogEntry.catalogId, timer);
+  }
+
+  private async runScheduledDeactivate(catalogId: string, fallbackHotkeyId: string): Promise<void> {
+    this.pendingDeactivateTimers.delete(catalogId);
+
+    const catalogEntry = this.vtsService.resolveCatalogEntry(catalogId);
+    if (catalogEntry?.hasAutoDeactivate) {
+      return;
+    }
+
+    const hotkeyId = catalogEntry?.hotkeyId ?? fallbackHotkeyId;
+
+    try {
+      await this.vtsService.triggerHotkey(hotkeyId);
+    } catch {
+      // A best-effort cleanup trigger should not break the pipeline if the model changed or VTS disconnected.
+    }
   }
 }

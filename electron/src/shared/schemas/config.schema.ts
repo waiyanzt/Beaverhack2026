@@ -1,14 +1,6 @@
 import { z } from "zod";
 import { modelMonitorStartRequestSchema } from "./model-monitor.schema";
-
-export const vtsEmoteMappingConfigSchema = z
-  .object({
-    hotkeyId: z.string().trim().min(1).max(512),
-    name: z.string().trim().min(1).max(32),
-    description: z.string().trim().min(1).max(240),
-    enabled: z.boolean(),
-  })
-  .strict();
+import type { VtsCueLabel, VtsEmoteKind } from "../types/vts.types";
 
 export const vtsConnectionConfigSchema = z
   .object({
@@ -16,7 +8,6 @@ export const vtsConnectionConfigSchema = z
     port: z.number().int().min(1).max(65535),
     pluginName: z.string().trim().min(3).max(32),
     pluginDeveloper: z.string().trim().min(3).max(32),
-    emoteMappings: z.array(vtsEmoteMappingConfigSchema).max(64).default([]),
   })
   .strict();
 
@@ -41,9 +32,59 @@ export const monitorConfigSchema = z
   })
   .strict();
 
+const vtsCueLabelValues = [
+  "greeting",
+  "wave",
+  "happy",
+  "excited",
+  "laughing",
+  "evil_laugh",
+  "smug",
+  "angry",
+  "frustrated",
+  "shocked",
+  "surprised",
+  "sad",
+  "crying",
+  "cute_reaction",
+  "love_reaction",
+  "confused",
+  "embarrassed",
+  "sleepy",
+  "dramatic_moment",
+  "magic_moment",
+  "hype_moment",
+  "idle",
+  "manual_request",
+  "unknown",
+] as const satisfies readonly VtsCueLabel[];
+
+const vtsEmoteKindValues = [
+  "expression_reaction",
+  "symbol_effect",
+  "body_motion",
+  "prop_effect",
+  "appearance_toggle",
+  "outfit_toggle",
+  "reset",
+  "unknown",
+] as const satisfies readonly VtsEmoteKind[];
+
+export const vtsCatalogOverrideSchema = z
+  .object({
+    cueLabels: z.array(z.enum(vtsCueLabelValues)).min(1),
+    emoteKind: z.enum(vtsEmoteKindValues),
+    autoMode: z.enum(["safe_auto", "suggest_only", "manual_only"]),
+    confidence: z.number().min(0).max(1),
+    hasAutoDeactivate: z.boolean().default(false),
+    manualDeactivateAfterMs: z.number().int().min(500).max(300000).default(5000),
+  })
+  .strict();
+
 export const appConfigSchema = z
   .object({
     vts: vtsConnectionConfigSchema,
+    vtsCatalogOverrides: z.record(z.string().trim().min(1), vtsCatalogOverrideSchema),
     dashboard: dashboardConfigSchema,
     model: modelConfigSchema,
     monitor: monitorConfigSchema,

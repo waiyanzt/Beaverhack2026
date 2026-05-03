@@ -16,6 +16,7 @@ interface ObservationBuilderObsService {
 interface ObservationBuilderVtsService {
   getStatus(): VtsStatus;
   getCachedHotkeys(): VtsHotkey[];
+  refreshCatalogIfStale?(maxAgeMs?: number): Promise<void>;
 }
 
 export interface BuildModelContextRequest {
@@ -38,7 +39,10 @@ export class ObservationBuilderService {
   ): Promise<ModelControlContext> {
     const [obsStatus, vtsStatus] = await Promise.all([
       this.obsService.getStatus(),
-      Promise.resolve(this.vtsService.getStatus()),
+      (async () => {
+        await this.vtsService.refreshCatalogIfStale?.();
+        return this.vtsService.getStatus();
+      })(),
     ]);
 
     const allowedActions = this.getAllowedActions(obsStatus, vtsStatus, request.allowObsActions ?? true);
@@ -65,7 +69,8 @@ export class ObservationBuilderService {
                 catalogId: entry.catalogId,
                 label: entry.promptName,
                 description: entry.promptDescription,
-                intent: entry.intent,
+                cueLabels: entry.cueLabels,
+                emoteKind: entry.emoteKind,
                 autoMode: entry.autoMode,
               })),
           },

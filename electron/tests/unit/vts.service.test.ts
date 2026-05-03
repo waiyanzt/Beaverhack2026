@@ -9,15 +9,8 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
       port: 8001,
       pluginName: "AuTuber",
       pluginDeveloper: "AuTuber",
-      emoteMappings: [
-        {
-          hotkeyId: "wave",
-          name: "wave",
-          description: "Use when the streamer greets chat.",
-          enabled: true,
-        },
-      ],
     },
+    vtsCatalogOverrides: {},
     dashboard: {
       selectedAudioDeviceId: null,
       selectedVideoDeviceId: null,
@@ -38,15 +31,8 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
         port: 8001,
         pluginName: "AuTuber",
         pluginDeveloper: "AuTuber",
-        emoteMappings: [
-          {
-            hotkeyId: "wave",
-            name: "wave",
-            description: "Use when the streamer greets chat.",
-            enabled: true,
-          },
-        ],
       },
+      vtsCatalogOverrides: {},
       dashboard: {
         selectedAudioDeviceId: null,
         selectedVideoDeviceId: null,
@@ -64,6 +50,7 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
       ...config,
       vts: nextConfig,
     }),
+    updateVtsCatalogOverrides: () => config,
   },
 }));
 
@@ -102,15 +89,8 @@ const config: AppConfig = {
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber",
-    emoteMappings: [
-      {
-        hotkeyId: "wave",
-        name: "wave",
-        description: "Use when the streamer greets chat.",
-        enabled: true,
-      },
-    ],
   },
+  vtsCatalogOverrides: {},
   dashboard: {
     selectedAudioDeviceId: null,
     selectedVideoDeviceId: null,
@@ -207,6 +187,7 @@ describe("VtsService", () => {
           ...config,
           vts: nextConfig,
         }),
+        updateVtsCatalogOverrides: () => config,
       },
     });
 
@@ -219,13 +200,16 @@ describe("VtsService", () => {
     expect(statusAfterAuth.hotkeyCount).toBe(1);
     expect(statusAfterAuth.readinessState).toBe("ready");
     expect(statusAfterAuth.readyForAutomation).toBe(true);
-    expect(statusAfterAuth.catalog.safeAutoCount).toBe(1);
+    expect(statusAfterAuth.catalog.safeAutoCount).toBe(0);
+    expect(statusAfterAuth.catalog.suggestOnlyCount).toBe(1);
     expect(service.resolveCatalogEntry("wave")).toMatchObject({
       catalogId: "wave",
       hotkeyId: "wave",
-      autoMode: "safe_auto",
-      promptName: "wave",
-      promptDescription: "Use when the streamer greets chat.",
+      autoMode: "suggest_only",
+      promptName: "Wave",
+      promptDescription: "Wave animation",
+      hasAutoDeactivate: false,
+      manualDeactivateAfterMs: 5000,
     });
 
     const triggeredHotkeyId = await service.triggerHotkey("wave");
@@ -243,6 +227,7 @@ describe("VtsService", () => {
           ...config,
           vts: nextConfig,
         }),
+        updateVtsCatalogOverrides: () => config,
       },
     });
 
@@ -312,6 +297,7 @@ describe("VtsService", () => {
           ...config,
           vts: nextConfig,
         }),
+        updateVtsCatalogOverrides: () => config,
       },
     });
 
@@ -390,6 +376,7 @@ describe("VtsService", () => {
           ...config,
           vts: nextConfig,
         }),
+        updateVtsCatalogOverrides: () => config,
       },
     });
 
@@ -408,7 +395,7 @@ describe("VtsService", () => {
     ]);
   });
 
-  it("does not expose unmapped hotkeys to automation", async () => {
+  it("keeps manual-only hotkeys out of the safe-auto automation set", async () => {
     const { VtsService } = await import("../../src/main/services/vts/vts.service");
 
     const service = new VtsService({
@@ -473,13 +460,101 @@ describe("VtsService", () => {
           ...config,
           vts: nextConfig,
         }),
+        updateVtsCatalogOverrides: () => config,
       },
     });
 
     await service.connect(config.vts);
     await service.authenticate();
 
-    expect(service.resolveCatalogEntry("hair")).toBeNull();
-    expect(service.getStatus().catalog.totalEntries).toBe(0);
+    expect(service.resolveCatalogEntry("hair_change")).toMatchObject({
+      hotkeyId: "hair",
+      autoMode: "manual_only",
+      effectiveSource: "heuristic",
+      hasAutoDeactivate: false,
+      manualDeactivateAfterMs: 5000,
+    });
+    expect(service.getStatus().catalog.safeAutoCount).toBe(0);
+    expect(service.getStatus().catalog.manualOnlyCount).toBe(1);
+  });
+
+  it("maps crying expressions to sad and crying instead of unknown", async () => {
+    const { VtsService } = await import("../../src/main/services/vts/vts.service");
+
+    const service = new VtsService({
+      createSocket: () =>
+        new MockSocket((request) => {
+          const requestID = String(request.requestID);
+          const messageType = String(request.messageType);
+
+          if (messageType === "AuthenticationTokenRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationTokenResponse",
+              data: {
+                authenticationToken: "token-123",
+              },
+            };
+          }
+
+          if (messageType === "AuthenticationRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationResponse",
+              data: {
+                authenticated: true,
+                reason: "ok",
+              },
+            };
+          }
+
+          if (messageType === "HotkeysInCurrentModelRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "HotkeysInCurrentModelResponse",
+              data: {
+                modelLoaded: true,
+                modelName: "Demo Model",
+                modelID: "model-1",
+                availableHotkeys: [
+                  {
+                    hotkeyID: "eyes-cry",
+                    name: "Eyes Cry",
+                    type: "TriggerAnimation",
+                    description: null,
+                    file: null,
+                  },
+                ],
+              },
+            };
+          }
+
+          throw new Error(`Unhandled message type: ${messageType}`);
+        }) as never,
+      settingsService: {
+        getSettings: () => config,
+        updateVtsConfig: (nextConfig) => ({
+          ...config,
+          vts: nextConfig,
+        }),
+        updateVtsCatalogOverrides: () => config,
+      },
+    });
+
+    await service.connect(config.vts);
+    await service.authenticate();
+
+    expect(service.resolveCatalogEntry("eyes_cry")).toMatchObject({
+      cueLabels: ["sad", "crying"],
+      emoteKind: "expression_reaction",
+      autoMode: "safe_auto",
+      effectiveSource: "heuristic",
+    });
   });
 });

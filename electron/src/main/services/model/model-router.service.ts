@@ -21,6 +21,14 @@ export interface ModelActionPlanResponse {
   usage?: OpenAICompatibleProviderResult["usage"];
 }
 
+export interface ModelChatResponse {
+  providerId: ModelProviderId;
+  ok: boolean;
+  status: number | null;
+  content: string;
+  usage?: OpenAICompatibleProviderResult["usage"];
+}
+
 export class ModelRouterService {
   public constructor(
     private readonly store: ModelProviderStore,
@@ -139,6 +147,47 @@ export class ModelRouterService {
       status: result.status,
       content: result.content,
       actionPlan: result.actionPlan,
+      usage: result.usage,
+    };
+  }
+
+  public async requestChat(messages: OpenAICompatibleMessage[]): Promise<ModelChatResponse> {
+    const provider = this.getSelectedProvider();
+
+    if (!provider) {
+      return {
+        providerId: this.store.getSelectedProviderId(),
+        ok: false,
+        status: null,
+        content: "No selected provider is configured.",
+      };
+    }
+
+    if (!provider.enabled) {
+      return {
+        providerId: provider.id,
+        ok: false,
+        status: null,
+        content: "Selected provider is disabled.",
+      };
+    }
+
+    if (provider.id === "mock") {
+      return {
+        providerId: provider.id,
+        ok: false,
+        status: 200,
+        content: "Mock provider does not support VTS catalog generation.",
+      };
+    }
+
+    const result = await this.openAICompatibleProvider.chat(provider, messages);
+
+    return {
+      providerId: provider.id,
+      ok: result.ok,
+      status: result.status,
+      content: result.content,
       usage: result.usage,
     };
   }
