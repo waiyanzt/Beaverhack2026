@@ -18,6 +18,9 @@ export function useAutomation(): UseAutomationState {
       const result = await window.desktop.automationAnalyzeNow({
         transcript: transcript?.trim() ? transcript.trim() : undefined,
         dryRun,
+        useLatestCapture: true,
+        captureWindowMs: 2_000,
+        allowObsActions: false,
       });
       setLastResult(result);
     } finally {

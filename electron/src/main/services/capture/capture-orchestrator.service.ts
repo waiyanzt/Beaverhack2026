@@ -396,6 +396,30 @@ export class CaptureOrchestratorService {
 		};
 	}
 
+	getRecentRawClips(kind: CaptureClipKind, windowMs: number): Array<{
+		timestampMs: number;
+		durationMs: number;
+		mimeType: string;
+		data: Buffer;
+	}> {
+		const buffer =
+			kind === "camera"
+				? this.buffers.cameraClips
+				: kind === "screen"
+					? this.buffers.screenClips
+					: this.buffers.audioClips;
+		if (!buffer) {
+			return [];
+		}
+
+		return buffer.getWindow(windowMs, this.clock()).map((clip) => ({
+			timestampMs: clip.timestampMs,
+			durationMs: clip.durationMs,
+			mimeType: clip.mimeType,
+			data: Buffer.from(clip.data),
+		}));
+	}
+
 	private prepareBuffers(config: CaptureStartRequest): void {
 		this.buffers = {
 			camera: config.camera.enabled

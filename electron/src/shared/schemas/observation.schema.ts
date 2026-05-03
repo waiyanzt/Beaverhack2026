@@ -62,6 +62,7 @@ export const modelControlRecentActionSchema = z
     actionId: z.string().trim().min(1),
     type: supportedActionTypeSchema,
     target: z.string().nullable(),
+    label: z.string().trim().min(1),
     timestamp: z.string().datetime(),
   })
   .strict();

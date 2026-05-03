@@ -216,4 +216,161 @@ describe("VtsService", () => {
 
     await expect(service.getHotkeys()).rejects.toThrow("VTube Studio is not authenticated.");
   });
+
+  it("reuses the cached authentication token after reconnecting", async () => {
+    const { VtsService } = await import("../../src/main/services/vts/vts.service");
+    let tokenRequestCount = 0;
+    let authRequestCount = 0;
+
+    const service = new VtsService({
+      createSocket: () =>
+        new MockSocket((request) => {
+          const requestID = String(request.requestID);
+          const messageType = String(request.messageType);
+
+          if (messageType === "AuthenticationTokenRequest") {
+            tokenRequestCount += 1;
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationTokenResponse",
+              data: {
+                authenticationToken: "token-123",
+              },
+            };
+          }
+
+          if (messageType === "AuthenticationRequest") {
+            authRequestCount += 1;
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationResponse",
+              data: {
+                authenticated: true,
+                reason: "ok",
+              },
+            };
+          }
+
+          if (messageType === "HotkeysInCurrentModelRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "HotkeysInCurrentModelResponse",
+              data: {
+                modelLoaded: true,
+                modelName: "Demo Model",
+                modelID: "model-1",
+                availableHotkeys: [],
+              },
+            };
+          }
+
+          throw new Error(`Unhandled message type: ${messageType}`);
+        }) as never,
+      settingsService: {
+        getSettings: () => config,
+        updateVtsConfig: (nextConfig) => ({
+          ...config,
+          vts: nextConfig,
+        }),
+      },
+    });
+
+    await service.connect(config.vts);
+    await service.authenticate();
+    await service.disconnect();
+    await service.connect(config.vts);
+    await service.authenticate();
+
+    expect(tokenRequestCount).toBe(1);
+    expect(authRequestCount).toBe(2);
+  });
+
+  it("normalizes empty hotkey names from VTube Studio", async () => {
+    const { VtsService } = await import("../../src/main/services/vts/vts.service");
+
+    const service = new VtsService({
+      createSocket: () =>
+        new MockSocket((request) => {
+          const requestID = String(request.requestID);
+          const messageType = String(request.messageType);
+
+          if (messageType === "AuthenticationTokenRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationTokenResponse",
+              data: {
+                authenticationToken: "token-123",
+              },
+            };
+          }
+
+          if (messageType === "AuthenticationRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "AuthenticationResponse",
+              data: {
+                authenticated: true,
+                reason: "ok",
+              },
+            };
+          }
+
+          if (messageType === "HotkeysInCurrentModelRequest") {
+            return {
+              apiName: "VTubeStudioPublicAPI",
+              apiVersion: "1.0",
+              requestID,
+              messageType: "HotkeysInCurrentModelResponse",
+              data: {
+                modelLoaded: true,
+                modelName: "Demo Model",
+                modelID: "model-1",
+                availableHotkeys: [
+                  {
+                    hotkeyID: "surprise",
+                    name: "",
+                    type: "TriggerAnimation",
+                    description: null,
+                    file: null,
+                  },
+                ],
+              },
+            };
+          }
+
+          throw new Error(`Unhandled message type: ${messageType}`);
+        }) as never,
+      settingsService: {
+        getSettings: () => config,
+        updateVtsConfig: (nextConfig) => ({
+          ...config,
+          vts: nextConfig,
+        }),
+      },
+    });
+
+    await service.connect(config.vts);
+    const status = await service.authenticate();
+
+    expect(status.hotkeyCount).toBe(1);
+    expect(service.getCachedHotkeys()).toEqual([
+      {
+        hotkeyID: "surprise",
+        name: "Unnamed Hotkey (surprise)",
+        type: "TriggerAnimation",
+        description: null,
+        file: null,
+      },
+    ]);
+  });
 });

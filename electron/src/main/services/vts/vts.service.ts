@@ -152,11 +152,7 @@ export class VtsService {
     this.lastError = null;
 
     try {
-      const tokenResponse = await this.sendRequest("AuthenticationTokenRequest", {
-        pluginName: this.config.pluginName,
-        pluginDeveloper: this.config.pluginDeveloper,
-      }, 30000);
-      const token = this.readString(tokenResponse.data, "authenticationToken");
+      const token = this.token ?? await this.requestAuthenticationToken();
 
       await this.authenticateWithToken(token);
       await this.getHotkeys();
@@ -167,6 +163,15 @@ export class VtsService {
       this.lastError = this.toMessage(error, "Failed to authenticate with VTube Studio.");
       throw error;
     }
+  }
+
+  private async requestAuthenticationToken(): Promise<string> {
+    const tokenResponse = await this.sendRequest("AuthenticationTokenRequest", {
+      pluginName: this.config.pluginName,
+      pluginDeveloper: this.config.pluginDeveloper,
+    }, 30000);
+
+    return this.readString(tokenResponse.data, "authenticationToken");
   }
 
   async getHotkeys(): Promise<VtsHotkey[]> {
@@ -187,7 +192,7 @@ export class VtsService {
         const parsed = vtsHotkeySchema.parse(hotkey);
         return {
           hotkeyID: parsed.hotkeyID,
-          name: parsed.name,
+          name: this.normalizeHotkeyName(parsed.hotkeyID, parsed.name),
           type: parsed.type,
           description: parsed.description ?? null,
           file: parsed.file ?? null,
@@ -233,6 +238,16 @@ export class VtsService {
     this.token = token;
     this.authenticationState = "authenticated";
     this.lastError = null;
+  }
+
+  private normalizeHotkeyName(hotkeyId: string, name: string): string {
+    const trimmedName = name.trim();
+
+    if (trimmedName.length > 0) {
+      return trimmedName;
+    }
+
+    return `Unnamed Hotkey (${hotkeyId})`;
   }
 
   private attachSocket(socket: VtsSocket): void {

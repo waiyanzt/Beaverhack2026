@@ -1,6 +1,8 @@
 export const IpcChannels = {
   GetAppVersion: "app:get-version",
   AutomationAnalyzeNow: "automation:analyze-now",
+  ServicesActivate: "services:activate",
+  ServicesGetStatus: "services:get-status",
   ModelTestConnection: "model:test-connection",
   ModelListProviders: "model:list-providers",
   ModelSetProvider: "model:set-provider",

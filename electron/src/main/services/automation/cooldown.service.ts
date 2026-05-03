@@ -46,6 +46,7 @@ export class CooldownService {
       actionId: action.actionId,
       type: action.type as SupportedActionType,
       target: cooldownKey,
+      label: this.getActionLabel(action),
       timestamp,
     });
 
@@ -79,6 +80,25 @@ export class CooldownService {
       if (entry.expiresAtMs <= now) {
         this.cooldowns.delete(key);
       }
+    }
+  }
+
+  private getActionLabel(action: LocalAction): string {
+    switch (action.type) {
+      case "vts.trigger_hotkey":
+        return `VTS hotkey: ${action.hotkeyId}`;
+      case "vts.set_parameter":
+        return `VTS parameter: ${action.parameterId} -> ${action.value}`;
+      case "obs.set_scene":
+        return `OBS scene: ${action.sceneName}`;
+      case "obs.set_source_visibility":
+        return `OBS source: ${action.sceneName} / ${action.sourceName} -> ${action.visible ? "show" : "hide"}`;
+      case "overlay.message":
+        return `Overlay message: ${action.message}`;
+      case "log.event":
+        return `Log event: ${action.level}`;
+      case "noop":
+        return "No action";
     }
   }
 }

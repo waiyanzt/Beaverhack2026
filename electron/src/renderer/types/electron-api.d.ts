@@ -28,6 +28,7 @@ import type {
 	ModelProviderId,
 	ModelProviderTestResult,
 } from "../../shared/model.types";
+import type { ServiceActivationStatusResult } from "../../shared/types/service-activation.types";
 import type {
 	SettingsGetResult,
 	SettingsUpdateRequest,
@@ -56,6 +57,8 @@ type CaptureStopResponse =
 type DesktopApi = {
 	getAppVersion: () => Promise<string>;
 	automationAnalyzeNow: (request: AutomationAnalyzeNowRequest) => Promise<AutomationAnalyzeNowResult>;
+	servicesActivate: () => Promise<ServiceActivationStatusResult>;
+	servicesGetStatus: () => Promise<ServiceActivationStatusResult>;
 	settingsGet: () => Promise<SettingsGetResult>;
 	settingsUpdate: (request: SettingsUpdateRequest) => Promise<SettingsUpdateResult>;
 	vtsGetStatus: () => Promise<VtsStatusResult>;

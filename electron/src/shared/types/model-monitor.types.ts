@@ -1,4 +1,5 @@
 import type { CaptureStartRequest } from "./capture.types";
+import type { ActionExecutionResult, ReviewedAction } from "./action-plan.types";
 
 export type ModelMonitorStartRequest = {
   capture: CaptureStartRequest;
@@ -86,6 +87,8 @@ export type ModelMonitorEvent =
       statusCode: number | null;
       content: string;
       actionPlan?: unknown;
+      reviewedActions?: ReviewedAction[];
+      actionResults?: ActionExecutionResult[];
       modelMediaDataUrl?: string;
       status: ModelMonitorStatus;
       media: ModelMonitorMediaAvailability;

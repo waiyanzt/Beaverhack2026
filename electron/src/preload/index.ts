@@ -28,6 +28,7 @@ import type {
   ModelMonitorStatusResponse,
   ModelMonitorStopResponse,
 } from "../shared/types/model-monitor.types";
+import type { ServiceActivationStatusResult } from "../shared/types/service-activation.types";
 import type {
   ModelProviderConfig,
   ModelProviderId,
@@ -88,6 +89,62 @@ const desktopApi = {
     ipcRenderer.invoke(IpcChannels.AutomationAnalyzeNow, request).catch((error: unknown) => {
       console.error("Failed to run automation analysis:", error);
       return { ok: false as const, message: "Unable to run automation analysis." };
+    }),
+  servicesActivate: async (): Promise<ServiceActivationStatusResult> =>
+    ipcRenderer.invoke(IpcChannels.ServicesActivate).catch((error: unknown) => {
+      console.error("Failed to activate services:", error);
+      return {
+        ok: false as const,
+        message: "Unable to activate services.",
+        status: {
+          inFlight: false,
+          retryScheduled: false,
+          lastTrigger: null,
+          obs: {
+            ready: false,
+            connected: false,
+            lastAttemptAt: null,
+            lastSuccessAt: null,
+            lastError: "Unable to activate services.",
+          },
+          vts: {
+            ready: false,
+            connected: false,
+            authenticated: false,
+            lastAttemptAt: null,
+            lastSuccessAt: null,
+            lastError: "Unable to activate services.",
+          },
+        },
+      };
+    }),
+  servicesGetStatus: async (): Promise<ServiceActivationStatusResult> =>
+    ipcRenderer.invoke(IpcChannels.ServicesGetStatus).catch((error: unknown) => {
+      console.error("Failed to get service activation status:", error);
+      return {
+        ok: false as const,
+        message: "Unable to get service activation status.",
+        status: {
+          inFlight: false,
+          retryScheduled: false,
+          lastTrigger: null,
+          obs: {
+            ready: false,
+            connected: false,
+            lastAttemptAt: null,
+            lastSuccessAt: null,
+            lastError: "Unable to get service activation status.",
+          },
+          vts: {
+            ready: false,
+            connected: false,
+            authenticated: false,
+            lastAttemptAt: null,
+            lastSuccessAt: null,
+            lastError: "Unable to get service activation status.",
+          },
+        },
+      };
     }),
   settingsGet: async (): Promise<SettingsGetResult> =>
     ipcRenderer.invoke(IpcChannels.SettingsGet).catch((error: unknown) => {

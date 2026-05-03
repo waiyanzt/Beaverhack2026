@@ -23,6 +23,7 @@ export interface BuildModelContextRequest {
   transcript?: string;
   autonomyLevel?: AutomationAutonomyLevel;
   recentModelActions?: ModelControlRecentModelAction[];
+  allowObsActions?: boolean;
 }
 
 export class ObservationBuilderService {
@@ -40,7 +41,7 @@ export class ObservationBuilderService {
       Promise.resolve(this.vtsService.getStatus()),
     ]);
 
-    const allowedActions = this.getAllowedActions(obsStatus, vtsStatus);
+    const allowedActions = this.getAllowedActions(obsStatus, vtsStatus, request.allowObsActions ?? true);
     const context = modelControlContextSchema.parse({
       tickId: request.tickId,
       timestamp: new Date().toISOString(),
@@ -77,14 +78,18 @@ export class ObservationBuilderService {
     return context;
   }
 
-  private getAllowedActions(obsStatus: ObsStatus, vtsStatus: VtsStatus): SupportedActionType[] {
+  private getAllowedActions(
+    obsStatus: ObsStatus,
+    vtsStatus: VtsStatus,
+    allowObsActions: boolean,
+  ): SupportedActionType[] {
     const allowedActions: SupportedActionType[] = ["overlay.message", "log.event", "noop"];
 
     if (vtsStatus.connected && vtsStatus.authenticated) {
       allowedActions.unshift("vts.trigger_hotkey");
     }
 
-    if (obsStatus.connected) {
+    if (allowObsActions && obsStatus.connected) {
       allowedActions.unshift("obs.set_source_visibility", "obs.set_scene");
     }
 

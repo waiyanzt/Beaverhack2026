@@ -87,6 +87,7 @@ export interface ModelControlRecentAction {
   actionId: string;
   type: SupportedActionType;
   target: string | null;
+  label: string;
   timestamp: string;
 }
 

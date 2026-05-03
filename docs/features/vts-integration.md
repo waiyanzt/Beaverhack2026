@@ -48,9 +48,35 @@ These values are stored through the main-process settings service and are return
 
 The authentication token is not exposed to the renderer.
 
+## Live Automation Flow
+
+The live dashboard monitor now feeds fresh buffered webcam/audio input into the canonical automation pipeline and can execute approved `vts.trigger_hotkey` actions automatically.
+
+That live path is:
+
+1. Capture buffers finish a fresh webcam clip, optionally with matching audio.
+2. `ModelMonitorService` invokes `PipelineService` with `useLatestCapture: true`.
+3. `LiveCaptureInputService` converts the latest camera/audio buffer into a model-ready MP4 `video_url`.
+4. `PromptBuilderService` combines that live media input with typed VTS service context.
+5. `ActionValidatorService` blocks anything outside the current VTS policy surface.
+6. `ActionExecutorService` triggers the approved VTS hotkey through `VtsService`.
+
+## Activation And Retry
+
+VTube Studio activation is now handled from the Electron main process service layer instead of relying only on manual renderer clicks.
+
+Current behavior:
+
+- The app attempts VTS activation on startup using the saved host, port, plugin name, and plugin developer values.
+- If VTube Studio is not running yet, the app schedules automatic retry attempts in the background.
+- Manual retry is exposed in the renderer through the runtime Status view and the VTube Studio panel.
+- Within the same app session, reconnect flows reuse the cached VTS authentication token before requesting a fresh token again.
+
 ## Current Limitations
 
 - The current slice supports connection, authentication, current-model hotkey listing, manual hotkey triggering, and automation-pipeline hotkey execution.
+- The live automation path intentionally disables OBS actions even when OBS is connected.
 - The automation pipeline now sends VTS connection state, current model name, and cached hotkeys to the model as structured capability data.
 - VTS parameter writes are still not wired to the VTS service yet.
+- Authentication tokens are not persisted across full app restarts yet, so a fresh launch may still require VTube Studio approval before automatic hotkey execution is available.
 - Packaging verification currently depends on network access for `electron-builder` to download Electron artifacts in this environment.

@@ -30,6 +30,26 @@ export interface ActionExecutionResult {
 export interface AutomationAnalyzeNowRequest {
   transcript?: string;
   dryRun?: boolean;
+  useLatestCapture?: boolean;
+  captureWindowMs?: number;
+  allowObsActions?: boolean;
+}
+
+export interface AutomationRequestDebug {
+  providerId: string;
+  statusCode: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  promptTextBytes: number;
+  mediaDataUrlBytes: number;
+  requestContentBytes: number;
+  sourceWindowKey: string | null;
+  sourceClipCount: number;
+  modelMediaSha256: string | null;
+  modelMediaDataUrl: string | null;
+  mediaStartedAt: string | null;
+  mediaEndedAt: string | null;
 }
 
 export type AutomationAnalyzeNowResult =
@@ -39,6 +59,7 @@ export type AutomationAnalyzeNowResult =
       plan: ActionPlan;
       reviewedActions: ReviewedAction[];
       actionResults: ActionExecutionResult[];
+      requestDebug: AutomationRequestDebug;
     }
   | {
       ok: false;

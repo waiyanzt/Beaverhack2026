@@ -1,7 +1,6 @@
 import { app, Menu, session, type WebContents } from "electron";
-import { registerIpcHandlers, resumePersistedModelMonitor } from "./ipc";
+import { registerIpcHandlers, resumePersistedModelMonitor, serviceActivationService } from "./ipc";
 import { createMainWindow } from "./windows/main-window";
-import { obsConnect, obsGetStatus } from "./services/obs/obs.service";
 
 const isTrustedAppOrigin = (requestingUrl: string): boolean => {
   if (requestingUrl.startsWith("file://")) {
@@ -54,15 +53,13 @@ async function main(): Promise<void> {
     Menu.setApplicationMenu(null);
     registerIpcHandlers();
     const mainWindow = await createMainWindow();
+    void serviceActivationService.activate("startup", true).catch((error: unknown) => {
+      console.warn(
+        "[Services] Startup activation failed:",
+        error instanceof Error ? error.message : error,
+      );
+    });
     await resumePersistedModelMonitor(mainWindow.webContents);
-
-    try {
-      await obsConnect();
-      const status = await obsGetStatus();
-      console.log("[OBS] Status:", JSON.stringify(status, null, 2));
-    } catch (obsErr: unknown) {
-      console.warn("[OBS] Could not connect — is OBS running with WebSocket enabled on port 4455?", obsErr instanceof Error ? obsErr.message : obsErr);
-    }
 
     app.on("activate", async () => {
       if (app.dock && app.isReady()) {

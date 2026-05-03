@@ -4,7 +4,7 @@ The canonical automation flow is:
 
 `ObservationBuilder -> PromptBuilder -> ModelRouter -> ActionPlanParser -> ActionValidator -> ActionExecutor`
 
-The dashboard model monitor is a development visibility loop, not the canonical action executor. It starts the selected capture sources, sends rolling 10-second camera/screen/audio media windows through `ModelRouter` every second when no previous request is in flight, and prints model responses in the renderer. It does not execute returned actions; production model-generated actions still must pass through validation and execution.
+The dashboard model monitor now uses the canonical pipeline for live VTS automation. It starts the selected capture sources, waits for fresh buffered camera/audio clips, sends the latest webcam clip through `PipelineService`, and executes only VTS-safe approved actions. OBS actions are intentionally excluded from this live path for now.
 
 See [SPEC.md](../../SPEC.md) for the full contract.
 
@@ -25,7 +25,14 @@ That payload includes:
 - recent actions and active cooldowns
 - recent model action plans, kept in a transient 10-entry sliding window with the full parsed `ActionPlan`, action reasons, safety assessment, and execution results
 
-The payload is serialized by `PromptBuilderService` and sent through `ModelRouterService`, then parsed, validated, and optionally executed by `PipelineService`.
+Recent action history now carries both:
+
+- a stable machine target key such as `vts.hotkey:<id>` for cooldown/policy logic
+- a human-readable `label` such as `VTS hotkey: Wave` for logs and review surfaces
+
+For manual text-only runs, the payload is serialized by `PromptBuilderService` and sent through `ModelRouterService`, then parsed, validated, and optionally executed by `PipelineService`.
+
+For live camera/audio runs, `PipelineService` can also attach the latest buffered webcam clip plus synchronized audio as an MP4 `video_url` input while keeping the same parse/validate/execute flow. That live path now trims prompt history aggressively and excludes noop-only memory so the current clip remains the primary evidence instead of being drowned out by prior identical monitor outputs.
 
 `ModelActionMemoryService` owns the short-term model action memory in the Electron main process. The canonical automation pipeline records each parsed plan after review/execution, and the dashboard model monitor records returned plans as `not_executed` because that development loop never runs actions directly. The next prompt includes this memory so providers can make context-aware choices, such as continuing a laugh reaction when the latest observation still supports it, without mechanically repeating prior actions.
 
@@ -44,3 +51,4 @@ A manual entry point is exposed over IPC at `automation:analyze-now` and through
 
 - Dry run sends the model-control payload and returns reviewed action results without executing approved actions.
 - Full run executes only actions that pass validation and do not require confirmation.
+- Manual renderer automation requests now default to live capture input with OBS actions disabled so operators can exercise the same VTS-only path on demand.
