@@ -1,14 +1,8 @@
 import React, { useState } from "react";
-import { CapturePanel } from "./components/CapturePanel";
 import { DashboardPanel } from "./components/DashboardPanel";
-import { HotkeyMapper } from "./components/HotkeyMapper";
-import { StatusPanel } from "./components/StatusPanel";
-import { LogViewer } from "./components/LogViewer";
-import { ManualControlPanel } from "./components/ManualControlPanel";
-import { ModelProviderPanel } from "./components/ModelProviderPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 
-const tabs = ["Dashboard", "Status", "Capture", "OBS", "VTube Studio", "Model", "Hotkey Mapper", "Settings", "Logs"] as const;
+const tabs = ["Dashboard", "Settings"] as const;
 
 type AppTab = (typeof tabs)[number];
 
@@ -33,14 +27,7 @@ function App(): React.JSX.Element {
       </nav>
       <div className="app-nav__content">
         {activeTab === "Dashboard" && <DashboardPanel />}
-        {activeTab === "Status" && <StatusPanel />}
-        {activeTab === "Capture" && <CapturePanel />}
-        {activeTab === "OBS" && <ManualControlPanel />}
-        {activeTab === "VTube Studio" && <HotkeyMapper />}
-        {activeTab === "Model" && <ModelProviderPanel />}
-        {activeTab === "Hotkey Mapper" && <p className="panel__hint">See VTube Studio tab.</p>}
         {activeTab === "Settings" && <SettingsPanel />}
-        {activeTab === "Logs" && <LogViewer />}
       </div>
     </div>
   );
