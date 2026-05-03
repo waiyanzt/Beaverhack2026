@@ -3,6 +3,8 @@ import type { ReviewedAction } from "../../../shared/types/action-plan.types";
 import type { ModelControlContext } from "../../../shared/types/observation.types";
 import type { CooldownService } from "./cooldown.service";
 
+const DEFAULT_VTS_HOTKEY_REPEAT_WINDOW_MS = 6_000;
+
 export class ActionValidatorService {
   public constructor(private readonly cooldownService: CooldownService) {}
 
@@ -63,6 +65,14 @@ export class ActionValidatorService {
           reason: `Hotkey "${action.hotkeyId}" is not available in the current VTube Studio model.`,
         };
       }
+
+      if (this.wasRecentlyTriggered(action, modelContext)) {
+        return {
+          action,
+          status: "blocked",
+          reason: `Hotkey "${action.hotkeyId}" was already triggered recently and is being suppressed.`,
+        };
+      }
     }
 
     if (action.type === "obs.set_scene" || action.type === "obs.set_source_visibility") {
@@ -104,5 +114,29 @@ export class ActionValidatorService {
 
   private requiresConfirmation(actionType: LocalAction["type"]): boolean {
     return actionType === "obs.set_scene" || actionType === "obs.set_source_visibility" || actionType === "vts.set_parameter";
+  }
+
+  private wasRecentlyTriggered(action: Extract<LocalAction, { type: "vts.trigger_hotkey" }>, modelContext: ModelControlContext): boolean {
+    const targetKey = this.cooldownService.getActionTargetKey(action);
+    const latestMatchingAction = modelContext.context.recentActions.find(
+      (recentAction) => recentAction.target === targetKey,
+    );
+
+    if (!latestMatchingAction) {
+      return false;
+    }
+
+    const latestActionMs = Date.parse(latestMatchingAction.timestamp);
+    const contextTimestampMs = Date.parse(modelContext.timestamp);
+    if (Number.isNaN(latestActionMs) || Number.isNaN(contextTimestampMs)) {
+      return false;
+    }
+
+    const repeatWindowMs =
+      typeof action.cooldownMs === "number" && action.cooldownMs > 0
+        ? action.cooldownMs
+        : DEFAULT_VTS_HOTKEY_REPEAT_WINDOW_MS;
+
+    return contextTimestampMs - latestActionMs < repeatWindowMs;
   }
 }
