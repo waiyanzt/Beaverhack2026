@@ -9,6 +9,8 @@ const provider: ModelProviderConfig = {
   model: "openai/gpt-4o-mini",
   apiKey: "secret-key",
   enabled: true,
+  supportsToolCalling: true,
+  supportsJsonMode: true,
 };
 
 describe("ModelRouterService", () => {

@@ -3,20 +3,21 @@ import { OpenAICompatibleProvider } from "../../src/main/services/model/openai-c
 import type { ModelProviderConfig } from "../../src/shared/model.types";
 
 async function main(): Promise<void> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-
-  if (!apiKey) {
-    console.error("Missing OPENROUTER_API_KEY. Copy .env.example to .env and paste your key.");
-    process.exit(1);
-  }
+  // vLLM requires no API key; OpenRouter tests would need OPENROUTER_API_KEY
+  const apiKey = process.env.OPENROUTER_API_KEY ?? null;
 
   const config: ModelProviderConfig = {
-    id: "openrouter",
-    label: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api",
-    model: "openai/gpt-4o-mini",
-    apiKey,
+    id: "vllm",
+    label: "vLLM (Nemotron)",
+    baseUrl: "http://127.0.0.1:8000",
+    model: "/tmp/bergejac/models/models--nvidia--Nemotron-3-Nano-Omni-30B-A3B-Reasoning-FP8/snapshots/76955e4cfa2c9a546f5c5f12d869249dcb30d120",
+    apiKey: null,
     enabled: true,
+    supportsToolCalling: true,
+    supportsJsonMode: true,
+    supportsForcedToolChoice: true,
+    supportsStrictJsonSchema: true,
+    maxTokens: 25600,
   };
 
   const provider = new OpenAICompatibleProvider({
@@ -40,6 +41,8 @@ async function main(): Promise<void> {
   console.log("Model:", config.model);
   console.log("---");
 
+  const responseMode = config.supportsToolCalling ? "tool" : "json";
+
   const systemPrompt = `You are Beaverhack2026, a VTuber stream-direction agent running inside a local desktop app.
 
 You receive structured observations from local capture, OBS, and VTube Studio. You do not directly control the stream. You produce a structured ActionPlan. The desktop app validates and executes only allowed actions.
@@ -53,7 +56,7 @@ Goals:
 6. If no action is needed, return a noop action.
 
 Rules:
-- You MUST use the create_action_plan tool to respond.
+${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respond.` : `- You MUST respond with a single JSON object matching the ActionPlan schema. Do not wrap it in markdown code blocks. Do not include any text outside the JSON object.`}
 - When triggering VTS hotkeys, use the semantic name (e.g., "wave", "laugh", "surprise"). The app maps these to actual hotkey IDs.
 - Return only valid structured actions.
 - Do not request actions outside the allowed action list.

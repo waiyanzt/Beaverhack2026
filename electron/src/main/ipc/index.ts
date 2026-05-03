@@ -7,6 +7,7 @@ import {
   getSelectedModelProviderId,
   setSelectedModelProviderId,
 } from "../services/model/model-provider-store";
+import { registerVtsIpcHandlers } from "./vts.ipc";
 
 const modelRouter = new ModelRouterService(
   {
@@ -75,4 +76,6 @@ export function registerIpcHandlers(): void {
       };
     }
   });
+
+  registerVtsIpcHandlers();
 }

@@ -7,6 +7,11 @@ export interface ModelProviderConfig {
   model: string;
   apiKey: string | null;
   enabled: boolean;
+  supportsToolCalling: boolean;
+  supportsJsonMode: boolean;
+  supportsForcedToolChoice?: boolean;
+  supportsStrictJsonSchema?: boolean;
+  maxTokens?: number;
 }
 
 export interface ModelProviderTestResult {
@@ -52,11 +57,23 @@ export interface OpenAICompatibleTool {
 
 export type OpenAICompatibleToolChoice = "none" | "auto" | "required" | { type: "function"; function: { name: string } };
 
+export interface OpenAICompatibleJsonSchema {
+  name: string;
+  strict: boolean;
+  schema: Record<string, unknown>;
+}
+
+export interface OpenAICompatibleResponseFormat {
+  type: "json_schema" | "json_object";
+  json_schema?: OpenAICompatibleJsonSchema;
+}
+
 export interface OpenAICompatibleChatRequest {
   model: string;
   messages: OpenAICompatibleMessage[];
   tools?: OpenAICompatibleTool[];
   tool_choice?: OpenAICompatibleToolChoice;
+  response_format?: OpenAICompatibleResponseFormat;
   temperature: number;
   max_tokens: number;
   stream: false;

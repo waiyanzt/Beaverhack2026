@@ -1,1 +1,10 @@
-// Placeholder: renderer-side Electron preload API type declarations belong here.
+export {};
+
+declare global {
+  interface Window {
+    desktop?: {
+      getAppVersion: () => Promise<string>;
+      getHotkeys: () => Promise<unknown>;
+    };
+  }
+}
