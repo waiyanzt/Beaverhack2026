@@ -1,4 +1,4 @@
-import { app, Menu, session, type PermissionRequestHandlerHandlerDetails } from "electron";
+import { app, Menu, session, type PermissionRequestHandlerHandlerDetails, type WebContents } from "electron";
 import { registerIpcHandlers } from "./ipc";
 import { createMainWindow } from "./windows/main-window";
 import { obsConnect, obsGetStatus } from "./services/obs/obs.service";
@@ -20,7 +20,10 @@ const isTrustedAppOrigin = (requestingUrl: string): boolean => {
   }
 };
 
-const isTrustedMediaRequest = (details: PermissionRequestHandlerHandlerDetails | undefined): boolean => {
+const isTrustedMediaRequest = (
+  webContents: WebContents,
+  details: PermissionRequestHandlerHandlerDetails | undefined,
+): boolean => {
   if (!details) {
     return false;
   }
@@ -29,7 +32,7 @@ const isTrustedMediaRequest = (details: PermissionRequestHandlerHandlerDetails |
     return false;
   }
 
-  if (details.webContents.getType() !== "window") {
+  if (webContents.isDestroyed() || webContents.getType() !== "window") {
     return false;
   }
 
@@ -39,8 +42,8 @@ const isTrustedMediaRequest = (details: PermissionRequestHandlerHandlerDetails |
 async function main(): Promise<void> {
   try {
     await app.whenReady();
-    session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
-      if (permission === "media" && isTrustedMediaRequest(details)) {
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      if (permission === "media" && isTrustedMediaRequest(webContents, details)) {
         callback(true);
         return;
       }
