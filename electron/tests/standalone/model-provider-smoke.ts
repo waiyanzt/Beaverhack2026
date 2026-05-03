@@ -1,7 +1,14 @@
 import "dotenv/config";
 import { existsSync, readFileSync } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { OpenAICompatibleProvider } from "../../src/main/services/model/openai-compatible.provider";
 import type { ModelProviderConfig, OpenAICompatibleMessage } from "../../src/shared/model.types";
+
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFilePath);
+const repoRoot = path.resolve(currentDir, "../../../");
+const localVideoPath = path.resolve(repoRoot, "samples/camera-capture-1777772334424.mp4");
 
 async function main(): Promise<void> {
   const config: ModelProviderConfig = {
@@ -251,7 +258,6 @@ ${responseMode === "tool" ? `- You MUST use the create_action_plan tool to respo
   // Scenario 4: Video observation
   // vLLM is remote (SSH tunnel). We send the video as a base64 data URI
   // since the vLLM server process can't read local file paths.
-  const localVideoPath = "/home/bergerj/Downloads/camera-capture-1777772334424.mp4";
   const videoFileExists = existsSync(localVideoPath);
 
   if (videoFileExists) {
