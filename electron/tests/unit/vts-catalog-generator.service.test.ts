@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { VtsCatalogGeneratorService } from "../../src/main/services/vts/vts-catalog-generator.service";
 import type { ModelRouterService } from "../../src/main/services/model/model-router.service";
 import type { VtsHotkey } from "../../src/shared/types/vts.types";
+import { DEFAULT_VTS_CUE_LABELS } from "../../src/shared/vts-cue-labels";
 
 const hotkeys: VtsHotkey[] = [
   {
@@ -33,7 +34,7 @@ describe("VtsCatalogGeneratorService", () => {
     } satisfies Pick<ModelRouterService, "requestChat">;
     const service = new VtsCatalogGeneratorService(modelRouter as ModelRouterService);
 
-    const result = await service.generate(hotkeys);
+    const result = await service.generate(hotkeys, DEFAULT_VTS_CUE_LABELS);
 
     expect(result.heart?.source).toBe("heuristic");
     expect(result.shock?.source).toBe("heuristic");
@@ -61,7 +62,7 @@ describe("VtsCatalogGeneratorService", () => {
     } satisfies Pick<ModelRouterService, "requestChat">;
     const service = new VtsCatalogGeneratorService(modelRouter as ModelRouterService);
 
-    const result = await service.generate(hotkeys);
+    const result = await service.generate(hotkeys, DEFAULT_VTS_CUE_LABELS);
 
     expect(result.heart?.source).toBe("heuristic");
     expect(result.shock?.source).toBe("heuristic");
@@ -96,7 +97,7 @@ describe("VtsCatalogGeneratorService", () => {
     } satisfies Pick<ModelRouterService, "requestChat">;
     const service = new VtsCatalogGeneratorService(modelRouter as ModelRouterService);
 
-    const result = await service.generate(hotkeys);
+    const result = await service.generate(hotkeys, DEFAULT_VTS_CUE_LABELS);
 
     expect(result.heart).toMatchObject({
       source: "model",

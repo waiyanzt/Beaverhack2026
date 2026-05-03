@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { VTS_CUE_LABEL_VALUES } from "../vts-cue-labels";
+import { vtsCueLabelIdSchema } from "./config.schema";
 
 export const triggerVtsHotkeyActionSchema = z
   .object({
@@ -8,7 +8,7 @@ export const triggerVtsHotkeyActionSchema = z
     catalogId: z.string().optional(),
     catalogVersion: z.string().optional(),
     hotkeyId: z.string().optional(),
-    cueLabels: z.array(z.enum(VTS_CUE_LABEL_VALUES)).min(1).optional(),
+    cueLabels: z.array(vtsCueLabelIdSchema).min(1).optional(),
     intensity: z.number().optional(),
     confidence: z.number().min(0).max(1).optional(),
     visualEvidence: z.string().optional(),

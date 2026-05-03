@@ -4,11 +4,8 @@ Return JSON only.
 
 Cue labels must describe things a live model can detect from video, audio, transcript, or clear user request.
 
-Allowed cueLabels:
-greeting, wave, happy, excited, laughing, evil_laugh, smug, angry,
-frustrated, shocked, surprised, sad, crying, cute_reaction,
-love_reaction, confused, embarrassed, sleepy, dramatic_moment,
-magic_moment, hype_moment, idle, manual_request, unknown
+Allowed cueLabels are provided in the user JSON as `allowedCueLabels`.
+Return only cue label IDs from that list. Do not invent cue labels.
 
 Allowed emoteKind:
 expression_reaction, symbol_effect, body_motion, prop_effect,
@@ -19,7 +16,7 @@ safe_auto, suggest_only, manual_only
 
 Rules:
 - Map every input hotkey exactly once.
-- If unsure, cueLabels=["unknown"], emoteKind="unknown", autoMode="manual_only".
+- If unsure, use `unknown` only when it appears in allowedCueLabels; otherwise use the closest allowed manual-only cue label.
 - Names such as "cry", "tears", "sob", or "eyes cry" should usually map to cueLabels including `sad` and `crying` with emoteKind `expression_reaction`.
 - Only expression_reaction and lightweight symbol_effect can be safe_auto.
 - body_motion and prop_effect should usually be suggest_only.

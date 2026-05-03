@@ -6,8 +6,7 @@ import type {
   OpenAICompatibleTool,
   OpenAICompatibleToolChoice,
 } from "../../../shared/model.types";
-import { actionPlanSchema, type ActionPlan, type LocalAction, type NoopAction } from "../../../shared/schemas/action-plan.schema";
-import { VTS_CUE_LABEL_VALUES } from "../../../shared/vts-cue-labels";
+import { actionPlanSchema, type ActionPlan } from "../../../shared/schemas/action-plan.schema";
 
 function extractProviderError(rawBody: unknown): string | null {
   if (typeof rawBody === "object" && rawBody !== null && "error" in rawBody) {
@@ -221,7 +220,7 @@ function normalizeActionInput(action: unknown): unknown {
       type: "noop",
       actionId: typeof record.actionId === "string" ? record.actionId : `noop_${Date.now()}`,
       reason: typeof record.reason === "string" ? truncateForModelContract(record.reason, 120) : "No action needed.",
-    } satisfies NoopAction;
+    };
   }
 
   if (record.type === "vts.trigger_hotkey") {
@@ -237,7 +236,7 @@ function normalizeActionInput(action: unknown): unknown {
       visualEvidence: typeof record.visualEvidence === "string" ? truncateForModelContract(record.visualEvidence, 160) : record.visualEvidence,
       reason: typeof record.reason === "string" ? truncateForModelContract(record.reason, 120) : record.reason,
       cooldownMs: record.cooldownMs,
-    } satisfies Partial<Extract<LocalAction, { type: "vts.trigger_hotkey" }>>;
+    };
   }
 
   return record;
@@ -247,7 +246,84 @@ function truncateForModelContract(value: string, maxLength: number): string {
   return value.length <= maxLength ? value : value.slice(0, maxLength).trimEnd();
 }
 
-function buildActionProperties(): Record<string, unknown> {
+function extractAllowedCueLabels(messages: OpenAICompatibleMessage[]): string[] {
+  for (const message of [...messages].reverse()) {
+    const parts = typeof message.content === "string"
+      ? [message.content]
+      : message.content.filter((part) => part.type === "text").map((part) => part.text);
+
+    for (const text of [...parts].reverse()) {
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        const allowedCueLabels = readAllowedCueLabels(parsed);
+
+        if (allowedCueLabels.length > 0) {
+          return allowedCueLabels;
+        }
+      } catch {
+        const allowedCueLabels = extractAllowedCueLabelsFromText(text);
+
+        if (allowedCueLabels.length > 0) {
+          return allowedCueLabels;
+        }
+      }
+    }
+  }
+
+  return [];
+}
+
+function extractAllowedCueLabelsFromText(text: string): string[] {
+  const match = text.match(/"allowedCueLabels"\s*:\s*(\[[\s\S]*?\])/);
+  if (!match) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(match[1]) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        parsed
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0),
+      ),
+    ];
+  } catch {
+    return [];
+  }
+}
+
+function readAllowedCueLabels(value: unknown): string[] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return [];
+  }
+
+  const capture = (value as Record<string, unknown>).capture;
+  if (typeof capture !== "object" || capture === null || Array.isArray(capture)) {
+    return [];
+  }
+
+  const allowedCueLabels = (capture as Record<string, unknown>).allowedCueLabels;
+  if (!Array.isArray(allowedCueLabels)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      allowedCueLabels
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  ];
+}
+
+function buildActionProperties(allowedCueLabels: string[] = []): Record<string, unknown> {
   return {
     type: {
       type: "string",
@@ -274,7 +350,7 @@ function buildActionProperties(): Record<string, unknown> {
       type: "array",
       items: {
         type: "string",
-        enum: [...VTS_CUE_LABEL_VALUES],
+        enum: allowedCueLabels.length > 0 ? allowedCueLabels : ["__no_mapped_cue_labels__"],
       },
       description: "For vts.trigger_hotkey: one or more cue labels selected only from the provided allowed cue label list.",
     },
@@ -344,8 +420,8 @@ function buildActionProperties(): Record<string, unknown> {
   };
 }
 
-function buildActionPlanJsonSchema(): Record<string, unknown> {
-  const actionProperties = buildActionProperties();
+function buildActionPlanJsonSchema(allowedCueLabels: string[] = []): Record<string, unknown> {
+  const actionProperties = buildActionProperties(allowedCueLabels);
 
   return {
     type: "object",
@@ -455,7 +531,7 @@ function injectJsonModeInstructions(messages: OpenAICompatibleMessage[], include
     "You MUST respond with a single JSON object matching the ActionPlan schema. Do not wrap it in markdown code blocks. Do not include any text outside the JSON object.";
 
   if (includeSchema) {
-    instruction += `\n\nActionPlan schema:\n${JSON.stringify(buildActionPlanJsonSchema(), null, 2)}`;
+    instruction += `\n\nActionPlan schema:\n${JSON.stringify(buildActionPlanJsonSchema(extractAllowedCueLabels(messages)), null, 2)}`;
   }
 
   const firstSystemIndex = messages.findIndex((m) => m.role === "system");
@@ -473,12 +549,13 @@ function injectJsonModeInstructions(messages: OpenAICompatibleMessage[], include
   return [{ role: "system", content: instruction }, ...messages];
 }
 
-export const createActionPlanTool: OpenAICompatibleTool = {
-  type: "function",
-  function: {
-    name: "create_action_plan",
-    description: "Create a structured local action plan for the desktop app to validate and execute.",
-    parameters: {
+export function createActionPlanTool(allowedCueLabels: string[] = []): OpenAICompatibleTool {
+  return {
+    type: "function",
+    function: {
+      name: "create_action_plan",
+      description: "Create a structured local action plan for the desktop app to validate and execute.",
+      parameters: {
       type: "object",
       properties: {
         schemaVersion: {
@@ -523,7 +600,7 @@ export const createActionPlanTool: OpenAICompatibleTool = {
           description: "List of actions to perform. Use noop if no action is needed. Prefer fewer actions.",
           items: {
             type: "object",
-            properties: buildActionProperties(),
+            properties: buildActionProperties(allowedCueLabels),
             required: ["type", "actionId", "reason"],
           },
         },
@@ -573,8 +650,9 @@ export const createActionPlanTool: OpenAICompatibleTool = {
       },
       required: ["schemaVersion", "tickId", "createdAt", "response", "actions", "safety", "nextTick"],
     },
-  },
-};
+    },
+  };
+}
 
 export class OpenAICompatibleProvider {
   public constructor(
@@ -588,6 +666,7 @@ export class OpenAICompatibleProvider {
   ): Promise<OpenAICompatibleProviderResult> {
     const useTools = config.supportsToolCalling;
     const useJsonMode = !useTools && config.supportsJsonMode;
+    const allowedCueLabels = extractAllowedCueLabels(messages);
 
     let requestMessages = messages;
 
@@ -636,7 +715,7 @@ export class OpenAICompatibleProvider {
     if (useTools) {
       request = {
         ...request,
-        tools: [createActionPlanTool],
+        tools: [createActionPlanTool(allowedCueLabels)],
       };
 
       if (config.supportsForcedToolChoice) {
@@ -653,7 +732,7 @@ export class OpenAICompatibleProvider {
             json_schema: {
               name: "action_plan",
               strict: true,
-              schema: buildActionPlanJsonSchema(),
+              schema: buildActionPlanJsonSchema(allowedCueLabels),
             },
           },
         };
@@ -876,6 +955,7 @@ export class OpenAICompatibleProvider {
       };
     }
 
+    const usage = extractUsage(rawBody);
     const parsed = toolCallResponseSchema.safeParse(rawBody);
 
     if (!parsed.success) {

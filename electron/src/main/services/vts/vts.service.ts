@@ -14,6 +14,7 @@ import type {
   VtsCatalogOverride,
   VtsCatalogSummary,
   VtsConnectionState,
+  VtsCueLabelDefinition,
   VtsHotkey,
   VtsReadinessState,
   VtsStatus,
@@ -58,14 +59,14 @@ interface PendingRequest {
 interface VtsServiceDependencies {
   createSocket?: (url: string) => VtsSocket;
   requestTimeoutMs?: number;
-  settingsService?: Pick<SettingsService, "getSettings" | "updateVtsConfig" | "updateVtsCatalogOverrides">;
+  settingsService?: Pick<SettingsService, "getSettings" | "updateVtsConfig" | "updateVtsCatalogOverrides" | "updateVtsCueLabels">;
   clock?: () => number;
 }
 
 export class VtsService {
   private readonly createSocket: (url: string) => VtsSocket;
   private readonly requestTimeoutMs: number;
-  private readonly settingsService: Pick<SettingsService, "getSettings" | "updateVtsConfig" | "updateVtsCatalogOverrides">;
+  private readonly settingsService: Pick<SettingsService, "getSettings" | "updateVtsConfig" | "updateVtsCatalogOverrides" | "updateVtsCueLabels">;
   private readonly clock: () => number;
   private socket: VtsSocket | null = null;
   private pendingRequests = new Map<string, PendingRequest>();
@@ -111,6 +112,7 @@ export class VtsService {
       modelName: this.modelName,
       modelId: this.modelId,
       hotkeyCount: this.hotkeys.length,
+      cueLabels: this.settingsService.getSettings().vtsCueLabels,
       catalog: this.getCatalog(),
       lastError: this.lastError,
     };
@@ -167,14 +169,29 @@ export class VtsService {
   updateCatalogOverride(hotkeyId: string, override: VtsCatalogOverride | null): VtsCatalogSummary {
     const settings = this.settingsService.getSettings();
     const nextOverrides = { ...settings.vtsCatalogOverrides };
+    const allowedCueLabels = new Set(settings.vtsCueLabels.map((label) => label.id));
 
     if (override) {
-      nextOverrides[hotkeyId] = override;
+      const cueLabels = override.cueLabels.filter((cueLabel) => allowedCueLabels.has(cueLabel));
+      if (cueLabels.length === 0) {
+        throw new Error("Catalog override must include at least one configured cue label.");
+      }
+
+      nextOverrides[hotkeyId] = {
+        ...override,
+        cueLabels,
+      };
     } else {
       delete nextOverrides[hotkeyId];
     }
 
     this.settingsService.updateVtsCatalogOverrides(nextOverrides);
+    this.rebuildCatalog();
+    return this.getCatalog();
+  }
+
+  updateCueLabels(cueLabels: VtsCueLabelDefinition[]): VtsCatalogSummary {
+    this.settingsService.updateVtsCueLabels(cueLabels);
     this.rebuildCatalog();
     return this.getCatalog();
   }
@@ -403,15 +420,20 @@ export class VtsService {
   }
 
   private rebuildCatalog(): void {
-    const overrides = this.settingsService.getSettings().vtsCatalogOverrides ?? {};
-    this.catalog = this.buildCatalog(this.hotkeys, overrides);
+    const settings = this.settingsService.getSettings();
+    this.catalog = this.buildCatalog(this.hotkeys, settings.vtsCatalogOverrides ?? {}, settings.vtsCueLabels);
   }
 
-  private buildCatalog(hotkeys: VtsHotkey[], overrides: Record<string, VtsCatalogOverride>): VtsCatalogSummary {
+  private buildCatalog(
+    hotkeys: VtsHotkey[],
+    overrides: Record<string, VtsCatalogOverride>,
+    cueLabelDefinitions: VtsCueLabelDefinition[],
+  ): VtsCatalogSummary {
     if (hotkeys.length === 0) {
       return EMPTY_CATALOG;
     }
 
+    const allowedCueLabels = new Set(cueLabelDefinitions.map((label) => label.id));
     const hotkeyHash = this.buildHotkeyHash(hotkeys);
     const version = `vts_catalog_${hotkeyHash.slice(0, 12)}`;
     const seenCatalogIds = new Map<string, number>();
@@ -422,8 +444,11 @@ export class VtsService {
       const seenCount = (seenCatalogIds.get(catalogBase) ?? 0) + 1;
       seenCatalogIds.set(catalogBase, seenCount);
       const catalogId = seenCount === 1 ? catalogBase : `${catalogBase}_${seenCount}`;
-      const generated = this.generatedClassifications.get(hotkey.hotkeyID) ?? buildHeuristicVtsClassification(hotkey);
-      const override = overrides[hotkey.hotkeyID] ?? null;
+      const generated = this.sanitizeGeneratedClassification(
+        this.generatedClassifications.get(hotkey.hotkeyID) ?? buildHeuristicVtsClassification(hotkey),
+        allowedCueLabels,
+      );
+      const override = this.sanitizeOverride(overrides[hotkey.hotkeyID] ?? null, allowedCueLabels);
       const effective = override
         ? {
             cueLabels: override.cueLabels,
@@ -470,6 +495,45 @@ export class VtsService {
     };
   }
 
+  private sanitizeGeneratedClassification(
+    classification: VtsGeneratedClassification,
+    allowedCueLabels: Set<string>,
+  ): VtsGeneratedClassification {
+    return {
+      ...classification,
+      cueLabels: this.sanitizeCueLabels(classification.cueLabels, allowedCueLabels),
+    };
+  }
+
+  private sanitizeOverride(override: VtsCatalogOverride | null, allowedCueLabels: Set<string>): VtsCatalogOverride | null {
+    if (!override) {
+      return null;
+    }
+
+    const cueLabels = override.cueLabels.filter((cueLabel) => allowedCueLabels.has(cueLabel));
+    if (cueLabels.length === 0) {
+      return null;
+    }
+
+    return {
+      ...override,
+      cueLabels,
+    };
+  }
+
+  private sanitizeCueLabels(cueLabels: string[], allowedCueLabels: Set<string>): string[] {
+    const filtered = [...new Set(cueLabels.filter((cueLabel) => allowedCueLabels.has(cueLabel)))];
+    if (filtered.length > 0) {
+      return filtered;
+    }
+
+    if (allowedCueLabels.has("unknown")) {
+      return ["unknown"];
+    }
+
+    return [...allowedCueLabels].slice(0, 1);
+  }
+
   private buildCatalogBase(hotkey: VtsHotkey, normalizedName: string): string {
     const derived = normalizedName.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
     if (derived.length > 0) {
@@ -491,8 +555,9 @@ export class VtsService {
   }
 
   private async regenerateClassifications(): Promise<void> {
+    const cueLabels = this.settingsService.getSettings().vtsCueLabels;
     const generated = this.catalogGenerator
-      ? await this.catalogGenerator.generate(this.hotkeys)
+      ? await this.catalogGenerator.generate(this.hotkeys, cueLabels)
       : Object.fromEntries(this.hotkeys.map((hotkey) => [hotkey.hotkeyID, buildHeuristicVtsClassification(hotkey)]));
     this.generatedClassifications = new Map(
       Object.entries(generated).map(([hotkeyId, classification]) => [hotkeyId, classification]),

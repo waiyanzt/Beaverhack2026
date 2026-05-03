@@ -10,6 +10,13 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
       pluginName: "AuTuber",
       pluginDeveloper: "AuTuber",
     },
+    vtsCueLabels: [
+      { id: "greeting", name: "Greeting", description: "" },
+      { id: "wave", name: "Wave", description: "" },
+      { id: "sad", name: "Sad", description: "" },
+      { id: "crying", name: "Crying", description: "" },
+      { id: "unknown", name: "Unknown", description: "" },
+    ],
     vtsCatalogOverrides: {},
     dashboard: {
       selectedAudioDeviceId: null,
@@ -32,6 +39,13 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
         pluginName: "AuTuber",
         pluginDeveloper: "AuTuber",
       },
+      vtsCueLabels: [
+        { id: "greeting", name: "Greeting", description: "" },
+        { id: "wave", name: "Wave", description: "" },
+        { id: "sad", name: "Sad", description: "" },
+        { id: "crying", name: "Crying", description: "" },
+        { id: "unknown", name: "Unknown", description: "" },
+      ],
       vtsCatalogOverrides: {},
       dashboard: {
         selectedAudioDeviceId: null,
@@ -51,6 +65,7 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
       vts: nextConfig,
     }),
     updateVtsCatalogOverrides: () => config,
+    updateVtsCueLabels: () => config,
   },
 }));
 
@@ -90,6 +105,13 @@ const config: AppConfig = {
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber",
   },
+  vtsCueLabels: [
+    { id: "greeting", name: "Greeting", description: "" },
+    { id: "wave", name: "Wave", description: "" },
+    { id: "sad", name: "Sad", description: "" },
+    { id: "crying", name: "Crying", description: "" },
+    { id: "unknown", name: "Unknown", description: "" },
+  ],
   vtsCatalogOverrides: {},
   dashboard: {
     selectedAudioDeviceId: null,
@@ -188,6 +210,7 @@ describe("VtsService", () => {
           vts: nextConfig,
         }),
         updateVtsCatalogOverrides: () => config,
+        updateVtsCueLabels: () => config,
       },
     });
 
@@ -228,6 +251,7 @@ describe("VtsService", () => {
           vts: nextConfig,
         }),
         updateVtsCatalogOverrides: () => config,
+        updateVtsCueLabels: () => config,
       },
     });
 
@@ -298,6 +322,7 @@ describe("VtsService", () => {
           vts: nextConfig,
         }),
         updateVtsCatalogOverrides: () => config,
+        updateVtsCueLabels: () => config,
       },
     });
 
@@ -377,6 +402,7 @@ describe("VtsService", () => {
           vts: nextConfig,
         }),
         updateVtsCatalogOverrides: () => config,
+        updateVtsCueLabels: () => config,
       },
     });
 
@@ -461,6 +487,7 @@ describe("VtsService", () => {
           vts: nextConfig,
         }),
         updateVtsCatalogOverrides: () => config,
+        updateVtsCueLabels: () => config,
       },
     });
 
@@ -544,6 +571,7 @@ describe("VtsService", () => {
           vts: nextConfig,
         }),
         updateVtsCatalogOverrides: () => config,
+        updateVtsCueLabels: () => config,
       },
     });
 
@@ -633,6 +661,7 @@ describe("VtsService", () => {
           vts: nextConfig,
         }),
         updateVtsCatalogOverrides: () => config,
+        updateVtsCueLabels: () => config,
       },
     });
     service.setCatalogGenerator({ generate });

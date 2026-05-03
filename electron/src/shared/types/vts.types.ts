@@ -1,10 +1,14 @@
 import type { VtsConnectionConfig } from "./config.types";
-import type { VTS_CUE_LABEL_VALUES } from "../vts-cue-labels";
 
 export type VtsConnectionState = "disconnected" | "connecting" | "connected";
 export type VtsAuthenticationState = "unauthenticated" | "authenticating" | "authenticated";
 export type VtsAutomationMode = "safe_auto" | "suggest_only" | "manual_only";
-export type VtsCueLabel = typeof VTS_CUE_LABEL_VALUES[number];
+export type VtsCueLabel = string;
+export interface VtsCueLabelDefinition {
+  id: VtsCueLabel;
+  name: string;
+  description: string;
+}
 export type VtsEmoteKind =
   | "expression_reaction"
   | "symbol_effect"
@@ -88,6 +92,7 @@ export interface VtsStatus {
   modelName: string | null;
   modelId: string | null;
   hotkeyCount: number;
+  cueLabels: VtsCueLabelDefinition[];
   catalog: VtsCatalogSummary;
   lastError: string | null;
 }
@@ -103,6 +108,10 @@ export interface VtsCatalogRefreshRequest {
 export interface VtsCatalogOverrideUpdateRequest {
   hotkeyId: string;
   override: VtsCatalogOverride | null;
+}
+
+export interface VtsCueLabelsUpdateRequest {
+  cueLabels: VtsCueLabelDefinition[];
 }
 
 export type VtsStatusResult =

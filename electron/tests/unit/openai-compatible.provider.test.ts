@@ -119,4 +119,89 @@ describe("OpenAICompatibleProvider", () => {
       },
     });
   });
+
+  it("constrains VTS cue-label tool schema to labels from the live prompt", async () => {
+    const postJson = vi.fn().mockResolvedValue({
+      status: 200,
+      body: JSON.stringify({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              tool_calls: [
+                {
+                  id: "call_1",
+                  type: "function",
+                  function: {
+                    name: "create_action_plan",
+                    arguments: JSON.stringify({
+                      actions: [
+                        {
+                          type: "noop",
+                          actionId: "noop_001",
+                          reason: "No triggerable cue is visible.",
+                        },
+                      ],
+                      safety: {
+                        riskLevel: "low",
+                        requiresConfirmation: false,
+                      },
+                      nextTick: {
+                        suggestedDelayMs: 1000,
+                        priority: "normal",
+                      },
+                    }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    });
+    const provider = new OpenAICompatibleProvider({ postJson });
+
+    await provider.createActionPlan(providerConfig, [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              capture: {
+                allowedCueLabels: ["laughing", "surprised"],
+              },
+            }),
+          },
+        ],
+      },
+    ]);
+
+    const request = postJson.mock.calls[0]?.[1] as {
+      tools?: Array<{
+        function: {
+          parameters: {
+            properties: {
+              actions: {
+                items: {
+                  properties: {
+                    cueLabels: {
+                      items: {
+                        enum: string[];
+                      };
+                    };
+                  };
+                };
+              };
+            };
+          };
+        };
+      }>;
+    };
+
+    expect(request.tools?.[0]?.function.parameters.properties.actions.items.properties.cueLabels.items.enum).toEqual([
+      "laughing",
+      "surprised",
+    ]);
+  });
 });

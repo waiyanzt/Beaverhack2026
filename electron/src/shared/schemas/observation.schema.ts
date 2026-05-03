@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { actionPlanSchema } from "./action-plan.schema";
+import { vtsCueLabelIdSchema } from "./config.schema";
 
 const supportedActionTypeSchema = z.enum([
   "vts.trigger_hotkey",
@@ -23,32 +24,7 @@ export const modelControlVtsCatalogItemSchema = z
     catalogId: z.string().trim().min(1),
     label: z.string().trim().min(1),
     description: z.string().trim().min(1),
-    cueLabels: z.array(z.enum([
-      "greeting",
-      "wave",
-      "happy",
-      "excited",
-      "laughing",
-      "evil_laugh",
-      "smug",
-      "angry",
-      "frustrated",
-      "shocked",
-      "surprised",
-      "sad",
-      "crying",
-      "cute_reaction",
-      "love_reaction",
-      "confused",
-      "embarrassed",
-      "sleepy",
-      "dramatic_moment",
-      "magic_moment",
-      "hype_moment",
-      "idle",
-      "manual_request",
-      "unknown",
-    ])).min(1),
+    cueLabels: z.array(vtsCueLabelIdSchema).min(1),
     emoteKind: z.enum([
       "expression_reaction",
       "symbol_effect",

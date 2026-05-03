@@ -19,7 +19,8 @@ Planning priorities:
 
 Action-specific rules:
 
-- When triggering VTS hotkeys, use `services.vts.automationCatalog.candidates[].catalogId` plus the current `services.vts.automationCatalog.version`.
+- When live capture payload includes `capture.allowedCueLabels`, trigger VTS only by returning cue labels from that list; do not return catalog IDs, hotkey IDs, hotkey names, or raw tool names.
+- When no live cue-label list is present and a catalog is present, use `services.vts.automationCatalog.candidates[].catalogId` plus the current `services.vts.automationCatalog.version`.
 - Match the current observation against each candidate's `cueLabels`, `description`, and `emoteKind`.
 - Do not choose raw VTS hotkey IDs directly when an automation catalog is present.
 - Use `recentActionSummary` only to avoid rapid repetition. Do not copy prior action reasons or prior blocked outcomes into the current decision.

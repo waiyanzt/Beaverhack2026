@@ -8,7 +8,8 @@ import type {
   SettingsUpdateRequest,
   VtsConnectionConfig,
 } from "../../../shared/types/config.types";
-import type { VtsCatalogOverride } from "../../../shared/types/vts.types";
+import type { VtsCatalogOverride, VtsCueLabelDefinition } from "../../../shared/types/vts.types";
+import { DEFAULT_VTS_CUE_LABELS } from "../../../shared/vts-cue-labels";
 
 type ElectronStoreConstructor = new <T extends Record<string, unknown>>(options: {
   name: string;
@@ -31,6 +32,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber Development Team",
   },
+  vtsCueLabels: DEFAULT_VTS_CUE_LABELS,
   vtsCatalogOverrides: {},
   dashboard: {
     selectedAudioDeviceId: null,
@@ -100,6 +102,26 @@ export class SettingsService {
   updateVtsCatalogOverrides(overrides: Record<string, VtsCatalogOverride>): AppConfig {
     return this.updateSettings({
       vtsCatalogOverrides: overrides,
+    });
+  }
+
+  updateVtsCueLabels(cueLabels: VtsCueLabelDefinition[]): AppConfig {
+    const allowedCueLabels = new Set(cueLabels.map((label) => label.id));
+    const nextOverrides = Object.fromEntries(
+      Object.entries(this.getSettings().vtsCatalogOverrides)
+        .map(([hotkeyId, override]) => [
+          hotkeyId,
+          {
+            ...override,
+            cueLabels: override.cueLabels.filter((cueLabel) => allowedCueLabels.has(cueLabel)),
+          },
+        ] as const)
+        .filter(([, override]) => override.cueLabels.length > 0),
+    );
+
+    return this.updateSettings({
+      vtsCueLabels: cueLabels,
+      vtsCatalogOverrides: nextOverrides,
     });
   }
 

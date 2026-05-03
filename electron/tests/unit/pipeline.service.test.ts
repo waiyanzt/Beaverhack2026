@@ -9,6 +9,7 @@ import { ObservationBuilderService } from "../../src/main/services/automation/ob
 import { PipelineService } from "../../src/main/services/automation/pipeline.service";
 import { PromptBuilderService } from "../../src/main/services/automation/prompt-builder.service";
 import type { ModelRouterService } from "../../src/main/services/model/model-router.service";
+import { DEFAULT_VTS_CUE_LABELS } from "../../src/shared/vts-cue-labels";
 
 const createLiveCaptureInputService = (): LiveCaptureInputService =>
   ({
@@ -55,6 +56,7 @@ describe("PipelineService", () => {
         modelName: "Example Model",
         modelId: "model-1",
         hotkeyCount: 1,
+        cueLabels: DEFAULT_VTS_CUE_LABELS,
         catalog: {
           version: "vts_catalog_demo",
           hotkeyHash: "demo",
@@ -226,6 +228,7 @@ describe("PipelineService", () => {
         modelName: null,
         modelId: null,
         hotkeyCount: 0,
+        cueLabels: DEFAULT_VTS_CUE_LABELS,
         catalog: {
           version: null,
           hotkeyHash: null,
@@ -324,6 +327,7 @@ describe("PipelineService", () => {
         modelName: null,
         modelId: null,
         hotkeyCount: 0,
+        cueLabels: DEFAULT_VTS_CUE_LABELS,
         catalog: {
           version: null,
           hotkeyHash: null,
@@ -453,6 +457,7 @@ describe("PipelineService", () => {
         modelName: "Example Model",
         modelId: "model-1",
         hotkeyCount: 1,
+        cueLabels: DEFAULT_VTS_CUE_LABELS,
         catalog: {
           version: "vts_catalog_demo",
           hotkeyHash: "demo",
@@ -604,7 +609,7 @@ describe("PipelineService", () => {
       };
     };
 
-    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000, "clip");
+    expect(liveCaptureInputService.buildPromptInput).toHaveBeenCalledWith(2_000, "clip", ["greeting", "wave"]);
     expect(result.modelContext.services.policy.allowedActions).not.toContain("obs.set_scene");
     expect(result.modelContext.services.policy.allowedActions).toContain("vts.trigger_hotkey");
     expect(result.requestDebug.modelMediaDataUrl).toBe("data:video/mp4;base64,Zm9v");

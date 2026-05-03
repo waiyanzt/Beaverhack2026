@@ -4,37 +4,11 @@ import type {
   VtsCatalogEntry,
   VtsCatalogOverride,
   VtsCueLabel,
+  VtsCueLabelDefinition,
   VtsEmoteKind,
   VtsHotkey,
 } from "../../shared/types/vts.types";
 import { useVTS } from "../hooks/useVTS";
-
-const cueLabels: VtsCueLabel[] = [
-  "greeting",
-  "wave",
-  "happy",
-  "excited",
-  "laughing",
-  "evil_laugh",
-  "smug",
-  "angry",
-  "frustrated",
-  "shocked",
-  "surprised",
-  "sad",
-  "crying",
-  "cute_reaction",
-  "love_reaction",
-  "confused",
-  "embarrassed",
-  "sleepy",
-  "dramatic_moment",
-  "magic_moment",
-  "hype_moment",
-  "idle",
-  "manual_request",
-  "unknown",
-];
 
 const emoteKinds: VtsEmoteKind[] = [
   "expression_reaction",
@@ -56,6 +30,12 @@ type OverrideDraft = {
   manualDeactivateAfterMs: string;
 };
 
+type CueLabelDraft = {
+  id: string;
+  name: string;
+  description: string;
+};
+
 const createDraft = (entry: VtsCatalogEntry): OverrideDraft => ({
   cueLabels: (entry.override?.cueLabels ?? entry.generatedClassification.cueLabels).join(", "),
   emoteKind: entry.override?.emoteKind ?? entry.generatedClassification.emoteKind,
@@ -65,16 +45,17 @@ const createDraft = (entry: VtsCatalogEntry): OverrideDraft => ({
   manualDeactivateAfterMs: String(entry.override?.manualDeactivateAfterMs ?? entry.manualDeactivateAfterMs),
 });
 
-const parseCueLabels = (value: string): VtsCueLabel[] => {
+const parseCueLabels = (value: string, allowedCueLabels: VtsCueLabel[]): VtsCueLabel[] => {
   const values = value
     .split(",")
     .map((item) => item.trim())
-    .filter((item): item is VtsCueLabel => cueLabels.includes(item as VtsCueLabel));
+    .filter((item): item is VtsCueLabel => allowedCueLabels.includes(item));
 
   return [...new Set(values)];
 };
 
 const formatCueLabels = (values: VtsCueLabel[]): string => values.join(", ");
+const cueLabelIdPattern = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
 export function HotkeyMapper(): React.JSX.Element {
   const {
@@ -90,6 +71,7 @@ export function HotkeyMapper(): React.JSX.Element {
     refreshHotkeys,
     refreshCatalog,
     updateCatalogOverride,
+    updateCueLabels,
     triggerHotkey,
   } = useVTS();
   const [connectionForm, setConnectionForm] = useState<VtsConnectionConfig>({
@@ -99,6 +81,12 @@ export function HotkeyMapper(): React.JSX.Element {
     pluginDeveloper: "AuTuber Development Team",
   });
   const [editingHotkeyId, setEditingHotkeyId] = useState<string | null>(null);
+  const [editingCueLabelId, setEditingCueLabelId] = useState<string | null>(null);
+  const [cueLabelDraft, setCueLabelDraft] = useState<CueLabelDraft>({
+    id: "",
+    name: "",
+    description: "",
+  });
   const [drafts, setDrafts] = useState<Record<string, OverrideDraft>>({});
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -119,6 +107,12 @@ export function HotkeyMapper(): React.JSX.Element {
     }));
   }, [catalogEntriesByHotkey, hotkeys]);
 
+  const cueLabelDefinitions = status?.cueLabels ?? [];
+  const cueLabelIds = useMemo(() => cueLabelDefinitions.map((cueLabel) => cueLabel.id), [cueLabelDefinitions]);
+  const usedCueLabelIds = useMemo(() => {
+    return new Set((catalog?.entries ?? []).flatMap((entry) => entry.cueLabels));
+  }, [catalog]);
+
   const beginEdit = useCallback((entry: VtsCatalogEntry) => {
     setEditingHotkeyId(entry.hotkeyId);
     setDrafts((current) => ({
@@ -134,7 +128,7 @@ export function HotkeyMapper(): React.JSX.Element {
       return;
     }
 
-    const nextCueLabels = parseCueLabels(draft.cueLabels);
+    const nextCueLabels = parseCueLabels(draft.cueLabels, cueLabelIds);
     const nextConfidence = Number.parseFloat(draft.confidence);
     const nextManualDeactivateAfterMs = Number.parseInt(draft.manualDeactivateAfterMs, 10);
 
@@ -166,13 +160,81 @@ export function HotkeyMapper(): React.JSX.Element {
       manualDeactivateAfterMs: draft.hasAutoDeactivate ? entry.manualDeactivateAfterMs : nextManualDeactivateAfterMs,
     });
     setEditingHotkeyId(null);
-  }, [drafts, updateCatalogOverride]);
+  }, [cueLabelIds, drafts, updateCatalogOverride]);
 
   const handleClearOverride = useCallback(async (hotkeyId: string) => {
     setValidationError(null);
     await updateCatalogOverride(hotkeyId, null);
     setEditingHotkeyId(null);
   }, [updateCatalogOverride]);
+
+  const beginCueLabelEdit = useCallback((cueLabel: VtsCueLabelDefinition) => {
+    setEditingCueLabelId(cueLabel.id);
+    setCueLabelDraft({
+      id: cueLabel.id,
+      name: cueLabel.name,
+      description: cueLabel.description,
+    });
+    setValidationError(null);
+  }, []);
+
+  const beginCueLabelCreate = useCallback(() => {
+    setEditingCueLabelId(null);
+    setCueLabelDraft({
+      id: "",
+      name: "",
+      description: "",
+    });
+    setValidationError(null);
+  }, []);
+
+  const handleSaveCueLabel = useCallback(async () => {
+    const id = cueLabelDraft.id.trim().toLowerCase();
+    const name = cueLabelDraft.name.trim();
+    const description = cueLabelDraft.description.trim();
+
+    if (!cueLabelIdPattern.test(id)) {
+      setValidationError("Cue label ID must use lowercase letters, numbers, underscores, or hyphens.");
+      return;
+    }
+
+    if (name.length === 0) {
+      setValidationError("Cue label name is required.");
+      return;
+    }
+
+    const isEditing = editingCueLabelId !== null;
+    if (isEditing && id !== editingCueLabelId) {
+      setValidationError("Cue label IDs are stable. Create a new label if you need a different ID.");
+      return;
+    }
+
+    if (!isEditing && cueLabelDefinitions.some((cueLabel) => cueLabel.id === id)) {
+      setValidationError("A cue label with that ID already exists.");
+      return;
+    }
+
+    const nextCueLabels = isEditing
+      ? cueLabelDefinitions.map((cueLabel) => cueLabel.id === id ? { id, name, description } : cueLabel)
+      : [...cueLabelDefinitions, { id, name, description }];
+
+    setValidationError(null);
+    await updateCueLabels(nextCueLabels);
+    beginCueLabelCreate();
+  }, [beginCueLabelCreate, cueLabelDefinitions, cueLabelDraft, editingCueLabelId, updateCueLabels]);
+
+  const handleRemoveCueLabel = useCallback(async (cueLabelId: string) => {
+    const nextCueLabels = cueLabelDefinitions.filter((cueLabel) => cueLabel.id !== cueLabelId);
+
+    if (nextCueLabels.length === 0) {
+      setValidationError("At least one cue label must remain configured.");
+      return;
+    }
+
+    setValidationError(null);
+    await updateCueLabels(nextCueLabels);
+    beginCueLabelCreate();
+  }, [beginCueLabelCreate, cueLabelDefinitions, updateCueLabels]);
 
   const renderClassification = (title: string, entry: VtsCatalogEntry | null, useGenerated: boolean): React.JSX.Element => {
     if (!entry) {
@@ -311,6 +373,95 @@ export function HotkeyMapper(): React.JSX.Element {
       {error ? <p className="panel__error" style={{ marginTop: "16px" }}>{error}</p> : null}
       {validationError ? <p className="panel__error" style={{ marginTop: "16px" }}>{validationError}</p> : null}
 
+      <div className="panel__card" style={{ marginTop: "24px" }}>
+        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Cue Labels</h3>
+            <p className="panel__hint" style={{ margin: "6px 0 0" }}>
+              The live model only receives labels currently used by safe-auto hotkey mappings. Removed labels are stripped from overrides.
+            </p>
+          </div>
+          <button onClick={beginCueLabelCreate} className="ghost-button" disabled={busyAction !== null}>
+            New Label
+          </button>
+        </div>
+
+        <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+          {cueLabelDefinitions.map((cueLabel) => (
+            <div
+              key={cueLabel.id}
+              style={{
+                border: "1px solid rgba(148, 163, 184, 0.22)",
+                borderRadius: "14px",
+                padding: "12px",
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              <div>
+                <p style={{ margin: 0, fontWeight: 600 }}>{cueLabel.name}</p>
+                <p className="panel__hint" style={{ margin: "3px 0 0" }}>{cueLabel.id}</p>
+                {cueLabel.description ? (
+                  <p className="panel__hint" style={{ margin: "3px 0 0" }}>{cueLabel.description}</p>
+                ) : null}
+                <p className="panel__hint" style={{ margin: "3px 0 0" }}>
+                  {usedCueLabelIds.has(cueLabel.id) ? "Mapped to a catalog entry" : "Not currently mapped"}
+                </p>
+              </div>
+              <div className="panel__actions">
+                <button onClick={() => beginCueLabelEdit(cueLabel)} className="ghost-button" disabled={busyAction !== null}>
+                  Edit
+                </button>
+                <button
+                  onClick={() => void handleRemoveCueLabel(cueLabel.id)}
+                  className="ghost-button"
+                  disabled={busyAction !== null}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="panel__card" style={{ margin: 0 }}>
+          <h4 style={{ margin: 0 }}>{editingCueLabelId ? "Edit Cue Label" : "Create Cue Label"}</h4>
+          <label className="field">
+            <span>ID</span>
+            <input
+              value={cueLabelDraft.id}
+              disabled={editingCueLabelId !== null}
+              placeholder="big_laugh"
+              onChange={(event) => setCueLabelDraft((current) => ({ ...current, id: event.target.value }))}
+            />
+          </label>
+          <label className="field">
+            <span>Name</span>
+            <input
+              value={cueLabelDraft.name}
+              placeholder="Big Laugh"
+              onChange={(event) => setCueLabelDraft((current) => ({ ...current, name: event.target.value }))}
+            />
+          </label>
+          <label className="field">
+            <span>Description</span>
+            <input
+              value={cueLabelDraft.description}
+              placeholder="Use when the person is visibly laughing hard."
+              onChange={(event) => setCueLabelDraft((current) => ({ ...current, description: event.target.value }))}
+            />
+          </label>
+          <div className="panel__actions" style={{ justifyContent: "flex-end" }}>
+            <button onClick={beginCueLabelCreate} className="ghost-button" disabled={busyAction !== null}>
+              Clear
+            </button>
+            <button onClick={() => void handleSaveCueLabel()} className="primary-button" disabled={busyAction !== null}>
+              Save Cue Label
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="panel__card" style={{ marginTop: "24px", gap: "0", padding: 0 }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(148, 163, 184, 0.2)" }}>
           <h3 style={{ margin: 0 }}>Current Model Hotkeys</h3>
@@ -392,7 +543,7 @@ export function HotkeyMapper(): React.JSX.Element {
                       />
                     </label>
                     <p className="panel__hint" style={{ margin: 0 }}>
-                      Allowed labels: {cueLabels.join(", ")}
+                      Allowed labels: {cueLabelIds.join(", ")}
                     </p>
                     <label className="field">
                       <span>Emote Kind</span>

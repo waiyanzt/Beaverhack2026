@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ServiceActivationService } from "../../src/main/services/service-activation.service";
+import { DEFAULT_VTS_CUE_LABELS } from "../../src/shared/vts-cue-labels";
 
 describe("ServiceActivationService", () => {
   it("activates OBS and VTS when both services are available", async () => {
@@ -21,6 +22,7 @@ describe("ServiceActivationService", () => {
           modelName: null,
           modelId: null,
           hotkeyCount: 0,
+          cueLabels: DEFAULT_VTS_CUE_LABELS,
           catalog: {
             version: null,
             hotkeyHash: null,
@@ -44,6 +46,7 @@ describe("ServiceActivationService", () => {
         modelName: null,
         modelId: null,
         hotkeyCount: 0,
+        cueLabels: DEFAULT_VTS_CUE_LABELS,
         catalog: {
           version: null,
           hotkeyHash: null,
@@ -67,6 +70,7 @@ describe("ServiceActivationService", () => {
         modelName: "Demo",
         modelId: "demo",
         hotkeyCount: 3,
+        cueLabels: DEFAULT_VTS_CUE_LABELS,
         catalog: {
           version: "vts_catalog_demo",
           hotkeyHash: "demo",
@@ -86,6 +90,7 @@ describe("ServiceActivationService", () => {
       settingsService: {
         getSettings: () => ({
           vts: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber" },
+          vtsCueLabels: DEFAULT_VTS_CUE_LABELS,
           vtsCatalogOverrides: {},
           dashboard: { selectedAudioDeviceId: null, selectedVideoDeviceId: null, selectedScreenSourceId: null },
           model: { selectedProviderId: "vllm" as const },
@@ -124,6 +129,7 @@ describe("ServiceActivationService", () => {
         modelName: null,
         modelId: null,
         hotkeyCount: 0,
+        cueLabels: DEFAULT_VTS_CUE_LABELS,
         catalog: {
           version: null,
           hotkeyHash: null,
@@ -145,6 +151,7 @@ describe("ServiceActivationService", () => {
       settingsService: {
         getSettings: () => ({
           vts: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber" },
+          vtsCueLabels: DEFAULT_VTS_CUE_LABELS,
           vtsCatalogOverrides: {},
           dashboard: { selectedAudioDeviceId: null, selectedVideoDeviceId: null, selectedScreenSourceId: null },
           model: { selectedProviderId: "vllm" as const },

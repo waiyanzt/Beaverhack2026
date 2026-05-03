@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { OpenAICompatibleMessage } from "../../../shared/model.types";
-import { VTS_CUE_LABEL_VALUES } from "../../../shared/vts-cue-labels";
 import type {
   VtsAutomationMode,
   VtsCueLabel,
+  VtsCueLabelDefinition,
   VtsEmoteKind,
   VtsHotkey,
 } from "../../../shared/types/vts.types";
@@ -29,10 +29,19 @@ const emoteKindValues = [
   "unknown",
 ] as const satisfies readonly VtsEmoteKind[];
 
-const classificationResponseSchema = z.object({
+const buildClassificationResponseSchema = (allowedCueLabels: Set<string>) => z.object({
   items: z.array(z.object({
     id: z.string().trim().min(1),
-    cueLabels: z.array(z.enum(VTS_CUE_LABEL_VALUES)).min(1),
+    cueLabels: z.array(z.string().trim().min(1)).min(1).superRefine((cueLabels, context) => {
+      for (const cueLabel of cueLabels) {
+        if (!allowedCueLabels.has(cueLabel)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Unsupported cue label "${cueLabel}".`,
+          });
+        }
+      }
+    }),
     emoteKind: z.enum(emoteKindValues),
     autoMode: z.enum(["safe_auto", "suggest_only", "manual_only"]),
     confidence: z.number().min(0).max(1),
@@ -115,13 +124,18 @@ function matchesAny(value: string, needles: string[]): boolean {
 export class VtsCatalogGeneratorService {
   public constructor(private readonly modelRouter: Pick<ModelRouterService, "requestChat">) {}
 
-  public async generate(hotkeys: VtsHotkey[]): Promise<Record<string, VtsGeneratedClassification>> {
+  public async generate(
+    hotkeys: VtsHotkey[],
+    cueLabelDefinitions: VtsCueLabelDefinition[],
+  ): Promise<Record<string, VtsGeneratedClassification>> {
     if (hotkeys.length === 0) {
       return {};
     }
 
+    const allowedCueLabels = new Set(cueLabelDefinitions.map((cueLabel) => cueLabel.id));
+
     try {
-      const response = await this.modelRouter.requestChat(this.buildMessages(hotkeys));
+      const response = await this.modelRouter.requestChat(this.buildMessages(hotkeys, cueLabelDefinitions));
 
       if (!response.ok) {
         return this.buildHeuristicMap(hotkeys);
@@ -131,7 +145,7 @@ export class VtsCatalogGeneratorService {
         return this.buildHeuristicMap(hotkeys);
       }
 
-      const parsed = classificationResponseSchema.parse(JSON.parse(stripMarkdownCodeBlocks(response.content)));
+      const parsed = buildClassificationResponseSchema(allowedCueLabels).parse(JSON.parse(stripMarkdownCodeBlocks(response.content)));
       if (parsed.items.length !== hotkeys.length) {
         return this.buildHeuristicMap(hotkeys);
       }
@@ -142,7 +156,7 @@ export class VtsCatalogGeneratorService {
     }
   }
 
-  private buildMessages(hotkeys: VtsHotkey[]): OpenAICompatibleMessage[] {
+  private buildMessages(hotkeys: VtsHotkey[], cueLabelDefinitions: VtsCueLabelDefinition[]): OpenAICompatibleMessage[] {
     return [
       {
         role: "system",
@@ -151,6 +165,11 @@ export class VtsCatalogGeneratorService {
       {
         role: "user",
         content: JSON.stringify({
+          allowedCueLabels: cueLabelDefinitions.map((cueLabel) => ({
+            id: cueLabel.id,
+            name: cueLabel.name,
+            description: cueLabel.description,
+          })),
           hotkeys: hotkeys.map((hotkey) => ({
             id: hotkey.hotkeyID,
             name: hotkey.name,
@@ -165,7 +184,7 @@ export class VtsCatalogGeneratorService {
 
   private normalizeModelItems(
     hotkeys: VtsHotkey[],
-    items: Array<z.infer<typeof classificationResponseSchema>["items"][number]>,
+    items: Array<z.infer<ReturnType<typeof buildClassificationResponseSchema>>["items"][number]>,
   ): Record<string, VtsGeneratedClassification> {
     const byId = new Map(items.map((item) => [item.id, item]));
     const result: Record<string, VtsGeneratedClassification> = {};
