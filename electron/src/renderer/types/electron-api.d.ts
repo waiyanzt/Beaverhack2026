@@ -24,6 +24,11 @@ import type {
 	ModelMonitorStopResponse,
 } from "../../shared/types/model-monitor.types";
 import type {
+	ModelProviderConfig,
+	ModelProviderId,
+	ModelProviderTestResult,
+} from "../../shared/model.types";
+import type {
 	SettingsGetResult,
 	SettingsUpdateRequest,
 	SettingsUpdateResult,
@@ -76,6 +81,11 @@ type DesktopApi = {
 	modelMonitorStop: () => Promise<ModelMonitorStopResponse>;
 	modelMonitorStatus: () => Promise<ModelMonitorStatusResponse>;
 	onModelMonitorEvent: (handler: (event: ModelMonitorEvent) => void) => () => void;
+	modelListProviders: () => Promise<ModelProviderConfig[]>;
+	modelSetProvider: (
+		providerId: ModelProviderId,
+	) => Promise<{ ok: boolean; message?: string }>;
+	modelTestConnection: () => Promise<ModelProviderTestResult>;
 };
 
 type CaptureBridgeApi = {
