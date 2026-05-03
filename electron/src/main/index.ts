@@ -1,5 +1,5 @@
 import { app, Menu, session, type WebContents } from "electron";
-import { registerIpcHandlers } from "./ipc";
+import { registerIpcHandlers, resumePersistedModelMonitor } from "./ipc";
 import { createMainWindow } from "./windows/main-window";
 import { obsConnect, obsGetStatus } from "./services/obs/obs.service";
 
@@ -53,7 +53,8 @@ async function main(): Promise<void> {
 
     Menu.setApplicationMenu(null);
     registerIpcHandlers();
-    await createMainWindow();
+    const mainWindow = await createMainWindow();
+    await resumePersistedModelMonitor(mainWindow.webContents);
 
     try {
       await obsConnect();

@@ -1,4 +1,5 @@
 import type { ModelProviderConfig, ModelProviderId, VllmOptions } from "../../../shared/model.types";
+import { settingsService } from "../settings/settings.service";
 
 const vllmOptions: VllmOptions = {
   enableThinking: false,
@@ -46,16 +47,16 @@ const providers: ModelProviderConfig[] = [
   },
 ];
 
-let selectedProviderId: ModelProviderId = "vllm";
-
 export function getModelProviders(): ModelProviderConfig[] {
   return providers.map((provider) => ({ ...provider }));
 }
 
 export function getSelectedModelProviderId(): ModelProviderId {
-  return selectedProviderId;
+  return settingsService.getSettings().model.selectedProviderId;
 }
 
 export function setSelectedModelProviderId(providerId: ModelProviderId): void {
-  selectedProviderId = providerId;
+  settingsService.updateModelConfig({
+    selectedProviderId: providerId,
+  });
 }
