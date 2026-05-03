@@ -46,6 +46,12 @@ export type ModelMonitorTiming = {
 
 export type ModelMonitorRequestDebug = {
   requestNumber: number;
+  pipelineLatencyMs: number | null;
+  observationLatencyMs: number | null;
+  captureInputLatencyMs: number | null;
+  promptBuildLatencyMs: number | null;
+  modelRequestLatencyMs: number | null;
+  parseValidateExecuteLatencyMs: number | null;
   promptTextBytes: number;
   mediaDataUrlBytes: number;
   requestContentBytes: number;

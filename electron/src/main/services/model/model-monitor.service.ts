@@ -238,8 +238,8 @@ export class ModelMonitorService {
         mediaStartMs,
         mediaEndMs,
         conversionStartedMs: requestStartedMs,
-        requestStartedMs,
-        responseMs,
+        requestStartedMs: Date.parse(pipelineResult.requestDebug.modelRequestStartedAt),
+        responseMs: Date.parse(pipelineResult.requestDebug.modelResponseReceivedAt),
       });
       this.activeRequestCount = Math.max(this.activeRequestCount - 1, 0);
       const isNewestCompletedRequest = requestNumber >= this.latestCompletedRequestNumber;
@@ -307,6 +307,12 @@ export class ModelMonitorService {
   }
 
   private buildRequestDebug(input: {
+    pipelineLatencyMs?: number;
+    observationLatencyMs?: number;
+    captureInputLatencyMs?: number;
+    promptBuildLatencyMs?: number;
+    modelRequestLatencyMs?: number;
+    parseValidateExecuteLatencyMs?: number;
     promptTextBytes: number;
     mediaDataUrlBytes: number;
     sourceWindowKey: string | null;
@@ -318,6 +324,12 @@ export class ModelMonitorService {
   }): ModelMonitorRequestDebug {
     return {
       requestNumber: this.status.tickCount,
+      pipelineLatencyMs: input.pipelineLatencyMs ?? null,
+      observationLatencyMs: input.observationLatencyMs ?? null,
+      captureInputLatencyMs: input.captureInputLatencyMs ?? null,
+      promptBuildLatencyMs: input.promptBuildLatencyMs ?? null,
+      modelRequestLatencyMs: input.modelRequestLatencyMs ?? null,
+      parseValidateExecuteLatencyMs: input.parseValidateExecuteLatencyMs ?? null,
       promptTextBytes: input.promptTextBytes,
       mediaDataUrlBytes: input.mediaDataUrlBytes,
       requestContentBytes: input.promptTextBytes + input.mediaDataUrlBytes,

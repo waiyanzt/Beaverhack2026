@@ -45,6 +45,8 @@ The live path now also stops feeding full prior plans back into the model as dec
 
 This keeps cooldown enforcement in the validator/executor layer instead of teaching the model to self-suppress based on prior blocked outputs.
 
+The live model monitor reports stage timing separately. Provider request latency is measured only around `ModelRouter.requestActionPlan`, while pre-model latency covers observation building, live capture lookup/muxing, and prompt assembly. The end-to-end response delay still includes the capture window duration because live reactions use completed clips rather than partial in-progress media.
+
 `ModelActionMemoryService` owns the short-term model action memory in the Electron main process. The canonical automation pipeline records each parsed plan after review/execution, and the dashboard model monitor records returned plans as `not_executed` because that development loop never runs actions directly. The next prompt includes this memory so providers can make context-aware choices, such as continuing a laugh reaction when the latest observation still supports it, without mechanically repeating prior actions.
 
 Noop decisions are also represented in the compact `recentActions` history. This keeps the prompt easy to inspect while preserving the full prior plan JSON in `recentModelActions`.

@@ -41,6 +41,15 @@ export interface AutomationRequestDebug {
   promptTokens: number | null;
   completionTokens: number | null;
   totalTokens: number | null;
+  pipelineStartedAt: string;
+  modelRequestStartedAt: string;
+  modelResponseReceivedAt: string;
+  observationLatencyMs: number;
+  captureInputLatencyMs: number;
+  promptBuildLatencyMs: number;
+  modelRequestLatencyMs: number;
+  parseValidateExecuteLatencyMs: number;
+  pipelineLatencyMs: number;
   promptTextBytes: number;
   mediaDataUrlBytes: number;
   requestContentBytes: number;

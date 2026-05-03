@@ -32,20 +32,26 @@ export class PipelineService {
 
   public async analyzeNow(request: AutomationAnalyzeNowRequest = {}): Promise<AutomationAnalyzeNowResult> {
     try {
+      const pipelineStartedMs = Date.now();
       const baseModelContext = await this.observationBuilder.buildModelContext({
         tickId: createId("tick"),
         transcript: request.transcript,
         allowObsActions: request.allowObsActions ?? true,
         recentModelActions: this.modelActionMemoryService.getRecentModelActions(),
       });
+      const observationBuiltMs = Date.now();
       const modelContext = request.useLatestCapture
         ? this.buildLivePromptContext(baseModelContext)
         : baseModelContext;
       const liveCaptureInput = request.useLatestCapture
         ? await this.liveCaptureInputService.buildPromptInput(request.captureWindowMs ?? 2_000)
         : undefined;
+      const captureInputBuiltMs = Date.now();
       const prompt = this.promptBuilder.buildMessages(modelContext, liveCaptureInput);
+      const promptBuiltMs = Date.now();
+      const modelRequestStartedMs = Date.now();
       const modelResult = await this.modelRouter.requestActionPlan(prompt.messages);
+      const modelResponseReceivedMs = Date.now();
 
       if (!modelResult.ok || !modelResult.actionPlan) {
         throw new Error(modelResult.content || "Model provider did not return an action plan.");
@@ -59,6 +65,7 @@ export class PipelineService {
       );
       const actionResults = await this.actionExecutor.execute(reviewedActions, request.dryRun ?? false);
       this.modelActionMemoryService.record(parsedPlan, actionResults);
+      const pipelineCompletedMs = Date.now();
 
       return {
         ok: true,
@@ -82,6 +89,15 @@ export class PipelineService {
           promptTokens: modelResult.usage?.promptTokens ?? null,
           completionTokens: modelResult.usage?.completionTokens ?? null,
           totalTokens: modelResult.usage?.totalTokens ?? null,
+          pipelineStartedAt: new Date(pipelineStartedMs).toISOString(),
+          modelRequestStartedAt: new Date(modelRequestStartedMs).toISOString(),
+          modelResponseReceivedAt: new Date(modelResponseReceivedMs).toISOString(),
+          observationLatencyMs: Math.max(observationBuiltMs - pipelineStartedMs, 0),
+          captureInputLatencyMs: Math.max(captureInputBuiltMs - observationBuiltMs, 0),
+          promptBuildLatencyMs: Math.max(promptBuiltMs - captureInputBuiltMs, 0),
+          modelRequestLatencyMs: Math.max(modelResponseReceivedMs - modelRequestStartedMs, 0),
+          parseValidateExecuteLatencyMs: Math.max(pipelineCompletedMs - modelResponseReceivedMs, 0),
+          pipelineLatencyMs: Math.max(pipelineCompletedMs - pipelineStartedMs, 0),
           promptTextBytes: prompt.requestDebug.promptTextBytes,
           mediaDataUrlBytes: prompt.requestDebug.mediaDataUrlBytes,
           requestContentBytes: prompt.requestDebug.promptTextBytes + prompt.requestDebug.mediaDataUrlBytes,
