@@ -54,9 +54,9 @@ export function ManualControlPanel(): React.JSX.Element {
             resize: "vertical",
             borderRadius: "12px",
             padding: "0.875rem",
-            background: "rgba(15, 23, 42, 0.5)",
-            border: "1px solid rgba(148, 163, 184, 0.25)",
-            color: "inherit",
+            background: "rgba(255, 255, 255, 0.92)",
+            border: "1px solid var(--panel-border)",
+            color: "var(--ink)",
           }}
         />
       </label>

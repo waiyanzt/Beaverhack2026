@@ -4,6 +4,8 @@ The Electron app lives in [`electron/`](../../electron) and is the primary imple
 
 Architecture and target structure are defined in [SPEC.md](../../SPEC.md).
 
+Renderer styling currently uses the Sakura Candy Pop palette: sakura pink as the primary brand color, miku cyan for focus/interaction, and light neutral surfaces with soft pink, lavender, and mint accents. The shared theme tokens live in `electron/src/renderer/styles/globals.css`.
+
 Current persistence behavior:
 
 - App configuration is stored in the Electron main process through `electron-store`.

@@ -412,7 +412,7 @@ export function HotkeyMapper(): React.JSX.Element {
             <div
               key={cueLabel.id}
               style={{
-                border: "1px solid rgba(148, 163, 184, 0.22)",
+                border: "1px solid var(--panel-border)",
                 borderRadius: "14px",
                 padding: "12px",
                 display: "grid",
@@ -487,7 +487,7 @@ export function HotkeyMapper(): React.JSX.Element {
       </div>
 
       <div className="panel__card" style={{ marginTop: "24px", gap: "0", padding: 0 }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(148, 163, 184, 0.2)" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--divider)" }}>
           <h3 style={{ margin: 0 }}>Current Model Hotkeys</h3>
           <p className="panel__hint" style={{ margin: "6px 0 0" }}>
             Regeneration always starts from the current raw hotkey list. Old-model entries should disappear after refresh.
@@ -508,7 +508,7 @@ export function HotkeyMapper(): React.JSX.Element {
                 key={hotkey.hotkeyID}
                 style={{
                   padding: "18px 20px",
-                  borderBottom: index < rows.length - 1 ? "1px solid rgba(148, 163, 184, 0.2)" : "none",
+                  borderBottom: index < rows.length - 1 ? "1px solid var(--divider)" : "none",
                   display: "grid",
                   gap: "16px",
                 }}

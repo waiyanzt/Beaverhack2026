@@ -10,7 +10,7 @@ AuTuber is primarily a **background agent**. The UI exists only for configuratio
 
 * **Prioritize density and clarity.** Information should be readable at a glance.
 
-* **Unobtrusive presence.** The app should feel native, lightweight, and fast, utilizing a clean, light theme that doesn't distract the streamer.
+* **Unobtrusive presence.** The app should feel native, lightweight, and fast, using a clean, light theme that doesn't distract the streamer.
 
 ## 2. Tech Stack
 
@@ -28,27 +28,29 @@ We rely strictly on Tailwind utility classes for styling. Do not write custom CS
 
 ### Color Palette
 
-We use the default Tailwind color palette, heavily leaning on `slate` for our neutral structure.
+The Electron renderer uses the Sakura Candy Pop palette with light neutral surfaces and pastel accents.
 
-* **Backgrounds:** `bg-slate-50` for the app background, `bg-white` for cards and foreground elements.
+* **Backgrounds:** `#FFF7FB` for the app background, `#FFFFFF` / soft white tints for cards and foreground elements.
 
-* **Text:** `text-slate-800` or `text-slate-900` for primary text, `text-slate-500` for secondary/descriptions.
+* **Text:** `#2A2A2A` for primary text, `#6B7280` for secondary/descriptions.
 
-* **Borders:** `border-slate-200` for structural separation.
+* **Borders:** `#FFD6E7` and `#F0F2F5` for structural separation.
 
-* **Primary Brand/Action:** `blue` (e.g., `bg-blue-600`, `text-blue-700`).
+* **Primary Brand/Action:** `#FF8DB8` for brand actions, with `#FF7DAF` on hover.
+
+* **Interaction/Focus:** `#7EE9F3` for rings, selection, and interactive emphasis.
 
 * **Semantic Status Colors:**
 
-  * **Success/Connected:** `emerald` (`bg-emerald-50`, `text-emerald-600`)
+  * **Success/Connected:** mint-tinted surfaces with neutral text
 
-  * **Warning/Working:** `amber` (`text-amber-600`, `bg-amber-400 animate-pulse`)
+  * **Warning/Working:** peach or yellow highlights with neutral text
 
-  * **Error/Disconnected:** `rose` (`text-rose-500`)
+  * **Error/Disconnected:** rose or coral highlights with neutral text
 
 ### Typography
 
-* Use the default sans-serif stack.
+* Use `Space Grotesk` for the main renderer shell and `IBM Plex Mono` for logs, raw data, and compact technical fields.
 
 * Maintain clear hierarchy:
 
@@ -64,11 +66,11 @@ We use the default Tailwind color palette, heavily leaning on `slate` for our ne
 
 ### Borders, Shadows & Radii
 
-* **Cards & Modals:** `rounded-xl` or `rounded-2xl` with a subtle `shadow-sm` and `border border-slate-200`.
+* **Cards & Modals:** `rounded-xl` or `rounded-2xl` with a subtle tinted shadow and a light border.
 
 * **Buttons & Inputs:** `rounded-lg` or `rounded-md`.
 
-* **Hover States:** Always include `transition-colors` or `transition-all`. Use `hover:bg-slate-50` or `hover:shadow-md` to provide physical feedback to the user.
+* **Hover States:** Always include `transition-colors` or `transition-all`. Use soft pink or lavender hover tints to provide physical feedback.
 
 ### Example Card Structure
 
