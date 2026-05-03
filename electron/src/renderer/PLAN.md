@@ -19,7 +19,7 @@ Build the Hotkey Mapper panel: a UI for creating and managing mappings from trig
 - The preload exposes IPC as `window.electronAPI.invoke(channel, ...args)` - check electron-api.d.ts and expand it if needed to include this method signature
 
 ### Task 2: Implement HotkeyMapper component
-**Status**: pending
+**Status**: done
 **Goal**: Build the full Hotkey Mapper UI with a mapping list and an add-mapping inline form.
 **Depends on**: Task 1
 **Details**:
