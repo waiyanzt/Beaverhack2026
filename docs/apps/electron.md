@@ -8,6 +8,7 @@ Current persistence behavior:
 
 - App configuration is stored in the Electron main process through `electron-store`.
 - VTube Studio connection settings persist across renderer navigation and app relaunches.
+- VTube Studio prompt emote mappings persist as part of VTS settings. Each mapping stores the local hotkey ID plus the user-facing prompt name, prompt description, and enabled state.
 - Dashboard capture source selections persist across renderer navigation and app relaunches.
 - The selected model provider persists in the same settings store.
 - The model monitor stores its last successful start request and resumes on next launch when it was previously left running.

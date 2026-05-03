@@ -26,6 +26,8 @@ export interface VtsCatalogEntry {
   catalogId: string;
   hotkeyId: string;
   hotkeyName: string;
+  promptName: string;
+  promptDescription: string;
   normalizedName: string;
   intent: string;
   autoMode: VtsAutomationMode;

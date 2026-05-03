@@ -378,8 +378,10 @@ code {
 
 .app-shell .field input,
 .app-shell .field select,
+.app-shell .field textarea,
 .capture-dev-shell .field input,
-.capture-dev-shell .field select {
+.capture-dev-shell .field select,
+.capture-dev-shell .field textarea {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 10px;

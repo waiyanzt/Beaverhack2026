@@ -16,7 +16,7 @@ describe("ServiceActivationService", () => {
           authenticationState: "unauthenticated" as const,
           readinessState: "not_running" as const,
           readyForAutomation: false,
-          config: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber" },
+          config: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber", emoteMappings: [] },
           modelLoaded: false,
           modelName: null,
           modelId: null,
@@ -39,7 +39,7 @@ describe("ServiceActivationService", () => {
         authenticationState: "unauthenticated" as const,
         readinessState: "unauthenticated" as const,
         readyForAutomation: false,
-        config: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber" },
+        config: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber", emoteMappings: [] },
         modelLoaded: false,
         modelName: null,
         modelId: null,
@@ -62,7 +62,7 @@ describe("ServiceActivationService", () => {
         authenticationState: "authenticated" as const,
         readinessState: "ready" as const,
         readyForAutomation: true,
-        config: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber" },
+        config: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber", emoteMappings: [] },
         modelLoaded: true,
         modelName: "Demo",
         modelId: "demo",
@@ -85,7 +85,7 @@ describe("ServiceActivationService", () => {
       vtsService,
       settingsService: {
         getSettings: () => ({
-          vts: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber" },
+          vts: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber", emoteMappings: [] },
           dashboard: { selectedAudioDeviceId: null, selectedVideoDeviceId: null, selectedScreenSourceId: null },
           model: { selectedProviderId: "vllm" as const },
           monitor: { resumeOnLaunch: false, lastStartRequest: null },
@@ -118,7 +118,7 @@ describe("ServiceActivationService", () => {
         authenticationState: "unauthenticated" as const,
         readinessState: "not_running" as const,
         readyForAutomation: false,
-        config: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber" },
+        config: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber", emoteMappings: [] },
         modelLoaded: false,
         modelName: null,
         modelId: null,
@@ -143,7 +143,7 @@ describe("ServiceActivationService", () => {
       vtsService,
       settingsService: {
         getSettings: () => ({
-          vts: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber" },
+          vts: { host: "127.0.0.1", port: 8001, pluginName: "AuTuber", pluginDeveloper: "AuTuber", emoteMappings: [] },
           dashboard: { selectedAudioDeviceId: null, selectedVideoDeviceId: null, selectedScreenSourceId: null },
           model: { selectedProviderId: "vllm" as const },
           monitor: { resumeOnLaunch: false, lastStartRequest: null },

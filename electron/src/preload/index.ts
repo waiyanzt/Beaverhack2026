@@ -54,6 +54,7 @@ const fallbackVtsStatus: VtsStatus = {
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber Development Team",
+    emoteMappings: [],
   },
   modelLoaded: false,
   modelName: null,

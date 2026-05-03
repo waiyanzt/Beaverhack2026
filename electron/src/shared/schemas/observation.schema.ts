@@ -22,6 +22,7 @@ export const modelControlVtsCatalogItemSchema = z
   .object({
     catalogId: z.string().trim().min(1),
     label: z.string().trim().min(1),
+    description: z.string().trim().min(1),
     intent: z.string().trim().min(1),
     autoMode: z.enum(["safe_auto", "suggest_only", "manual_only"]),
   })

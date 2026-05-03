@@ -57,6 +57,7 @@ export interface ModelControlVtsHotkey {
 export interface ModelControlVtsCatalogItem {
   catalogId: string;
   label: string;
+  description: string;
   intent: string;
   autoMode: "safe_auto" | "suggest_only" | "manual_only";
 }

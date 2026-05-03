@@ -16,8 +16,7 @@ That payload includes:
 
 - VTube Studio connection/authentication state
 - current VTS model name
-- cached VTS hotkeys as `{ id, name }`
-- VTS readiness state, `readyForAutomation`, a versioned automation catalog, and the current safe-auto candidate list
+- VTS readiness state, `readyForAutomation`, a versioned automation catalog, and the current user-managed safe-auto candidate list
 - OBS connection state
 - current OBS scene
 - OBS live/recording state
@@ -41,7 +40,7 @@ Noop decisions are also represented in the compact `recentActions` history. This
 
 ## Current Execution Rules
 
-- `vts.trigger_hotkey` now executes only when the model returns a current `catalogId` from `services.vts.automationCatalog.candidates` and the local validator confirms:
+- `vts.trigger_hotkey` now executes only when the model returns a current user-defined `catalogId` from `services.vts.automationCatalog.candidates` and the local validator confirms:
   - VTS readiness is `ready`
   - the catalog version is current
   - the selected candidate is still present

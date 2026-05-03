@@ -7,9 +7,8 @@ import {
   type SettingsService,
 } from "../settings/settings.service";
 import { vtsHotkeySchema } from "../../../shared/schemas/vts.schema";
-import type { VtsConnectionConfig } from "../../../shared/types/config.types";
+import type { VtsConnectionConfig, VtsEmoteMappingConfig } from "../../../shared/types/config.types";
 import type {
-  VtsAutomationMode,
   VtsAuthenticationState,
   VtsCatalogEntry,
   VtsCatalogSummary,
@@ -81,6 +80,7 @@ export class VtsService {
   }
 
   getStatus(): VtsStatus {
+    this.refreshCatalog();
     const readinessState = this.getReadinessState();
     return {
       connectionState: this.connectionState,
@@ -104,6 +104,7 @@ export class VtsService {
   }
 
   getCatalog(): VtsCatalogSummary {
+    this.refreshCatalog();
     return {
       ...this.catalog,
       entries: [...this.catalog.entries],
@@ -111,6 +112,7 @@ export class VtsService {
   }
 
   resolveCatalogEntry(catalogId: string): VtsCatalogEntry | null {
+    this.refreshCatalog();
     return this.catalog.entries.find((entry) => entry.catalogId === catalogId) ?? null;
   }
 
@@ -230,7 +232,7 @@ export class VtsService {
           file: parsed.file ?? null,
         };
       });
-      this.catalog = this.buildCatalog(this.hotkeys);
+      this.refreshCatalog();
 
       return [...this.hotkeys];
     } catch (error: unknown) {
@@ -315,26 +317,34 @@ export class VtsService {
     return "ready";
   }
 
-  private buildCatalog(hotkeys: VtsHotkey[]): VtsCatalogSummary {
-    if (hotkeys.length === 0) {
-      return EMPTY_CATALOG;
-    }
+  private refreshCatalog(): void {
+    this.config = this.settingsService.getSettings().vts;
+    this.catalog = this.buildCatalog(this.hotkeys, this.config.emoteMappings);
+  }
+
+  private buildCatalog(hotkeys: VtsHotkey[], mappings: VtsEmoteMappingConfig[]): VtsCatalogSummary {
+    const availableHotkeys = new Map(hotkeys.map((hotkey) => [hotkey.hotkeyID, hotkey]));
+    const enabledMappings = mappings.filter((mapping) => mapping.enabled && availableHotkeys.has(mapping.hotkeyId));
 
     const hotkeyHash = createHash("sha256")
       .update(
-        hotkeys
-          .map((hotkey) => `${hotkey.hotkeyID}:${this.normalizeCatalogToken(hotkey.name)}`)
+        enabledMappings
+          .map((mapping) => `${mapping.hotkeyId}:${this.normalizeCatalogToken(mapping.name)}:${mapping.description.trim()}`)
           .sort()
           .join("|"),
       )
       .digest("hex");
     const version = `vts_catalog_${hotkeyHash.slice(0, 12)}`;
     const seenCatalogIds = new Map<string, number>();
-    const entries = hotkeys.map((hotkey) => {
-      const normalizedName = this.normalizeCatalogToken(hotkey.name);
-      const intent = this.classifyIntent(normalizedName);
-      const autoMode = this.classifyAutomationMode(normalizedName, intent);
-      const catalogBase = intent.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || normalizedName || "hotkey";
+    const entries = enabledMappings.map((mapping) => {
+      const hotkey = availableHotkeys.get(mapping.hotkeyId);
+      if (!hotkey) {
+        throw new Error(`VTS emote mapping "${mapping.name}" points to an unavailable hotkey.`);
+      }
+
+      const normalizedName = this.normalizeCatalogToken(mapping.name);
+      const intent = normalizedName.replace(/\s+/g, "_") || "emote";
+      const catalogBase = intent.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "emote";
       const seenCount = (seenCatalogIds.get(catalogBase) ?? 0) + 1;
       seenCatalogIds.set(catalogBase, seenCount);
       const catalogId = seenCount === 1 ? catalogBase : `${catalogBase}_${seenCount}`;
@@ -343,9 +353,11 @@ export class VtsService {
         catalogId,
         hotkeyId: hotkey.hotkeyID,
         hotkeyName: hotkey.name,
+        promptName: mapping.name.trim(),
+        promptDescription: mapping.description.trim(),
         normalizedName,
         intent,
-        autoMode,
+        autoMode: "safe_auto",
       } satisfies VtsCatalogEntry;
     });
 
@@ -367,70 +379,6 @@ export class VtsService {
       .replace(/[^a-z0-9]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
-  }
-
-  private classifyIntent(normalizedName: string): string {
-    if (this.matchesAny(normalizedName, ["wave", "hi", "hello", "greet"])) {
-      return "greeting";
-    }
-
-    if (this.matchesAny(normalizedName, ["laugh", "giggle", "smile", "happy"])) {
-      return "laugh";
-    }
-
-    if (this.matchesAny(normalizedName, ["surprise", "shock", "startle", "gasp"])) {
-      return "surprise";
-    }
-
-    if (this.matchesAny(normalizedName, ["angry", "mad"])) {
-      return "angry";
-    }
-
-    if (this.matchesAny(normalizedName, ["excited", "hype", "cheer"])) {
-      return "excited";
-    }
-
-    if (this.matchesAny(normalizedName, ["heart", "love", "blush"])) {
-      return "heart";
-    }
-
-    if (this.matchesAny(normalizedName, ["sleep", "yawn", "tired"])) {
-      return "sleep";
-    }
-
-    if (this.matchesAny(normalizedName, ["fly", "wings", "tail", "imp", "horn"])) {
-      return "prop_or_pose";
-    }
-
-    if (this.matchesAny(normalizedName, ["hide", "remove", "color", "hair", "cloth", "clothes", "outfit"])) {
-      return "appearance_change";
-    }
-
-    return normalizedName.replace(/\s+/g, "_") || "misc";
-  }
-
-  private classifyAutomationMode(normalizedName: string, intent: string): VtsAutomationMode {
-    if (intent === "appearance_change") {
-      return "manual_only";
-    }
-
-    if (this.matchesAny(normalizedName, ["untitled", "test"])) {
-      return "manual_only";
-    }
-
-    if (intent === "prop_or_pose") {
-      return "suggest_only";
-    }
-
-    if (["greeting", "laugh", "surprise", "angry", "excited", "heart", "sleep"].includes(intent)) {
-      return "safe_auto";
-    }
-
-    return "manual_only";
-  }
-
-  private matchesAny(value: string, needles: string[]): boolean {
-    return needles.some((needle) => value.includes(needle));
   }
 
   private attachSocket(socket: VtsSocket): void {

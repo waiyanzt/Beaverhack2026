@@ -12,7 +12,7 @@ const modelContext: ModelControlContext = {
       connected: true,
       authenticated: true,
       currentModelName: "Example Model",
-      availableHotkeys: [{ id: "wave", name: "Wave" }],
+      availableHotkeys: [],
       automationCatalog: {
         version: "vts_catalog_demo",
         readinessState: "ready",
@@ -20,7 +20,15 @@ const modelContext: ModelControlContext = {
         safeAutoCount: 1,
         suggestOnlyCount: 0,
         manualOnlyCount: 0,
-        candidates: [{ catalogId: "greeting", label: "Wave", intent: "greeting", autoMode: "safe_auto" }],
+        candidates: [
+          {
+            catalogId: "wave",
+            label: "wave",
+            description: "Use when the streamer waves at chat.",
+            intent: "wave",
+            autoMode: "safe_auto",
+          },
+        ],
       },
     },
     obs: {

@@ -58,7 +58,7 @@ That live path is:
 2. `ModelMonitorService` invokes `PipelineService` with `useLatestCapture: true`.
 3. `LiveCaptureInputService` converts the latest camera/audio buffer into a model-ready MP4 `video_url`.
 4. `PromptBuilderService` combines that live media input with typed VTS service context.
-5. `VtsService` exposes a readiness state plus a versioned automation catalog derived from the current model hotkeys.
+5. `VtsService` exposes a readiness state plus a versioned automation catalog derived from user-managed emote mappings for the current model hotkeys.
 6. `ActionValidatorService` accepts only `catalogId` selections from the current safe-auto catalog and blocks stale, unknown, or repeated entries.
 7. `ActionExecutorService` resolves the current `catalogId -> hotkeyId` mapping locally and then triggers the approved hotkey through `VtsService`.
 
@@ -71,7 +71,8 @@ VTube Studio automation now uses a local readiness/candidate layer instead of le
 - readiness state
 - `readyForAutomation`
 - current model metadata
-- raw hotkey inventory
+- raw hotkey inventory for the settings UI
+- user-managed emote mappings
 - a versioned automation catalog
 
 The readiness state currently distinguishes:
@@ -85,20 +86,25 @@ The readiness state currently distinguishes:
 - `catalog_building`
 - `ready`
 
-The automation catalog is regenerated from the current hotkey list whenever the VTS model/hotkeys refresh. Each entry gets:
+The automation catalog is regenerated from enabled user emote mappings against the current hotkey list. Each entry gets:
 
 - a stable `catalogId`
 - the current underlying `hotkeyId`
-- a normalized intent
-- an automation mode classification
+- the user-provided prompt name
+- the user-provided prompt description
+- a normalized intent derived from the prompt name
+- a `safe_auto` automation mode classification
 
-Current automation modes are:
+The renderer Settings view includes a Prompt Emotes section where the operator can:
 
-- `safe_auto`
-- `suggest_only`
-- `manual_only`
+- connect and authenticate VTube Studio
+- refresh current model hotkeys
+- add a VTS hotkey to the model-facing emote list
+- edit the short prompt name
+- edit the prompt description
+- enable, disable, remove, and test each mapped hotkey
 
-Only `safe_auto` entries are sent to the model as live automation candidates.
+Only enabled mapped entries are sent to the model as live automation candidates. Raw VTS hotkey IDs are kept in the main process and settings UI; the loop prompt receives the user-defined `catalogId`, label, and description.
 
 ## Activation And Retry
 
@@ -115,7 +121,7 @@ Current behavior:
 
 - The current slice supports connection, authentication, current-model hotkey listing, manual hotkey triggering, and automation-pipeline hotkey execution.
 - The live automation path intentionally disables OBS actions even when OBS is connected.
-- The automation pipeline now sends VTS connection state, current model name, raw hotkeys for operator visibility, and a smaller safe-auto catalog for model selection.
+- The automation pipeline now sends VTS connection state, current model name, and the smaller user-managed safe-auto catalog for model selection.
 - VTS parameter writes are still not wired to the VTS service yet.
 - Authentication tokens are not persisted across full app restarts yet, so a fresh launch may still require VTube Studio approval before automatic hotkey execution is available.
 - Packaging verification currently depends on network access for `electron-builder` to download Electron artifacts in this environment.

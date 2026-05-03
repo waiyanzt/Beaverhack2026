@@ -12,7 +12,7 @@ const createBaseContext = (): ModelControlContext => ({
       connected: true,
       authenticated: true,
       currentModelName: "zane1",
-      availableHotkeys: [{ id: "hotkey_hi", name: "Hi!" }],
+      availableHotkeys: [],
       automationCatalog: {
         version: "vts_catalog_demo",
         readinessState: "ready",
@@ -23,7 +23,8 @@ const createBaseContext = (): ModelControlContext => ({
         candidates: [
           {
             catalogId: "greeting",
-            label: "Hi!",
+            label: "hello",
+            description: "Use when the streamer greets chat.",
             intent: "greeting",
             autoMode: "safe_auto",
           },

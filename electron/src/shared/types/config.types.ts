@@ -6,6 +6,14 @@ export interface VtsConnectionConfig {
   port: number;
   pluginName: string;
   pluginDeveloper: string;
+  emoteMappings: VtsEmoteMappingConfig[];
+}
+
+export interface VtsEmoteMappingConfig {
+  hotkeyId: string;
+  name: string;
+  description: string;
+  enabled: boolean;
 }
 
 export interface DashboardConfig {

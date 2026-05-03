@@ -50,6 +50,14 @@ describe("PipelineService", () => {
           port: 8001,
           pluginName: "AuTuber",
           pluginDeveloper: "AuTuber",
+          emoteMappings: [
+            {
+              hotkeyId: "laugh",
+              name: "laugh",
+              description: "Use when the streamer laughs or tells a joke.",
+              enabled: true,
+            },
+          ],
         },
         modelLoaded: true,
         modelName: "Example Model",
@@ -67,6 +75,8 @@ describe("PipelineService", () => {
               catalogId: "laugh",
               hotkeyId: "laugh",
               hotkeyName: "Laugh",
+              promptName: "laugh",
+              promptDescription: "Use when the streamer laughs or tells a joke.",
               normalizedName: "laugh",
               intent: "laugh",
               autoMode: "safe_auto" as const,
@@ -135,9 +145,15 @@ describe("PipelineService", () => {
       return;
     }
 
-    expect(result.modelContext.services.vts.availableHotkeys).toEqual([{ id: "laugh", name: "Laugh" }]);
+    expect(result.modelContext.services.vts.availableHotkeys).toEqual([]);
     expect(result.modelContext.services.vts.automationCatalog.candidates).toEqual([
-      { catalogId: "laugh", label: "Laugh", intent: "laugh", autoMode: "safe_auto" },
+      {
+        catalogId: "laugh",
+        label: "laugh",
+        description: "Use when the streamer laughs or tells a joke.",
+        intent: "laugh",
+        autoMode: "safe_auto",
+      },
     ]);
     expect(result.modelContext.services.policy.allowedActions).toContain("vts.trigger_hotkey");
     expect(result.reviewedActions[0]?.status).toBe("approved");
@@ -184,6 +200,7 @@ describe("PipelineService", () => {
           port: 8001,
           pluginName: "AuTuber",
           pluginDeveloper: "AuTuber",
+          emoteMappings: [],
         },
         modelLoaded: false,
         modelName: null,
@@ -282,6 +299,7 @@ describe("PipelineService", () => {
           port: 8001,
           pluginName: "AuTuber",
           pluginDeveloper: "AuTuber",
+          emoteMappings: [],
         },
         modelLoaded: false,
         modelName: null,
@@ -406,6 +424,14 @@ describe("PipelineService", () => {
           port: 8001,
           pluginName: "AuTuber",
           pluginDeveloper: "AuTuber",
+          emoteMappings: [
+            {
+              hotkeyId: "wave",
+              name: "wave",
+              description: "Use when the streamer waves or greets chat.",
+              enabled: true,
+            },
+          ],
         },
         modelLoaded: true,
         modelName: "Example Model",
@@ -423,6 +449,8 @@ describe("PipelineService", () => {
               catalogId: "greeting",
               hotkeyId: "wave",
               hotkeyName: "Wave",
+              promptName: "wave",
+              promptDescription: "Use when the streamer waves or greets chat.",
               normalizedName: "wave",
               intent: "greeting",
               autoMode: "safe_auto" as const,

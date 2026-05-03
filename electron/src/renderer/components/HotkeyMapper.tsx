@@ -1,40 +1,17 @@
 import React, { useCallback, useEffect, useState } from "react";
-import type { VtsConnectionConfig } from "../../shared/types/config.types";
+import type { VtsConnectionConfig, VtsEmoteMappingConfig } from "../../shared/types/config.types";
 import { useVTS } from "../hooks/useVTS";
 
-type HotkeyMapping = {
-  id: string;
-  triggerType: "manual" | "obs_event" | "capture_event";
-  hotkeyID: string;
-  hotkeyName: string;
-  cooldownMs: number;
-};
-
-const getTriggerBadgeClass = (triggerType: string): string => {
-  switch (triggerType) {
-    case "manual":
-      return "status-pill--manual";
-    case "obs_event":
-      return "status-pill--obs";
-    case "capture_event":
-      return "status-pill--capture";
-    default:
-      return "status-pill--manual";
-  }
-};
-
-const getTriggerLabel = (triggerType: string): string => {
-  switch (triggerType) {
-    case "manual":
-      return "Manual";
-    case "obs_event":
-      return "OBS Event";
-    case "capture_event":
-      return "Capture Event";
-    default:
-      return "Manual";
-  }
-};
+const createDefaultEmoteMapping = (
+  hotkeyId: string,
+  hotkeyName: string,
+  description: string | null,
+): VtsEmoteMappingConfig => ({
+  hotkeyId,
+  name: hotkeyName.trim().slice(0, 32) || "emote",
+  description: (description?.trim() || `Trigger the ${hotkeyName.trim() || "selected"} VTS reaction.`).slice(0, 240),
+  enabled: true,
+});
 
 export function HotkeyMapper(): React.JSX.Element {
   const {
@@ -49,68 +26,98 @@ export function HotkeyMapper(): React.JSX.Element {
     refreshHotkeys,
     triggerHotkey,
   } = useVTS();
-  const [mappings, setMappings] = useState<HotkeyMapping[]>([]);
-  const [showForm, setShowForm] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  const [hasUnsavedMappings, setHasUnsavedMappings] = useState(false);
+  const [emoteMappings, setEmoteMappings] = useState<VtsEmoteMappingConfig[]>([]);
   const [connectionForm, setConnectionForm] = useState<VtsConnectionConfig>({
     host: "127.0.0.1",
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber Development Team",
+    emoteMappings: [],
   });
-  const [formData, setFormData] = useState<{
-    triggerType: "manual" | "obs_event" | "capture_event";
-    hotkeyID: string;
-    cooldownMs: number;
-  }>({
-    triggerType: "manual",
-    hotkeyID: "",
-    cooldownMs: 0,
-  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSettings = async (): Promise<void> => {
+      setSettingsLoading(true);
+      const result = await window.desktop.settingsGet();
+
+      if (cancelled) {
+        return;
+      }
+
+      setConnectionForm(result.settings.vts);
+      setEmoteMappings(result.settings.vts.emoteMappings);
+      setHasUnsavedMappings(false);
+      setSettingsMessage(result.ok ? null : result.message);
+      setSettingsLoading(false);
+    };
+
+    void loadSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (status) {
       setConnectionForm(status.config);
+      if (!hasUnsavedMappings) {
+        setEmoteMappings(status.config.emoteMappings);
+      }
     }
-  }, [status]);
+  }, [hasUnsavedMappings, status]);
 
-  const handleAddMapping = useCallback(() => {
-    if (!formData.hotkeyID) {
-      return;
-    }
+  const persistVtsConfig = useCallback(async (nextConfig: VtsConnectionConfig): Promise<void> => {
+    setSettingsMessage(null);
+    const result = await window.desktop.settingsUpdate({ vts: nextConfig });
 
-    const selectedHotkey = hotkeys.find((hotkey) => hotkey.hotkeyID === formData.hotkeyID);
-    if (!selectedHotkey) {
-      return;
-    }
-
-    const newMapping: HotkeyMapping = {
-      id: crypto.randomUUID(),
-      triggerType: formData.triggerType,
-      hotkeyID: formData.hotkeyID,
-      hotkeyName: selectedHotkey.name,
-      cooldownMs: formData.cooldownMs,
-    };
-
-    setMappings((previousMappings) => [...previousMappings, newMapping]);
-    setFormData({
-      triggerType: "manual",
-      hotkeyID: "",
-      cooldownMs: 0,
-    });
-    setShowForm(false);
-  }, [formData, hotkeys]);
-
-  const handleRemoveMapping = useCallback((id: string) => {
-    setMappings((previousMappings) => previousMappings.filter((mapping) => mapping.id !== id));
+    setConnectionForm(result.settings.vts);
+    setEmoteMappings(result.settings.vts.emoteMappings);
+    setHasUnsavedMappings(false);
+    setSettingsMessage(result.ok ? "VTS emote settings saved." : result.message);
   }, []);
 
-  const handleCancel = useCallback(() => {
-    setFormData({
-      triggerType: "manual",
-      hotkeyID: "",
-      cooldownMs: 0,
+  const persistMappings = useCallback(async (nextMappings: VtsEmoteMappingConfig[]): Promise<void> => {
+    await persistVtsConfig({
+      ...connectionForm,
+      emoteMappings: nextMappings,
     });
-    setShowForm(false);
+  }, [connectionForm, persistVtsConfig]);
+
+  const handleAddEmote = useCallback((hotkeyID: string) => {
+    const selectedHotkey = hotkeys.find((hotkey) => hotkey.hotkeyID === hotkeyID);
+    if (!selectedHotkey || emoteMappings.some((mapping) => mapping.hotkeyId === hotkeyID)) {
+      return;
+    }
+
+    setEmoteMappings((currentMappings) => [
+      ...currentMappings,
+      createDefaultEmoteMapping(selectedHotkey.hotkeyID, selectedHotkey.name, selectedHotkey.description),
+    ]);
+    setHasUnsavedMappings(true);
+    setSettingsMessage("Unsaved emote mapping changes.");
+  }, [emoteMappings, hotkeys]);
+
+  const updateEmoteMapping = useCallback((
+    hotkeyId: string,
+    update: Partial<VtsEmoteMappingConfig>,
+  ): void => {
+    setEmoteMappings((currentMappings) =>
+      currentMappings.map((mapping) => mapping.hotkeyId === hotkeyId ? { ...mapping, ...update } : mapping),
+    );
+    setHasUnsavedMappings(true);
+    setSettingsMessage("Unsaved emote mapping changes.");
+  }, []);
+
+  const removeEmoteMapping = useCallback((hotkeyId: string): void => {
+    setEmoteMappings((currentMappings) => currentMappings.filter((mapping) => mapping.hotkeyId !== hotkeyId));
+    setHasUnsavedMappings(true);
+    setSettingsMessage("Unsaved emote mapping changes.");
   }, []);
 
   const handleConnect = useCallback(async () => {
@@ -130,16 +137,39 @@ export function HotkeyMapper(): React.JSX.Element {
     await refreshHotkeys();
   }, [refreshHotkeys]);
 
+  const handleSaveConnection = useCallback(async (): Promise<void> => {
+    await persistVtsConfig({
+      ...connectionForm,
+      emoteMappings,
+    });
+  }, [connectionForm, emoteMappings, persistVtsConfig]);
+
+  const handleSaveMappings = useCallback(async (): Promise<void> => {
+    await persistMappings(emoteMappings);
+    await refreshHotkeys();
+  }, [emoteMappings, persistMappings, refreshHotkeys]);
+
+  const mappedHotkeyIds = new Set(emoteMappings.map((mapping) => mapping.hotkeyId));
+  const hasInvalidMappings = emoteMappings.some(
+    (mapping) => mapping.name.trim().length === 0 || mapping.description.trim().length === 0,
+  );
+
   return (
     <section className="panel">
       <header className="panel__header">
         <div>
           <p className="panel__eyebrow">VTube Studio</p>
-          <h2 className="panel__title">Hotkey Mapper</h2>
-          <p className="panel__subtitle">Map trigger events to VTube Studio hotkeys.</p>
+          <h2 className="panel__title">Prompt Emotes</h2>
+          <p className="panel__subtitle">
+            Choose the VTS hotkeys the model may use, then give each one a short prompt name and description.
+          </p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="primary-button">
-          + Add Mapping
+        <button
+          onClick={() => void handleSaveMappings()}
+          className="primary-button"
+          disabled={settingsLoading || hasInvalidMappings}
+        >
+          Save Emote Settings
         </button>
       </header>
 
@@ -197,6 +227,13 @@ export function HotkeyMapper(): React.JSX.Element {
               {busyAction === "connect" ? "Connecting..." : "Connect"}
             </button>
             <button
+              onClick={() => void handleSaveConnection()}
+              className="secondary-button"
+              disabled={settingsLoading || loading || busyAction !== null}
+            >
+              Save Connection
+            </button>
+            <button
               onClick={handleDisconnect}
               className="ghost-button"
               disabled={loading || busyAction !== null || !status?.connected}
@@ -234,6 +271,9 @@ export function HotkeyMapper(): React.JSX.Element {
               <p style={{ margin: 0 }}>
                 Hotkeys: <strong>{status.hotkeyCount}</strong>
               </p>
+              <p style={{ margin: 0 }}>
+                Prompt Emotes: <strong>{status.catalog.safeAutoCount}</strong>
+              </p>
               {status.lastError ? <p className="panel__error">{status.lastError}</p> : null}
             </>
           )}
@@ -269,122 +309,75 @@ export function HotkeyMapper(): React.JSX.Element {
         </p>
       ) : null}
 
-      {showForm && (
-        <div className="panel__card">
-          <div className="field">
-            <span>Trigger Type</span>
-            <select
-              value={formData.triggerType}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  triggerType: event.target.value as "manual" | "obs_event" | "capture_event",
-                })
-              }
-            >
-              <option value="manual">Manual</option>
-              <option value="obs_event">OBS Event</option>
-              <option value="capture_event">Capture Event</option>
-            </select>
-          </div>
+      {settingsMessage ? (
+        <p className="panel__status-message">{settingsMessage}</p>
+      ) : null}
 
-          <div className="field">
-            <span>VTS Hotkey</span>
-            {loading && !hotkeys.length ? (
-              <p className="panel__hint">Loading hotkeys...</p>
-            ) : error ? (
-              <div>
-                <p className="panel__error">{error}</p>
-                <button
-                  onClick={() => void refreshHotkeys()}
-                  className="ghost-button ghost-button--compact"
-                  style={{ marginTop: "8px" }}
-                >
-                  ↻ Retry
-                </button>
+      <div className="panel__card" style={{ marginTop: "24px", gap: "16px" }}>
+        <div>
+          <h3 style={{ margin: 0 }}>Model Prompt Emote List</h3>
+          <p className="panel__hint" style={{ marginTop: "6px" }}>
+            Only enabled entries in this list are shown to the model. The real VTS hotkey IDs stay local.
+          </p>
+        </div>
+
+        {emoteMappings.length === 0 ? (
+          <p className="panel__hint">No prompt emotes yet. Add entries from the current VTS hotkey list below.</p>
+        ) : (
+          emoteMappings.map((mapping) => {
+            const hotkey = hotkeys.find((candidate) => candidate.hotkeyID === mapping.hotkeyId);
+
+            return (
+              <div key={mapping.hotkeyId} className="panel__card" style={{ background: "rgba(2, 6, 23, 0.28)" }}>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={mapping.enabled}
+                    onChange={(event) => updateEmoteMapping(mapping.hotkeyId, { enabled: event.target.checked })}
+                  />
+                  <span>{hotkey?.name ?? "Unavailable VTS hotkey"}</span>
+                </label>
+                <label className="field">
+                  <span>Short prompt name</span>
+                  <input
+                    value={mapping.name}
+                    maxLength={32}
+                    onChange={(event) => updateEmoteMapping(mapping.hotkeyId, { name: event.target.value })}
+                    placeholder="wave"
+                  />
+                </label>
+                <label className="field">
+                  <span>Prompt description</span>
+                  <textarea
+                    className="response-log"
+                    style={{ minHeight: "84px", resize: "vertical" }}
+                    value={mapping.description}
+                    maxLength={240}
+                    onChange={(event) => updateEmoteMapping(mapping.hotkeyId, { description: event.target.value })}
+                    placeholder="Use when the streamer greets chat or waves at the camera."
+                  />
+                </label>
+                <div className="panel__actions" style={{ marginTop: 0 }}>
+                  <button
+                    onClick={() => void triggerHotkey(mapping.hotkeyId)}
+                    className="secondary-button"
+                    disabled={!status?.authenticated || busyAction !== null || !hotkey}
+                  >
+                    Test Trigger
+                  </button>
+                  <button onClick={() => removeEmoteMapping(mapping.hotkeyId)} className="ghost-button">
+                    Remove
+                  </button>
+                </div>
               </div>
-            ) : hotkeys.length === 0 ? (
-              <select disabled>
-                <option>No hotkeys available</option>
-              </select>
-            ) : (
-              <select
-                value={formData.hotkeyID}
-                onChange={(event) =>
-                  setFormData({ ...formData, hotkeyID: event.target.value })
-                }
-              >
-                <option value="">Select a hotkey...</option>
-                {hotkeys.map((hotkey) => (
-                  <option key={hotkey.hotkeyID} value={hotkey.hotkeyID}>
-                    {hotkey.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div className="field">
-            <span>Cooldown (ms)</span>
-            <input
-              type="number"
-              min="0"
-              step="100"
-              value={formData.cooldownMs}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  cooldownMs: Math.max(0, Number.parseInt(event.target.value, 10) || 0),
-                })
-              }
-            />
-          </div>
-
-          <div className="panel__actions" style={{ justifyContent: "flex-end", marginTop: "16px" }}>
-            <button onClick={handleCancel} className="ghost-button">
-              Cancel
-            </button>
-            <button onClick={handleAddMapping} disabled={!formData.hotkeyID} className="primary-button">
-              Save
-            </button>
-          </div>
-        </div>
-      )}
-
-      {mappings.length === 0 && !showForm ? (
-        <p className="panel__hint">No mappings yet. Add one to get started.</p>
-      ) : (
-        <div className="panel__card" style={{ gap: "0", padding: "0" }}>
-          {mappings.map((mapping, index) => (
-            <div
-              key={mapping.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "12px 16px",
-                borderBottom:
-                  index < mappings.length - 1 ? "1px solid rgba(148, 163, 184, 0.2)" : "none",
-              }}
-            >
-              <span className={`status-pill ${getTriggerBadgeClass(mapping.triggerType)}`}>
-                {getTriggerLabel(mapping.triggerType)}
-              </span>
-              <span style={{ flex: 1, fontSize: "0.9rem" }}>{mapping.hotkeyName}</span>
-              <span className="panel__hint" style={{ flex: 0 }}>
-                {mapping.cooldownMs}ms
-              </span>
-              <button onClick={() => handleRemoveMapping(mapping.id)} className="ghost-button ghost-button--compact">
-                x
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+            );
+          })
+        )}
+      </div>
 
       <div className="panel__card" style={{ marginTop: "24px", gap: "0", padding: "0" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(148, 163, 184, 0.2)" }}>
-          <h3 style={{ margin: 0 }}>Available Hotkeys</h3>
+          <h3 style={{ margin: 0 }}>Available VTS Hotkeys</h3>
         </div>
         {hotkeys.length === 0 ? (
           <p className="panel__hint" style={{ margin: 0, padding: "16px 20px" }}>
@@ -410,6 +403,13 @@ export function HotkeyMapper(): React.JSX.Element {
                   {hotkey.description ? ` • ${hotkey.description}` : ""}
                 </p>
               </div>
+              <button
+                onClick={() => handleAddEmote(hotkey.hotkeyID)}
+                className="primary-button"
+                disabled={mappedHotkeyIds.has(hotkey.hotkeyID)}
+              >
+                {mappedHotkeyIds.has(hotkey.hotkeyID) ? "Added" : "Add to Prompt"}
+              </button>
               <button
                 onClick={() => void triggerHotkey(hotkey.hotkeyID)}
                 className="secondary-button"

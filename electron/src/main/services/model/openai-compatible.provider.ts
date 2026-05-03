@@ -149,7 +149,7 @@ function buildActionProperties(): Record<string, unknown> {
     // VTS hotkey fields
     catalogId: {
       type: "string",
-      description: "For vts.trigger_hotkey: the catalogId from services.vts.automationCatalog.candidates for the reaction you want.",
+      description: "For vts.trigger_hotkey: the catalogId from the user-defined services.vts.automationCatalog.candidates entry you want.",
     },
     catalogVersion: {
       type: "string",

@@ -51,10 +51,7 @@ export class ObservationBuilderService {
           connected: vtsStatus.connected,
           authenticated: vtsStatus.authenticated,
           currentModelName: vtsStatus.modelName,
-          availableHotkeys: this.vtsService.getCachedHotkeys().map((hotkey) => ({
-            id: hotkey.hotkeyID,
-            name: hotkey.name,
-          })),
+          availableHotkeys: [],
           automationCatalog: {
             version: vtsStatus.catalog.version,
             readinessState: vtsStatus.readinessState,
@@ -66,7 +63,8 @@ export class ObservationBuilderService {
               .filter((entry) => entry.autoMode === "safe_auto")
               .map((entry) => ({
                 catalogId: entry.catalogId,
-                label: entry.hotkeyName,
+                label: entry.promptName,
+                description: entry.promptDescription,
                 intent: entry.intent,
                 autoMode: entry.autoMode,
               })),
@@ -101,7 +99,7 @@ export class ObservationBuilderService {
   ): SupportedActionType[] {
     const allowedActions: SupportedActionType[] = ["overlay.message", "log.event", "noop"];
 
-    if (vtsStatus.readyForAutomation) {
+    if (vtsStatus.readyForAutomation && vtsStatus.catalog.safeAutoCount > 0) {
       allowedActions.unshift("vts.trigger_hotkey");
     }
 

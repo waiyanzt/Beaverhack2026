@@ -9,6 +9,14 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
       port: 8001,
       pluginName: "AuTuber",
       pluginDeveloper: "AuTuber",
+      emoteMappings: [
+        {
+          hotkeyId: "wave",
+          name: "wave",
+          description: "Use when the streamer greets chat.",
+          enabled: true,
+        },
+      ],
     },
     dashboard: {
       selectedAudioDeviceId: null,
@@ -30,6 +38,14 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
         port: 8001,
         pluginName: "AuTuber",
         pluginDeveloper: "AuTuber",
+        emoteMappings: [
+          {
+            hotkeyId: "wave",
+            name: "wave",
+            description: "Use when the streamer greets chat.",
+            enabled: true,
+          },
+        ],
       },
       dashboard: {
         selectedAudioDeviceId: null,
@@ -86,6 +102,14 @@ const config: AppConfig = {
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber",
+    emoteMappings: [
+      {
+        hotkeyId: "wave",
+        name: "wave",
+        description: "Use when the streamer greets chat.",
+        enabled: true,
+      },
+    ],
   },
   dashboard: {
     selectedAudioDeviceId: null,
@@ -196,10 +220,12 @@ describe("VtsService", () => {
     expect(statusAfterAuth.readinessState).toBe("ready");
     expect(statusAfterAuth.readyForAutomation).toBe(true);
     expect(statusAfterAuth.catalog.safeAutoCount).toBe(1);
-    expect(service.resolveCatalogEntry("greeting")).toMatchObject({
-      catalogId: "greeting",
+    expect(service.resolveCatalogEntry("wave")).toMatchObject({
+      catalogId: "wave",
       hotkeyId: "wave",
       autoMode: "safe_auto",
+      promptName: "wave",
+      promptDescription: "Use when the streamer greets chat.",
     });
 
     const triggeredHotkeyId = await service.triggerHotkey("wave");
@@ -382,7 +408,7 @@ describe("VtsService", () => {
     ]);
   });
 
-  it("classifies unsafe appearance-changing hotkeys as manual only", async () => {
+  it("does not expose unmapped hotkeys to automation", async () => {
     const { VtsService } = await import("../../src/main/services/vts/vts.service");
 
     const service = new VtsService({
@@ -453,10 +479,7 @@ describe("VtsService", () => {
     await service.connect(config.vts);
     await service.authenticate();
 
-    expect(service.resolveCatalogEntry("appearance_change")).toMatchObject({
-      autoMode: "manual_only",
-      hotkeyId: "hair",
-    });
-    expect(service.getStatus().catalog.manualOnlyCount).toBe(1);
+    expect(service.resolveCatalogEntry("hair")).toBeNull();
+    expect(service.getStatus().catalog.totalEntries).toBe(0);
   });
 });

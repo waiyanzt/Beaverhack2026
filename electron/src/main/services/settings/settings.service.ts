@@ -29,6 +29,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     port: 8001,
     pluginName: "AuTuber",
     pluginDeveloper: "AuTuber Development Team",
+    emoteMappings: [],
   },
   dashboard: {
     selectedAudioDeviceId: null,
