@@ -27,8 +27,8 @@ export interface LiveCapturePromptInput {
   mediaEndMs: number | null;
 }
 
-const FRAME_COUNT = 5;
-const FRAME_INTERVAL_MS = 500;
+const FRAME_COUNT = 3;
+const FRAME_INTERVAL_MS = 600;
 const FRAME_WIDTH = 320;
 const FRAME_JPEG_QUALITY = 15;
 

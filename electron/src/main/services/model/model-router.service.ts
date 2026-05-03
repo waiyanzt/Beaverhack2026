@@ -144,6 +144,49 @@ export class ModelRouterService {
     };
   }
 
+  public async classifyIntent(messages: OpenAICompatibleMessage[]): Promise<ModelActionPlanResponse> {
+    const provider = this.getSelectedProvider();
+
+    if (!provider) {
+      return {
+        providerId: this.store.getSelectedProviderId(),
+        ok: false,
+        status: null,
+        content: "No selected provider is configured.",
+      };
+    }
+
+    if (!provider.enabled) {
+      return {
+        providerId: provider.id,
+        ok: false,
+        status: null,
+        content: "Selected provider is disabled.",
+      };
+    }
+
+    if (provider.id === PROVIDER_MOCK) {
+      return {
+        providerId: provider.id,
+        ok: true,
+        status: 200,
+        content: "Mock provider intent classification.",
+        actionPlan: { intent: "neutral", confidence: 1.0, description: "Mock intent classification." },
+      };
+    }
+
+    const result = await this.openAICompatibleProvider.classifyIntent(provider, messages);
+
+    return {
+      providerId: provider.id,
+      ok: result.ok,
+      status: result.status,
+      content: result.content,
+      actionPlan: result.actionPlan,
+      usage: result.usage,
+    };
+  }
+
   private getSelectedProvider(): ModelProviderConfig | undefined {
     return this.store.getProviders().find((candidate) => candidate.id === this.store.getSelectedProviderId());
   }

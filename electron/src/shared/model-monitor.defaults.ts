@@ -2,11 +2,11 @@ import type { CaptureStartRequest } from "./types/capture.types";
 import type { ModelMonitorStatus } from "./types/model-monitor.types";
 
 export const MODEL_MONITOR_DEFAULT_TIMING = {
-  tickIntervalMs: 100,
-  clipIntervalMs: 500,
+  tickIntervalMs: 500,
+  clipIntervalMs: 2_000,
   windowMs: 2_000,
-  maxLiveClipAgeMs: 1_500,
-  maxInFlightRequests: 2,
+  maxLiveClipAgeMs: 5_000,
+  maxInFlightRequests: 1,
 } as const;
 
 export const MODEL_MONITOR_VALIDATION_LIMITS = {
@@ -19,10 +19,10 @@ export const MODEL_MONITOR_VALIDATION_LIMITS = {
 const DEFAULT_CAPTURE_CONFIG: CaptureStartRequest = {
   camera: {
     enabled: true,
-    fps: 15,
-    maxFrames: 8,
-    resolution: "640x360",
-    jpegQuality: 75,
+    fps: 5,
+    maxFrames: 3,
+    resolution: "320x240",
+    jpegQuality: 50,
     detail: "low",
     clipDurationSeconds: 2,
     clipIntervalSeconds: MODEL_MONITOR_DEFAULT_TIMING.clipIntervalMs / 1000,
@@ -32,9 +32,9 @@ const DEFAULT_CAPTURE_CONFIG: CaptureStartRequest = {
   screen: {
     enabled: false,
     fps: 0,
-    maxFrames: 4,
-    resolution: "640x360",
-    jpegQuality: 70,
+    maxFrames: 2,
+    resolution: "320x240",
+    jpegQuality: 50,
     detail: "low",
     clipDurationSeconds: 2,
     clipIntervalSeconds: MODEL_MONITOR_DEFAULT_TIMING.clipIntervalMs / 1000,

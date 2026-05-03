@@ -212,7 +212,7 @@ export class ModelMonitorService {
 
     try {
       const requestStartedMs = Date.now();
-      const pipelineResult = await this.pipelineService.analyzeNow({
+      const pipelineResult = await this.pipelineService.analyzeNowIntentMode({
         dryRun: false,
         useLatestCapture: true,
         captureWindowMs: this.status.windowMs,

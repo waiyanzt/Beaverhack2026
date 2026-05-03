@@ -18,6 +18,89 @@ export interface PromptBuildResult {
 }
 
 export class PromptBuilderService {
+  public buildIntentMessages(
+    modelContext: ModelControlContext,
+    liveCaptureInput?: LiveCapturePromptInput,
+  ): PromptBuildResult {
+    const systemPrompt = `${loadPrompt("intent-system").content}\n\n${loadPrompt("intent-planner").content}`;
+
+    const intentCatalog = [
+      {
+        catalogId: "__builtin_neutral__",
+        intent: "neutral",
+        label: "Neutral / Idle",
+        description: "No reaction needed. The streamer is idle, resting, or nothing notable is happening.",
+      },
+      ...modelContext.services.vts.automationCatalog.candidates.map((c) => ({
+        catalogId: c.catalogId,
+        intent: c.intent,
+        label: c.label,
+        description: c.description,
+      })),
+    ];
+
+    const basePrompt = {
+      instructions: [
+        "Classify the scene into exactly one intent from the availableIntents below.",
+        "Use 'neutral' when nothing notable is happening. Only pick a reaction intent when you clearly observe the matching visual cues.",
+        "You MUST always pick an intent. Do not skip.",
+      ],
+      availableIntents: intentCatalog,
+      recentActions: modelContext.context.recentActions.slice(0, 2),
+    };
+
+    if (!liveCaptureInput) {
+      const userContent = JSON.stringify(basePrompt);
+
+      return {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        requestDebug: {
+          promptTextBytes: Buffer.byteLength(userContent, "utf8"),
+          mediaDataUrlBytes: 0,
+          sourceWindowKey: null,
+          sourceClipCount: 0,
+          modelMediaSha256: null,
+          modelMediaDataUrl: null,
+          mediaStartMs: null,
+          mediaEndMs: null,
+        },
+      };
+    }
+
+    const modelContextText = JSON.stringify(basePrompt);
+    const mediaParts = liveCaptureInput.parts.filter((part) => part.type !== "text");
+    const userText = [
+      "Treat the attached images as the primary evidence.",
+      modelContextText,
+    ].join("\n\n");
+
+    return {
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            ...mediaParts,
+            { type: "text", text: userText },
+          ],
+        },
+      ],
+      requestDebug: {
+        promptTextBytes: Buffer.byteLength(userText, "utf8"),
+        mediaDataUrlBytes: liveCaptureInput.mediaDataUrlBytes,
+        sourceWindowKey: liveCaptureInput.sourceWindowKey,
+        sourceClipCount: liveCaptureInput.sourceClipCount,
+        modelMediaSha256: liveCaptureInput.modelMediaSha256,
+        modelMediaDataUrl: liveCaptureInput.modelMediaDataUrl,
+        mediaStartMs: liveCaptureInput.mediaStartMs,
+        mediaEndMs: liveCaptureInput.mediaEndMs,
+      },
+    };
+  }
+
   public buildMessages(
     modelContext: ModelControlContext,
     liveCaptureInput?: LiveCapturePromptInput,

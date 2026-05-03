@@ -92,6 +92,66 @@ export class ObservationBuilderService {
     return context;
   }
 
+  public async buildIntentContext(
+    request: BuildModelContextRequest,
+  ): Promise<ModelControlContext> {
+    const vtsStatus = this.vtsService.getStatus();
+    const allowedActions = this.getAllowedActions(
+      { connected: false, currentScene: null, scenes: [], streamStatus: "inactive", recordingStatus: "inactive" },
+      vtsStatus,
+      false,
+    );
+
+    const context = modelControlContextSchema.parse({
+      tickId: request.tickId,
+      timestamp: new Date().toISOString(),
+      transcript: request.transcript ?? null,
+      services: {
+        vts: {
+          connected: vtsStatus.connected,
+          authenticated: vtsStatus.authenticated,
+          currentModelName: vtsStatus.modelName,
+          availableHotkeys: [],
+          automationCatalog: {
+            version: vtsStatus.catalog.version,
+            readinessState: vtsStatus.readinessState,
+            readyForAutomation: vtsStatus.readyForAutomation,
+            safeAutoCount: vtsStatus.catalog.safeAutoCount,
+            suggestOnlyCount: vtsStatus.catalog.suggestOnlyCount,
+            manualOnlyCount: vtsStatus.catalog.manualOnlyCount,
+            candidates: vtsStatus.catalog.entries
+              .filter((entry) => entry.autoMode === "safe_auto")
+              .map((entry) => ({
+                catalogId: entry.catalogId,
+                label: entry.promptName,
+                description: entry.promptDescription,
+                intent: entry.intent,
+                autoMode: entry.autoMode,
+              })),
+          },
+        },
+        obs: {
+          connected: false,
+          currentScene: null,
+          streamStatus: "inactive",
+          recordingStatus: "inactive",
+          scenes: [],
+        },
+        policy: {
+          allowedActions,
+        },
+      },
+      context: {
+        autonomyLevel: request.autonomyLevel ?? "auto_safe",
+        recentActions: this.cooldownService.getRecentActions().slice(0, 2),
+        recentModelActions: (request.recentModelActions ?? []).slice(0, 1),
+        cooldowns: {},
+      },
+    });
+
+    return context;
+  }
+
   private getAllowedActions(
     obsStatus: ObsStatus,
     vtsStatus: VtsStatus,

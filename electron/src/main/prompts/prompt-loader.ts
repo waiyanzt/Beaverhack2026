@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-export type PromptName = "system" | "action-planner";
+export type PromptName = "system" | "action-planner" | "intent-system" | "intent-planner";
 
 export interface LoadedPrompt {
   name: PromptName;
@@ -11,6 +11,8 @@ export interface LoadedPrompt {
 const PROMPT_FILES: Record<PromptName, string> = {
   system: "system-prompt.md",
   "action-planner": "action-planner-prompt.md",
+  "intent-system": "intent-classifier-system.md",
+  "intent-planner": "intent-classifier-planner.md",
 };
 
 function resolvePromptPath(name: PromptName): string {

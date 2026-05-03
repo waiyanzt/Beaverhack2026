@@ -8,6 +8,7 @@ import type {
 } from "../../../shared/model.types";
 import { PROVIDER_OPENROUTER } from "../../../shared/model.types";
 import { actionPlanSchema } from "../../../shared/schemas/action-plan.schema";
+import { intentClassificationSchema } from "../../../shared/schemas/intent-classification.schema";
 
 function extractProviderError(rawBody: unknown): string | null {
   if (typeof rawBody === "object" && rawBody !== null && "error" in rawBody) {
@@ -676,6 +677,159 @@ export class OpenAICompatibleProvider {
       content: content ?? "No response content.",
       usage,
     };
+  }
+
+  public async classifyIntent(
+    config: ModelProviderConfig,
+    messages: OpenAICompatibleMessage[],
+  ): Promise<OpenAICompatibleProviderResult> {
+    const useTools = config.supportsToolCalling;
+    const useJsonMode = !useTools && config.supportsJsonMode;
+
+    let requestMessages = messages;
+
+    if (useJsonMode) {
+      const instruction =
+        "You MUST respond with a single JSON object with fields: intent (string), confidence (number 0-1), description (string). Do not wrap in markdown. No extra text.";
+      const firstSystemIndex = messages.findIndex((m) => m.role === "system");
+      if (firstSystemIndex >= 0) {
+        const msg = messages[firstSystemIndex];
+        const newContent =
+          typeof msg.content === "string"
+            ? `${msg.content}\n\n${instruction}`
+            : [...msg.content, { type: "text" as const, text: instruction }];
+        requestMessages = messages.map((m, i) => (i === firstSystemIndex ? { ...m, content: newContent } : m));
+      } else {
+        requestMessages = [{ role: "system", content: instruction }, ...messages];
+      }
+    }
+
+    let request: OpenAICompatibleChatRequest = {
+      model: config.model,
+      messages: requestMessages,
+      temperature: config.temperature ?? 0.3,
+      max_tokens: config.maxTokens ?? 150,
+      stream: false,
+    };
+
+    if (config.topP !== undefined) {
+      request.top_p = config.topP;
+    }
+
+    if (config.vllm) {
+      const extra: Record<string, unknown> = {};
+      const vllm = config.vllm;
+      if (vllm.enableThinking === false) {
+        extra.chat_template_kwargs = { enable_thinking: false };
+      }
+      if (Object.keys(extra).length > 0) {
+        request = { ...request, ...extra };
+      }
+    }
+
+    const intentTool: OpenAICompatibleTool = {
+      type: "function",
+      function: {
+        name: "classify_intent",
+        description: "Classify the visual scene into an intent label.",
+        parameters: {
+          type: "object",
+          properties: {
+            intent: { type: "string", description: "The matching intent label from the catalog." },
+            confidence: { type: "number", minimum: 0, maximum: 1, description: "Confidence from 0 to 1." },
+            description: { type: "string", description: "Brief description of what is visible." },
+          },
+          required: ["intent", "confidence", "description"],
+        },
+      },
+    };
+
+    if (useTools) {
+      request = { ...request, tools: [intentTool] };
+      if (config.supportsForcedToolChoice) {
+        request.tool_choice = { type: "function", function: { name: "classify_intent" } };
+      }
+    } else if (useJsonMode) {
+      request = {
+        ...request,
+        response_format: { type: "json_object" },
+      };
+    }
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (config.apiKey) {
+      headers.Authorization = `Bearer ${config.apiKey}`;
+    }
+    if (config.id === PROVIDER_OPENROUTER && config.openrouter) {
+      if (config.openrouter.refererUrl) headers["HTTP-Referer"] = config.openrouter.refererUrl;
+      if (config.openrouter.appTitle) headers["X-Title"] = config.openrouter.appTitle;
+    }
+
+    console.log(`RAW INTENT PROMPT: "${summarizeMessagesForLog(requestMessages)}"`);
+
+    const response = await this.client.postJson(`${config.baseUrl}${this.endpointPath}`, request, headers);
+
+    console.log(`RAW INTENT OUTPUT: "${response.body.replace(/"/g, '"')}"`);
+
+    let rawBody: unknown;
+    try {
+      rawBody = JSON.parse(response.body) as unknown;
+    } catch {
+      return { ok: false, status: response.status, content: "Invalid JSON from model provider." };
+    }
+
+    const usage = extractUsage(rawBody);
+    const parsed = toolCallResponseSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      const providerError = extractProviderError(rawBody);
+      return { ok: false, status: response.status, content: providerError ?? "Invalid model provider response structure.", usage };
+    }
+
+    const choice = parsed.data.choices?.[0];
+    const message = choice?.message;
+    const toolCalls = message?.tool_calls;
+
+    if (useTools && toolCalls && toolCalls.length > 0) {
+      const toolCall = toolCalls[0];
+      if (toolCall.function.name !== "classify_intent") {
+        return { ok: false, status: response.status, content: `Unexpected tool call: ${toolCall.function.name}`, usage };
+      }
+      let intentJson: unknown;
+      try {
+        intentJson = JSON.parse(toolCall.function.arguments) as unknown;
+      } catch {
+        return { ok: false, status: response.status, content: "Tool call arguments are not valid JSON.", usage };
+      }
+      const validated = intentClassificationSchema.safeParse(intentJson);
+      if (!validated.success) {
+        return { ok: false, status: response.status, content: `Intent validation failed: ${validated.error.message}`, usage };
+      }
+      return {
+        ok: response.status >= 200 && response.status < 300,
+        status: response.status,
+        content: JSON.stringify(validated.data, null, 2),
+        actionPlan: validated.data,
+        toolCalls: toolCalls.map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })),
+        usage,
+      };
+    }
+
+    const content = message?.content;
+    if (content) {
+      const stripped = stripMarkdownCodeBlocks(content);
+      try {
+        const jsonContent = JSON.parse(stripped) as unknown;
+        const validated = intentClassificationSchema.safeParse(jsonContent);
+        if (validated.success) {
+          return { ok: response.status >= 200 && response.status < 300, status: response.status, content: stripped, actionPlan: validated.data, usage };
+        }
+      } catch {
+        // fall through
+      }
+    }
+
+    return { ok: false, status: response.status, content: content ?? "No response content.", usage };
   }
 
   public async chat(config: ModelProviderConfig, messages: OpenAICompatibleMessage[]): Promise<OpenAICompatibleProviderResult> {
