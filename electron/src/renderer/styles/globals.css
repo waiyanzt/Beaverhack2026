@@ -415,6 +415,11 @@ code {
   color: var(--muted);
 }
 
+.app-shell .panel__hint--success,
+.capture-dev-shell .panel__hint--success {
+  color: #86efac;
+}
+
 .app-shell .panel__status-message,
 .capture-dev-shell .panel__status-message {
   margin: 12px 0 0;

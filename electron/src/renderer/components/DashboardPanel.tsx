@@ -143,6 +143,60 @@ const toStoredValue = (value: string): string | null => {
 
 const isImageDataUrl = (value: string): boolean => value.startsWith("data:image/");
 
+const getAfkOverlayStatus = (
+  config: AfkOverlayConfig,
+  obsStatus: ObsStatus,
+): { tone: "muted" | "ready" | "warning"; message: string } => {
+  if (!obsStatus.connected) {
+    return {
+      tone: "warning",
+      message: "AFK overlay is unavailable until OBS is connected.",
+    };
+  }
+
+  if (!config.sceneName || !config.sourceName) {
+    return {
+      tone: "warning",
+      message: "Select both an OBS scene and source for AFK overlay automation.",
+    };
+  }
+
+  const scene = obsStatus.scenes.find((candidate) => candidate.name === config.sceneName);
+  if (!scene) {
+    return {
+      tone: "warning",
+      message: `Selected scene "${config.sceneName}" is not currently available in OBS.`,
+    };
+  }
+
+  const source = scene.sources.find((candidate) => candidate.name === config.sourceName);
+  if (!source) {
+    return {
+      tone: "warning",
+      message: `Selected source "${config.sourceName}" is not currently available in "${config.sceneName}".`,
+    };
+  }
+
+  if (!config.enabled) {
+    return {
+      tone: "muted",
+      message: "AFK overlay target is valid, but automation is currently disabled.",
+    };
+  }
+
+  if (source.visible) {
+    return {
+      tone: "muted",
+      message: "AFK overlay source is already visible in OBS. The app will not emit another show action.",
+    };
+  }
+
+  return {
+    tone: "ready",
+    message: `AFK overlay is armed for "${scene.name}" → "${source.name}" with a ${Math.round(config.vacantEnterDelayMs / 1000)}s delay.`,
+  };
+};
+
 const DashboardPanel = (): React.JSX.Element => {
   const { status: captureStatus } = useCapture();
   const [monitorStatus, setMonitorStatus] = useState<ModelMonitorStatus>(emptyMonitorStatus);
@@ -498,6 +552,7 @@ const DashboardPanel = (): React.JSX.Element => {
   const obsScenes = obsStatus.connected ? obsStatus.scenes : [];
   const selectedObsScene = obsScenes.find((scene) => scene.name === afkOverlayConfig.sceneName) ?? null;
   const selectedObsSources = selectedObsScene?.sources ?? [];
+  const afkOverlayStatus = getAfkOverlayStatus(afkOverlayConfig, obsStatus);
   const audioLevels = liveAudioLevels.length > 0 ? liveAudioLevels : captureStatus.audio.recentLevels;
   const audioLevelPercent = Math.round((liveAudioLevel ?? captureStatus.audio.lastLevel ?? 0) * 100);
   const selectedAudioDeviceLabel =
@@ -740,6 +795,17 @@ const DashboardPanel = (): React.JSX.Element => {
           </div>
           <p className="meter__label">
             OBS: {obsStatus.connected ? "Connected" : "Disconnected"}
+          </p>
+          <p
+            className={
+              afkOverlayStatus.tone === "warning"
+                ? "panel__error"
+                : afkOverlayStatus.tone === "ready"
+                  ? "panel__hint panel__hint--success"
+                  : "panel__hint"
+            }
+          >
+            {afkOverlayStatus.message}
           </p>
         </div>
       </div>
