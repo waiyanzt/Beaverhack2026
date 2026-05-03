@@ -7,7 +7,7 @@ async function main(): Promise<void> {
   const config: ModelProviderConfig = {
     id: "vllm",
     label: "vLLM (Nemotron)",
-    baseUrl: "http://127.0.0.1:8000",
+    baseUrl: "http://100.93.134.64:8000",
     model: "/tmp/bergejac/models/models--nvidia--Nemotron-3-Nano-Omni-30B-A3B-Reasoning-FP8/snapshots/76955e4cfa2c9a546f5c5f12d869249dcb30d120",
     apiKey: null,
     enabled: true,

@@ -823,7 +823,7 @@ export type SafetyConfig = {
     "minimizeToTray": true,
     "autoStartOnLogin": false,
     "localApiEnabled": false,
-    "localApiHost": "127.0.0.1",
+    "localApiHost": "100.93.134.64",
     "localApiPort": 39731
   },
   "model": {
@@ -1555,7 +1555,7 @@ The local API is disabled by default.
 If enabled:
 
 ~~~text
-1. Bind only to 127.0.0.1.
+1. Bind only to 100.93.134.64.
 2. Require bearer token.
 3. Validate all request bodies.
 4. Do not expose secrets.
