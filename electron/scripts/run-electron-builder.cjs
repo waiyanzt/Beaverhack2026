@@ -9,7 +9,7 @@ const projectDir = process.cwd();
 const tempProjectDir = mkdtempSync(join(tmpdir(), "autuber-electron-builder-"));
 const tempReleaseDir = join(tempProjectDir, "release");
 const sourceReleaseDir = join(projectDir, "release");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmExecPath = process.env.npm_execpath;
 
 const nodeOptions = process.env.NODE_OPTIONS?.includes("--no-deprecation")
   ? process.env.NODE_OPTIONS
@@ -28,6 +28,31 @@ const sharedEnv = {
 delete sharedEnv.npm_config_recursive;
 delete sharedEnv.NPM_CONFIG_RECURSIVE;
 
+function runNpm(args, cwd) {
+  if (typeof npmExecPath === "string" && npmExecPath.endsWith(".js")) {
+    return spawnSync(process.execPath, [npmExecPath, ...args], {
+      cwd,
+      stdio: "inherit",
+      env: sharedEnv,
+    });
+  }
+
+  if (process.platform === "win32") {
+    const comspec = process.env.comspec || "cmd.exe";
+    return spawnSync(comspec, ["/d", "/s", "/c", "npm", ...args], {
+      cwd,
+      stdio: "inherit",
+      env: sharedEnv,
+    });
+  }
+
+  return spawnSync("npm", args, {
+    cwd,
+    stdio: "inherit",
+    env: sharedEnv,
+  });
+}
+
 try {
   cpSync(join(projectDir, "dist"), join(tempProjectDir, "dist"), { recursive: true });
   if (existsSync(join(projectDir, "resources"))) {
@@ -36,15 +61,7 @@ try {
   cpSync(join(projectDir, "package.json"), join(tempProjectDir, "package.json"));
   cpSync(join(projectDir, "electron-builder.yml"), join(tempProjectDir, "electron-builder.yml"));
 
-  const installResult = spawnSync(
-    npmCommand,
-    ["install", "--omit=dev", "--no-package-lock"],
-    {
-      cwd: tempProjectDir,
-      stdio: "inherit",
-      env: sharedEnv,
-    },
-  );
+  const installResult = runNpm(["install", "--omit=dev", "--no-package-lock"], tempProjectDir);
 
   if (installResult.error) {
     throw installResult.error;
