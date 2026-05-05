@@ -1,0 +1,49 @@
+<svg width="1200" height="420" viewBox="0 0 1200 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A1834"/>
+      <stop offset="1" stop-color="#291545"/>
+    </linearGradient>
+    <linearGradient id="line" x1="92" y1="210" x2="1108" y2="210" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6FE8B8"/>
+      <stop offset="0.5" stop-color="#6CE4FF"/>
+      <stop offset="1" stop-color="#FF8ED8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="420" rx="28" fill="url(#bg)"/>
+  <path d="M92 210H1108" stroke="url(#line)" stroke-width="8" stroke-linecap="round"/>
+  <g font-family="Verdana, Geneva, sans-serif" text-anchor="middle">
+    <g>
+      <circle cx="140" cy="210" r="54" fill="#132758" stroke="#6FE8B8" stroke-opacity="0.45" stroke-width="2"/>
+      <text x="140" y="205" fill="#E9FFF7" font-size="20" font-weight="700">1</text>
+      <text x="140" y="287" fill="#E9FFF7" font-size="20">Capture</text>
+    </g>
+    <g>
+      <circle cx="344" cy="210" r="54" fill="#132758" stroke="#6CE4FF" stroke-opacity="0.45" stroke-width="2"/>
+      <text x="344" y="205" fill="#EAF8FF" font-size="20" font-weight="700">2</text>
+      <text x="344" y="287" fill="#EAF8FF" font-size="20">Observe</text>
+    </g>
+    <g>
+      <circle cx="548" cy="210" r="54" fill="#132758" stroke="#8BB3FF" stroke-opacity="0.45" stroke-width="2"/>
+      <text x="548" y="205" fill="#EEF3FF" font-size="20" font-weight="700">3</text>
+      <text x="548" y="287" fill="#EEF3FF" font-size="20">Model</text>
+    </g>
+    <g>
+      <circle cx="752" cy="210" r="54" fill="#132758" stroke="#FF8ED8" stroke-opacity="0.45" stroke-width="2"/>
+      <text x="752" y="205" fill="#FFF0F9" font-size="20" font-weight="700">4</text>
+      <text x="752" y="287" fill="#FFF0F9" font-size="20">Parse</text>
+    </g>
+    <g>
+      <circle cx="956" cy="210" r="54" fill="#132758" stroke="#FFD66B" stroke-opacity="0.45" stroke-width="2"/>
+      <text x="956" y="205" fill="#FFF8E0" font-size="20" font-weight="700">5</text>
+      <text x="956" y="287" fill="#FFF8E0" font-size="20">Validate</text>
+    </g>
+    <g>
+      <circle cx="1060" cy="210" r="54" fill="#132758" stroke="#FF8ED8" stroke-opacity="0.45" stroke-width="2"/>
+      <text x="1060" y="205" fill="#FFF0F9" font-size="20" font-weight="700">6</text>
+      <text x="1060" y="287" fill="#FFF0F9" font-size="20">Act</text>
+    </g>
+  </g>
+  <text x="76" y="80" fill="#FFFFFF" font-family="Verdana, Geneva, sans-serif" font-size="34" font-weight="700">AuTuber automation path</text>
+  <text x="76" y="116" fill="#C7D5FF" font-family="Verdana, Geneva, sans-serif" font-size="22">Every model suggestion stays inside a typed, validated local control loop.</text>
+</svg>

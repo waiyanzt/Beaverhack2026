@@ -29,8 +29,9 @@
   "scripts": {
     "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
     "electron:dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
-    "build": "electron-vite build && electron-builder",
-    "lint": "echo \"TODO: add ESLint config\"",
+    "build": "electron-vite build && node ./scripts/run-electron-builder.cjs",
+    "electron:build": "electron-vite build && node ./scripts/run-electron-builder.cjs",
+    "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:model-smoke": "tsx tests/standalone/model-provider-smoke.ts"
   },

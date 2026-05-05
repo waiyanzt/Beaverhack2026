@@ -28,7 +28,8 @@
     "dev": "pnpm --filter @autuber/electron dev",
     "dev:electron": "pnpm --filter @autuber/electron dev",
     "build": "pnpm --filter @autuber/electron build",
-    "build:electron": "pnpm --filter @autuber/electron electron:build",
+    "build:electron": "pnpm --filter @autuber/electron build",
+    "release:local": "pnpm --filter @autuber/electron build",
     "lint": "pnpm --filter @autuber/electron lint",
     "test": "pnpm --filter @autuber/electron test"
   },

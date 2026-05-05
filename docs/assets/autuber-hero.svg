@@ -1,0 +1,67 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="60" x2="1450" y2="840" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071226"/>
+      <stop offset="0.48" stop-color="#0E2144"/>
+      <stop offset="1" stop-color="#1D1140"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1B2E57"/>
+      <stop offset="1" stop-color="#2A164D"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="310" y1="160" x2="1040" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#68E1FD"/>
+      <stop offset="0.5" stop-color="#FF8ED8"/>
+      <stop offset="1" stop-color="#FFD66B"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1600" height="900" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#030712" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="900" rx="36" fill="url(#bg)"/>
+  <circle cx="1320" cy="170" r="92" fill="#92A8FF" fill-opacity="0.16"/>
+  <circle cx="1292" cy="162" r="62" fill="#B6C3FF" fill-opacity="0.22"/>
+  <circle cx="168" cy="168" r="5" fill="#E5F4FF"/>
+  <circle cx="244" cy="118" r="4" fill="#E5F4FF"/>
+  <circle cx="308" cy="192" r="3" fill="#E5F4FF"/>
+  <circle cx="1428" cy="258" r="4" fill="#E5F4FF"/>
+  <circle cx="1240" cy="262" r="3" fill="#E5F4FF"/>
+  <circle cx="1338" cy="318" r="5" fill="#E5F4FF"/>
+  <path d="M0 752C164 696 312 694 438 744C548 787 662 793 798 740C938 686 1082 670 1228 714C1354 752 1478 756 1600 716V900H0V752Z" fill="#120E31" fill-opacity="0.75"/>
+  <g filter="url(#shadow)">
+    <rect x="112" y="118" width="896" height="602" rx="34" fill="url(#card)" stroke="url(#glow)" stroke-opacity="0.6" stroke-width="2"/>
+    <rect x="142" y="154" width="836" height="42" rx="18" fill="#0B1630"/>
+    <circle cx="176" cy="175" r="8" fill="#FF6FAE"/>
+    <circle cx="204" cy="175" r="8" fill="#FFD66B"/>
+    <circle cx="232" cy="175" r="8" fill="#6FE8B8"/>
+    <rect x="164" y="238" width="310" height="186" rx="24" fill="#0C1731" stroke="#6CE4FF" stroke-opacity="0.35"/>
+    <rect x="506" y="238" width="430" height="94" rx="24" fill="#0C1731" stroke="#FF8ED8" stroke-opacity="0.35"/>
+    <rect x="506" y="356" width="430" height="180" rx="24" fill="#0C1731" stroke="#FFD66B" stroke-opacity="0.35"/>
+    <rect x="164" y="454" width="310" height="214" rx="24" fill="#0C1731" stroke="#B59BFF" stroke-opacity="0.35"/>
+    <rect x="534" y="270" width="112" height="20" rx="10" fill="#6CE4FF" fill-opacity="0.22"/>
+    <rect x="534" y="384" width="272" height="20" rx="10" fill="#FF8ED8" fill-opacity="0.22"/>
+    <rect x="534" y="418" width="202" height="20" rx="10" fill="#FF8ED8" fill-opacity="0.16"/>
+    <rect x="534" y="452" width="244" height="20" rx="10" fill="#FF8ED8" fill-opacity="0.16"/>
+    <rect x="196" y="486" width="224" height="18" rx="9" fill="#B59BFF" fill-opacity="0.22"/>
+    <rect x="196" y="518" width="168" height="18" rx="9" fill="#B59BFF" fill-opacity="0.18"/>
+    <rect x="196" y="550" width="192" height="18" rx="9" fill="#B59BFF" fill-opacity="0.18"/>
+    <circle cx="320" cy="330" r="64" fill="#132758"/>
+    <path d="M320 268C344 268 363 287 363 311V333C363 357 344 376 320 376C296 376 277 357 277 333V311C277 287 296 268 320 268Z" fill="#FFD7A3"/>
+    <path d="M282 310C282 277 309 250 342 250C367 250 388 266 397 288V301C388 284 371 272 351 272C322 272 298 291 292 319L282 310Z" fill="#7B5CF2"/>
+    <circle cx="302" cy="322" r="7" fill="#132758"/>
+    <circle cx="339" cy="322" r="7" fill="#132758"/>
+    <path d="M303 347C316 359 330 359 343 347" stroke="#132758" stroke-width="7" stroke-linecap="round"/>
+    <path d="M1082 180C1216 180 1324 288 1324 422C1324 556 1216 664 1082 664C1004 664 935 627 891 570L916 518C955 570 1014 604 1082 604C1183 604 1264 523 1264 422C1264 321 1183 240 1082 240C1027 240 978 264 944 302L900 266C946 213 1010 180 1082 180Z" fill="#7E68FF" fill-opacity="0.18"/>
+    <circle cx="1082" cy="422" r="154" fill="#130F33" stroke="#6CE4FF" stroke-opacity="0.45"/>
+    <circle cx="1082" cy="422" r="118" fill="#1B275D"/>
+    <path d="M1031 386C1054 359 1110 359 1133 386" stroke="#6CE4FF" stroke-width="12" stroke-linecap="round"/>
+    <path d="M1036 460C1064 498 1101 510 1128 460" stroke="#FF8ED8" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="1048" cy="422" r="13" fill="#FFD66B"/>
+    <circle cx="1117" cy="422" r="13" fill="#FFD66B"/>
+    <rect x="998" y="578" width="168" height="40" rx="20" fill="#6CE4FF" fill-opacity="0.14" stroke="#6CE4FF" stroke-opacity="0.35"/>
+    <text x="1082" y="603" fill="#DFF8FF" font-family="Verdana, Geneva, sans-serif" font-size="20" text-anchor="middle">safe auto reaction</text>
+  </g>
+  <text x="112" y="806" fill="#FFFFFF" font-family="Verdana, Geneva, sans-serif" font-size="94" font-weight="700">AuTuber</text>
+  <text x="112" y="854" fill="#C8D7FF" font-family="Verdana, Geneva, sans-serif" font-size="32">AI desktop co-pilot for VTubers and reactive streams</text>
+  <text x="1086" y="774" fill="#FFD9F2" font-family="Verdana, Geneva, sans-serif" font-size="30" text-anchor="middle">capture, reason, validate, perform</text>
+</svg>

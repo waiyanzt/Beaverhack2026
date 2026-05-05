@@ -1,0 +1,39 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+template: |
+  ## Highlights
+
+  $CHANGES
+
+categories:
+  - title: "Features"
+    labels:
+      - "feature"
+  - title: "Fixes"
+    labels:
+      - "fix"
+  - title: "Docs"
+    labels:
+      - "docs"
+  - title: "Design"
+    labels:
+      - "design"
+  - title: "Chores"
+    labels:
+      - "chore"
+
+version-resolver:
+  major:
+    labels:
+      - "major"
+  minor:
+    labels:
+      - "feature"
+  patch:
+    labels:
+      - "fix"
+      - "docs"
+      - "design"
+      - "chore"
+  default: patch
