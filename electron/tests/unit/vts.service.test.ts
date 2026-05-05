@@ -30,6 +30,12 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
       resumeOnLaunch: false,
       lastStartRequest: null,
     },
+    afkOverlay: {
+      enabled: false,
+      sceneName: null,
+      sourceName: null,
+      vacantEnterDelayMs: 5_000,
+    },
   },
   settingsService: {
     getSettings: () => ({
@@ -58,6 +64,12 @@ vi.mock("../../src/main/services/settings/settings.service", () => ({
       monitor: {
         resumeOnLaunch: false,
         lastStartRequest: null,
+      },
+      afkOverlay: {
+        enabled: false,
+        sceneName: null,
+        sourceName: null,
+        vacantEnterDelayMs: 5_000,
       },
     }),
     updateVtsConfig: (nextConfig: AppConfig["vts"]) => ({
@@ -124,6 +136,12 @@ const config: AppConfig = {
   monitor: {
     resumeOnLaunch: false,
     lastStartRequest: null,
+  },
+  afkOverlay: {
+    enabled: false,
+    sceneName: null,
+    sourceName: null,
+    vacantEnterDelayMs: 5_000,
   },
 };
 

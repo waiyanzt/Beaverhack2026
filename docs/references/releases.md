@@ -40,7 +40,6 @@ The release workflow in `.github/workflows/release.yml`:
 
 - runs on version tags and manual dispatch
 - installs workspace dependencies with pnpm
-- installs `electron/` packaging dependencies with npm for the desktop packaging step
 - builds Linux and Windows artifacts
 - uploads the generated installer/package files
 - publishes or updates the matching GitHub release
@@ -58,7 +57,7 @@ If new platforms are added, update both `electron/electron-builder.yml` and the 
 
 ## Current Packaging Note
 
-Local `pnpm build` is still affected by an `electron-builder` pnpm dependency-collector issue in this environment. The GitHub release workflow uses an npm install inside `electron/` for packaging so tagged releases are not blocked on that upstream collector path.
+`electron/scripts/run-electron-builder.cjs` now stages a temporary clean packaging directory, installs runtime dependencies there with npm, and runs `electron-builder` against that isolated tree. This avoids the workspace `pnpm` dependency-collector issue while keeping `pnpm build` as the standard root verification command.
 
 ## Suggested Labels For Release Notes
 

@@ -197,7 +197,7 @@ export class AfkOverlayService {
       plan.actions.some((action) => this.isVacantCueAction(action)) ||
       this.hasExplicitNoPersonObservation([
         plan.response?.text,
-        ...plan.actions.map((action) => action.reason),
+        ...plan.actions.flatMap((action) => ("reason" in action ? [action.reason] : [])),
         ...plan.actions.map((action) => (action.type === "vts.trigger_hotkey" ? action.visualEvidence : undefined)),
       ])
     );

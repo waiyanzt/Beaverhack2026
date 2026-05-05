@@ -32,7 +32,7 @@ describe("VtsCatalogGeneratorService", () => {
         finishReason: "length",
       }),
     } satisfies Pick<ModelRouterService, "requestChat">;
-    const service = new VtsCatalogGeneratorService(modelRouter as ModelRouterService);
+    const service = new VtsCatalogGeneratorService(modelRouter);
 
     const result = await service.generate(hotkeys, DEFAULT_VTS_CUE_LABELS);
 
@@ -60,7 +60,7 @@ describe("VtsCatalogGeneratorService", () => {
         finishReason: "stop",
       }),
     } satisfies Pick<ModelRouterService, "requestChat">;
-    const service = new VtsCatalogGeneratorService(modelRouter as ModelRouterService);
+    const service = new VtsCatalogGeneratorService(modelRouter);
 
     const result = await service.generate(hotkeys, DEFAULT_VTS_CUE_LABELS);
 
@@ -95,7 +95,7 @@ describe("VtsCatalogGeneratorService", () => {
         finishReason: "stop",
       }),
     } satisfies Pick<ModelRouterService, "requestChat">;
-    const service = new VtsCatalogGeneratorService(modelRouter as ModelRouterService);
+    const service = new VtsCatalogGeneratorService(modelRouter);
 
     const result = await service.generate(hotkeys, DEFAULT_VTS_CUE_LABELS);
 

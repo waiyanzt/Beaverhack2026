@@ -70,17 +70,18 @@ export class ObsService {
     }
 
     try {
+      const ws = this.getConnectedClient();
       const [sceneData, streamData, recordData] = await Promise.all([
-        this.ws.call("GetSceneList"),
-        this.ws.call("GetStreamStatus"),
-        this.ws.call("GetRecordStatus"),
+        ws.call("GetSceneList"),
+        ws.call("GetStreamStatus"),
+        ws.call("GetRecordStatus"),
       ]);
 
       const rawScenes = Array.isArray(sceneData.scenes) ? sceneData.scenes : [];
       const scenes = await Promise.all(
         rawScenes.map(async (rawScene): Promise<ObsSceneState> => {
           const sceneName = String((rawScene as { sceneName?: unknown }).sceneName ?? "");
-          const sceneItems = await this.ws?.call("GetSceneItemList", { sceneName });
+          const sceneItems = await ws.call("GetSceneItemList", { sceneName });
           const sources: ObsSourceState[] = Array.isArray(sceneItems?.sceneItems)
             ? sceneItems.sceneItems.map((item) => ({
                 name: String((item as { sourceName?: unknown }).sourceName ?? ""),
@@ -109,8 +110,8 @@ export class ObsService {
   }
 
   public async setCurrentScene(sceneName: string): Promise<void> {
-    this.ensureConnected();
-    await this.ws.call("SetCurrentProgramScene", { sceneName });
+    const ws = this.getConnectedClient();
+    await ws.call("SetCurrentProgramScene", { sceneName });
   }
 
   public async setSourceVisibility(
@@ -118,12 +119,12 @@ export class ObsService {
     sourceName: string,
     visible: boolean,
   ): Promise<void> {
-    this.ensureConnected();
+    const ws = this.getConnectedClient();
 
-    const sceneItems = await this.ws.call("GetSceneItemList", { sceneName });
+    const sceneItems = await ws.call("GetSceneItemList", { sceneName });
     const item = Array.isArray(sceneItems.sceneItems)
       ? sceneItems.sceneItems.find(
-          (candidate) => String((candidate as { sourceName?: unknown }).sourceName ?? "") === sourceName,
+          (candidate: unknown) => String((candidate as { sourceName?: unknown }).sourceName ?? "") === sourceName,
         )
       : null;
 
@@ -136,17 +137,19 @@ export class ObsService {
       throw new Error(`Source "${sourceName}" in scene "${sceneName}" has no valid scene item id.`);
     }
 
-    await this.ws.call("SetSceneItemEnabled", {
+    await ws.call("SetSceneItemEnabled", {
       sceneName,
       sceneItemId,
       sceneItemEnabled: visible,
     });
   }
 
-  private ensureConnected(): asserts this is { ws: OBSWebSocketLike; connected: true } {
+  private getConnectedClient(): OBSWebSocketLike {
     if (!this.ws || !this.connected) {
       throw new Error("OBS is not connected.");
     }
+
+    return this.ws;
   }
 }
 

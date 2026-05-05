@@ -10,6 +10,7 @@ import { ObservationBuilderService } from "../../src/main/services/automation/ob
 import { PipelineService } from "../../src/main/services/automation/pipeline.service";
 import { PromptBuilderService } from "../../src/main/services/automation/prompt-builder.service";
 import type { ModelRouterService } from "../../src/main/services/model/model-router.service";
+import type { OpenAICompatibleMessage } from "../../src/shared/model.types";
 import { DEFAULT_VTS_CUE_LABELS } from "../../src/shared/vts-cue-labels";
 
 const createLiveCaptureInputService = (): LiveCaptureInputService =>
@@ -139,7 +140,7 @@ describe("PipelineService", () => {
     const service = new PipelineService(
       new ObservationBuilderService(obsService, vtsService, cooldownService),
       new PromptBuilderService(),
-      modelRouter as ModelRouterService,
+      modelRouter,
       new ActionPlanParserService(),
       new ActionValidatorService(cooldownService),
       new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -277,7 +278,7 @@ describe("PipelineService", () => {
     const service = new PipelineService(
       new ObservationBuilderService(obsService, vtsService, cooldownService),
       new PromptBuilderService(),
-      modelRouter as ModelRouterService,
+      modelRouter,
       new ActionPlanParserService(),
       new ActionValidatorService(cooldownService),
       new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -375,7 +376,7 @@ describe("PipelineService", () => {
     const service = new PipelineService(
       new ObservationBuilderService(obsService, vtsService, cooldownService),
       new PromptBuilderService(),
-      modelRouter as ModelRouterService,
+      modelRouter,
       new ActionPlanParserService(),
       new ActionValidatorService(cooldownService),
       new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -388,7 +389,7 @@ describe("PipelineService", () => {
     const secondResult = await service.analyzeNow();
 
     const secondCallMessages = vi.mocked(modelRouter.requestActionPlan).mock.calls[1]?.[0];
-    const userMessage = secondCallMessages?.find((message) => message.role === "user");
+    const userMessage = secondCallMessages?.find((message: OpenAICompatibleMessage) => message.role === "user");
     expect(typeof userMessage?.content).toBe("string");
     const payload = JSON.parse(userMessage?.content as string) as {
       modelContext: {
@@ -562,7 +563,7 @@ describe("PipelineService", () => {
     const service = new PipelineService(
       new ObservationBuilderService(obsService, vtsService, cooldownService),
       new PromptBuilderService(),
-      modelRouter as ModelRouterService,
+      modelRouter,
       new ActionPlanParserService(),
       new ActionValidatorService(cooldownService),
       new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -583,12 +584,12 @@ describe("PipelineService", () => {
     }
 
     const sentMessages = vi.mocked(modelRouter.requestActionPlan).mock.calls[0]?.[0];
-    const userMessage = sentMessages?.find((message) => message.role === "user");
+    const userMessage = sentMessages?.find((message: OpenAICompatibleMessage) => message.role === "user");
     expect(Array.isArray(userMessage?.content)).toBe(true);
     if (!Array.isArray(userMessage?.content)) {
       return;
     }
-    const promptTextPart = userMessage.content.find((part) => part.type === "text");
+    const promptTextPart = userMessage.content.find((part: { type: string }) => part.type === "text");
     expect(promptTextPart?.type).toBe("text");
     if (promptTextPart?.type !== "text") {
       return;
@@ -756,7 +757,7 @@ describe("PipelineService", () => {
       const service = new PipelineService(
         new ObservationBuilderService(obsService, vtsService, cooldownService),
         new PromptBuilderService(),
-        modelRouter as ModelRouterService,
+        modelRouter,
         new ActionPlanParserService(),
         new ActionValidatorService(cooldownService),
         new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -833,7 +834,7 @@ describe("PipelineService", () => {
       const service = new PipelineService(
         new ObservationBuilderService(obsService, vtsService, cooldownService),
         new PromptBuilderService(),
-        modelRouter as ModelRouterService,
+        modelRouter,
         new ActionPlanParserService(),
         new ActionValidatorService(cooldownService),
         new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -885,7 +886,7 @@ describe("PipelineService", () => {
       const service = new PipelineService(
         new ObservationBuilderService(obsService, vtsService, cooldownService),
         new PromptBuilderService(),
-        modelRouter as ModelRouterService,
+        modelRouter,
         new ActionPlanParserService(),
         new ActionValidatorService(cooldownService),
         new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -978,7 +979,7 @@ describe("PipelineService", () => {
       const service = new PipelineService(
         new ObservationBuilderService(obsService, vtsService, cooldownService),
         new PromptBuilderService(),
-        modelRouter as ModelRouterService,
+        modelRouter,
         new ActionPlanParserService(),
         new ActionValidatorService(cooldownService),
         new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -1054,7 +1055,7 @@ describe("PipelineService", () => {
       const service = new PipelineService(
         new ObservationBuilderService(obsService, vtsService, cooldownService),
         new PromptBuilderService(),
-        modelRouter as ModelRouterService,
+        modelRouter,
         new ActionPlanParserService(),
         new ActionValidatorService(cooldownService),
         new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -1155,7 +1156,7 @@ describe("PipelineService", () => {
       const service = new PipelineService(
         new ObservationBuilderService(obsService, vtsService, cooldownService),
         new PromptBuilderService(),
-        modelRouter as ModelRouterService,
+        modelRouter,
         new ActionPlanParserService(),
         new ActionValidatorService(cooldownService),
         new ActionExecutorService(obsService, vtsService, cooldownService),
@@ -1216,7 +1217,7 @@ describe("PipelineService", () => {
       const service = new PipelineService(
         new ObservationBuilderService(obsService, vtsService, cooldownService),
         new PromptBuilderService(),
-        modelRouter as ModelRouterService,
+        modelRouter,
         new ActionPlanParserService(),
         new ActionValidatorService(cooldownService),
         new ActionExecutorService(obsService, vtsService, cooldownService),

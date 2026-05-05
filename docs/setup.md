@@ -30,7 +30,7 @@ This starts the Electron renderer and main process through `electron-vite`.
 pnpm build
 ```
 
-That runs the Electron build and packages desktop artifacts through `electron-builder`.
+That runs the Electron build and packages desktop artifacts through `electron-builder`. The packaging wrapper stages a temporary clean npm install for runtime dependencies so packaging does not depend on the workspace `pnpm` layout.
 
 ## First-Run Operator Flow
 
@@ -58,7 +58,7 @@ pnpm test
 pnpm build
 ```
 
-If packaging fails in a restricted environment, note whether `electron-builder` was blocked from downloading or signing required assets.
+If packaging fails in a restricted environment, note whether the temporary npm packaging install or `electron-builder` artifact downloads were blocked.
 
 ## Related Docs
 

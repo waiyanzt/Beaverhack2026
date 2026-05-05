@@ -8,6 +8,14 @@ It watches your live stream context, understands what is happening, and helps yo
 
 AuTuber is built for creators who want AI assistance that does more than chat. It helps operate the stream, but only through controlled actions that can be validated, limited, logged, and reviewed.
 
+## Watch The Demo
+
+[![Watch the AuTuber intro and demo](docs/assets/autuber-video-thumbnail.png)](https://youtu.be/aayni0CC_4Q)
+
+YouTube Link: [https://youtu.be/aayni0CC_4Q](https://youtu.be/aayni0CC_4Q)
+
+See the full flow: live context capture, AI action planning, safety validation, VTube Studio reactions, OBS/overlay behavior, and the low-latency model monitor.
+
 ## In Simple Terms
 
 ```mermaid
@@ -630,3 +638,17 @@ AuTuber was built by a small team during BeaverHacks 2026. Contributions below s
 ## License
 
 Apache-2.0
+
+Copyright 2026 AuTuber Development Team
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

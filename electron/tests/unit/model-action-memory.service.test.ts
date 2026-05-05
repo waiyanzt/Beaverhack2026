@@ -53,9 +53,17 @@ describe("ModelActionMemoryService", () => {
     service.record(createNoopPlan("act_original"), []);
 
     const [entry] = service.getRecentModelActions();
-    entry.actionPlan.actions[0].reason = "Mutated by caller.";
+    const firstAction = entry.actionPlan.actions[0];
+    expect(firstAction?.type).toBe("noop");
+    if (!firstAction || firstAction.type !== "noop") {
+      return;
+    }
 
-    expect(service.getRecentModelActions()[0]?.actionPlan.actions[0]?.reason).toBe("Reason for act_original.");
+    firstAction.reason = "Mutated by caller.";
+
+    expect(service.getRecentModelActions()[0]?.actionPlan.actions[0]).toMatchObject({
+      reason: "Reason for act_original.",
+    });
   });
 
   it("normalizes malformed stored result reasons before returning memory", () => {

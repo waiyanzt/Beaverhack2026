@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,20 +39,18 @@ export const getBaseMimeType = (mimeType: string): string =>
   mimeType.split(";")[0]?.trim().toLowerCase() || "application/octet-stream";
 
 export const runFfmpeg = async (args: string[]): Promise<void> => {
-  if (!ffmpegStatic) {
-    throw new Error("ffmpeg binary is unavailable.");
-  }
+  const ffmpegBinary = getFfmpegBinary();
 
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(ffmpegStatic, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child: ChildProcessWithoutNullStreams = spawn(ffmpegBinary, args);
     let stderr = "";
 
-    child.stderr.on("data", (chunk) => {
+    child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString();
     });
 
     child.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", (code: number | null) => {
       if (code === 0) {
         resolve();
         return;
@@ -61,6 +59,14 @@ export const runFfmpeg = async (args: string[]): Promise<void> => {
       reject(new Error(stderr.trim() || `ffmpeg exited with code ${code ?? "unknown"}.`));
     });
   });
+};
+
+const getFfmpegBinary = (): string => {
+  if (typeof ffmpegStatic !== "string") {
+    throw new Error("ffmpeg binary is unavailable.");
+  }
+
+  return ffmpegStatic;
 };
 
 export const convertVideoClipToMp4 = async (clip: MediaClipInput): Promise<Buffer> => {

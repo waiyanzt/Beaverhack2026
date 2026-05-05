@@ -133,22 +133,26 @@ export class ObservationBuilderService {
           .filter((action): action is Extract<LocalAction, { type: "vts.trigger_hotkey" }> => {
             return action.type === "vts.trigger_hotkey" && typeof action.catalogId === "string";
           })
-          .map((action) => {
+          .flatMap((action) => {
             const result = entry.actionResults.find((candidate) => candidate.actionId === action.actionId);
-            const reason = result?.reason.toLowerCase() ?? "";
+            const reason = result?.reason?.toLowerCase() ?? "";
             const blockedReasonCode = result?.status === "blocked"
               ? reason.includes("cooldown") || reason.includes("suppressed")
                 ? "cooldown"
                 : "policy"
               : undefined;
 
-            return {
+            if (!action.catalogId) {
+              return [];
+            }
+
+            return [{
               catalogId: action.catalogId,
               actionType: action.type,
               ageMs,
               status: result?.status ?? "not_executed",
               blockedReasonCode,
-            } satisfies ModelControlRecentActionSummary;
+            } satisfies ModelControlRecentActionSummary];
           });
       })
       .slice(0, 4);

@@ -23,7 +23,7 @@ export class PipelineService {
   public constructor(
     private readonly observationBuilder: ObservationBuilderService,
     private readonly promptBuilder: PromptBuilderService,
-    private readonly modelRouter: ModelRouterService,
+    private readonly modelRouter: Pick<ModelRouterService, "requestActionPlan">,
     private readonly actionPlanParser: ActionPlanParserService,
     private readonly actionValidator: ActionValidatorService,
     private readonly actionExecutor: ActionExecutorService,
@@ -301,22 +301,26 @@ export class PipelineService {
           .filter((action): action is Extract<LocalAction, { type: "vts.trigger_hotkey" }> => {
             return action.type === "vts.trigger_hotkey" && typeof action.catalogId === "string";
           })
-          .map((action) => {
+          .flatMap((action) => {
             const result = entry.actionResults.find((candidate) => candidate.actionId === action.actionId);
-            const reason = result?.reason.toLowerCase() ?? "";
+            const reason = result?.reason?.toLowerCase() ?? "";
             const blockedReasonCode = result?.status === "blocked"
               ? reason.includes("cooldown") || reason.includes("suppressed")
                 ? "cooldown"
                 : "policy"
               : undefined;
 
-            return {
+            if (!action.catalogId) {
+              return [];
+            }
+
+            return [{
               catalogId: action.catalogId,
               actionType: action.type,
               ageMs,
               status: result?.status ?? "not_executed",
               blockedReasonCode,
-            } satisfies ModelControlRecentActionSummary;
+            } satisfies ModelControlRecentActionSummary];
           });
       })
       .slice(0, 4);

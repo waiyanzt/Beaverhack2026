@@ -95,6 +95,7 @@ describe("ServiceActivationService", () => {
           dashboard: { selectedAudioDeviceId: null, selectedVideoDeviceId: null, selectedScreenSourceId: null },
           model: { selectedProviderId: "vllm" as const },
           monitor: { resumeOnLaunch: false, lastStartRequest: null },
+          afkOverlay: { enabled: false, sceneName: null, sourceName: null, vacantEnterDelayMs: 5_000 },
         }),
       },
     });
@@ -156,6 +157,7 @@ describe("ServiceActivationService", () => {
           dashboard: { selectedAudioDeviceId: null, selectedVideoDeviceId: null, selectedScreenSourceId: null },
           model: { selectedProviderId: "vllm" as const },
           monitor: { resumeOnLaunch: false, lastStartRequest: null },
+          afkOverlay: { enabled: false, sceneName: null, sourceName: null, vacantEnterDelayMs: 5_000 },
         }),
       },
       retryDelayMs: 5000,

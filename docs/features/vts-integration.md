@@ -159,4 +159,4 @@ Current behavior:
 - The automation pipeline now sends VTS connection state, current model name, and the smaller effective safe-auto catalog for model selection.
 - VTS parameter writes are still not wired to the VTS service yet.
 - Authentication tokens are not persisted across full app restarts yet, so a fresh launch may still require VTube Studio approval before automatic hotkey execution is available.
-- Packaging verification currently depends on network access for `electron-builder` to download Electron artifacts in this environment.
+- Packaging verification still depends on network access for the temporary npm packaging install and any `electron-builder` artifact downloads in this environment.
