@@ -82,15 +82,39 @@ jobs:
       - build-windows
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
           merge-multiple: true
 
+      - name: Generate release notes from commits
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          previous_tag="$(git tag --sort=-creatordate | grep -Fxv "${RELEASE_TAG}" | head -n 1 || true)"
+
+          {
+            printf '## Highlights\n\n'
+
+            if [ -n "${previous_tag}" ]; then
+              printf 'Changes since `%s`.\n\n' "${previous_tag}"
+              git log "${previous_tag}..${RELEASE_SHA}" --reverse --no-merges --pretty=format:'- %s (%h)'
+            else
+              printf 'Initial tagged release.\n\n'
+              git log "${RELEASE_SHA}" --reverse --no-merges --pretty=format:'- %s (%h)'
+            fi
+          } > RELEASE_NOTES.md
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
           files: release-artifacts/*

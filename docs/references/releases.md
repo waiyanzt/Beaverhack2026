@@ -42,9 +42,8 @@ The release workflow in `.github/workflows/release.yml`:
 - installs workspace dependencies with pnpm
 - builds Linux and Windows artifacts
 - uploads the generated installer/package files
+- generates the GitHub release body from commit subjects instead of pull request metadata
 - publishes or updates the matching GitHub release
-
-The release drafter workflow keeps an evolving draft release body based on merged pull requests and labels.
 
 ## Artifact Expectations
 
@@ -59,12 +58,10 @@ If new platforms are added, update both `electron/electron-builder.yml` and the 
 
 `electron/scripts/run-electron-builder.cjs` now stages a temporary clean packaging directory, installs runtime dependencies there with npm, and runs `electron-builder` against that isolated tree. This avoids the workspace `pnpm` dependency-collector issue while keeping `pnpm build` as the standard root verification command.
 
-## Suggested Labels For Release Notes
+## Release Notes
 
-- `feature`
-- `fix`
-- `docs`
-- `design`
-- `chore`
+Published release notes are commit-based.
 
-These labels map into release note sections through `.github/release-drafter.yml`.
+- For subsequent tags, the workflow lists non-merge commit subjects since the previous tag.
+- For the first tag, the workflow lists non-merge commit subjects reachable from the tagged commit.
+- Pull request titles and authors are not used.
