@@ -9,6 +9,7 @@ const projectDir = process.cwd();
 const tempProjectDir = mkdtempSync(join(tmpdir(), "autuber-electron-builder-"));
 const tempReleaseDir = join(tempProjectDir, "release");
 const sourceReleaseDir = join(projectDir, "release");
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 const nodeOptions = process.env.NODE_OPTIONS?.includes("--no-deprecation")
   ? process.env.NODE_OPTIONS
@@ -36,7 +37,7 @@ try {
   cpSync(join(projectDir, "electron-builder.yml"), join(tempProjectDir, "electron-builder.yml"));
 
   const installResult = spawnSync(
-    "npm",
+    npmCommand,
     ["install", "--omit=dev", "--no-package-lock"],
     {
       cwd: tempProjectDir,
